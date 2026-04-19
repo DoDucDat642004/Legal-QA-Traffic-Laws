@@ -1,3 +1,7 @@
 PyMuPDF
 underthesea
 advertools
+google-genai
+dotenv
+pandas 
+scikit-learn
