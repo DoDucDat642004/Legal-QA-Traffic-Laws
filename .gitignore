@@ -46,7 +46,7 @@ venv.bak/
 
 # Project specific
 data/processed/
-data/qa_pair/
+data/qa_pairs/
 !data/raw/
 *.csv
 *.xlsx
