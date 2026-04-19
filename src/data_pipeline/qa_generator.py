@@ -16,7 +16,7 @@ if not API_KEY:
     sys.exit(1)
 
 client = genai.Client(api_key=API_KEY)
-MODEL_ID = "gemini-2.0-flash"
+MODEL_ID = "gemma-4-31b-it"
 
 def generate_qa_pair(context_text: str, reference: str, retries: int = 3) -> list:
     """
@@ -63,7 +63,11 @@ def generate_qa_pair(context_text: str, reference: str, retries: int = 3) -> lis
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    temperature=0.2 # Low temperature for strict grounding
+                    temperature=0.2, # Low temperature for strict grounding
+                    thinking_config=types.ThinkingConfig(
+                        include_thoughts=True,
+                        thinking_level="HIGH"
+                    )
                 )
             )
             
