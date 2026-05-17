@@ -1,7 +1,42 @@
+# PDF extraction and parsing
 PyMuPDF
-underthesea
-advertools
+pdfplumber
+llama-parse
+camelot-py[cv]
+
+# LLM and schema validation
 google-genai
-dotenv
-pandas 
-scikit-learn
+pydantic>=2.0.0
+python-dotenv
+
+# Retrieval and embeddings
+numpy
+faiss-cpu
+rank_bm25
+sentence-transformers
+transformers==4.41.2
+tokenizers==0.19.1
+torch
+tqdm
+
+# Intel CPU/OpenVINO embedding backend
+openvino==2025.4.1
+optimum==1.20.0
+optimum-intel[openvino]==1.17.0
+nncf==2.10.0
+
+# Images
+Pillow
+
+# API and UI
+fastapi
+uvicorn
+python-multipart
+streamlit
+requests
+
+# RAG stores
+qdrant-client==1.15.1
+neo4j
+psycopg[binary]
+minio
