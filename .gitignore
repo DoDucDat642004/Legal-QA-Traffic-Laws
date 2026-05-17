@@ -37,16 +37,26 @@ venv.bak/
 .env.test.local
 .env.production.local
 *.env*
+!.env.rag.example
 
 # IDEs
 .vscode/
 .idea/
+.DS_Store
 *.swp
 *.swo
 
 # Project specific
+data/chunks/
+data/eval/reports/
+data/graph/
+data/interim/
+data/locks/
+data/models/
 data/processed/
 data/qa_pairs/
+data/reports/
+data/vector_db/
 !data/raw/
 *.csv
 *.xlsx

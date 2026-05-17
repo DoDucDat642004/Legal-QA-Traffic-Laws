@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: legal-rag-postgres
+    environment:
+      POSTGRES_DB: legalrag
+      POSTGRES_USER: legalrag
+      POSTGRES_PASSWORD: legalrag
+    ports:
+      - "55432:5432"
+    volumes:
+      - legal_rag_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalrag -d legalrag"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.14.1
+    container_name: legal-rag-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - legal_rag_qdrant:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5.26
+    container_name: legal-rag-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/legalrag
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - legal_rag_neo4j_data:/data
+      - legal_rag_neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p legalrag 'RETURN 1'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    container_name: legal-rag-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - legal_rag_minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  legal_rag_postgres:
+  legal_rag_qdrant:
+  legal_rag_neo4j_data:
+  legal_rag_neo4j_logs:
+  legal_rag_minio:
