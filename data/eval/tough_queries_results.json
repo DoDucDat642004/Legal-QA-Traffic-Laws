@@ -1,0 +1,699 @@
+[
+  {
+    "question": "Tôi thấy một biển báo hình bát giác nền đỏ có chữ STOP trắng ở giữa. Nếu tôi không dừng lại hoàn toàn mà chỉ đi chậm qua thì bị phạt bao nhiêu tiền?",
+    "answer": "Chào bạn, với tư cách là hệ thống Legal Graph RAG chuyên sâu về luật giao thông, tôi xin giải đáp thắc mắc của bạn dựa trên các quy định tại Nghị định 168/2024/NĐ-CP như sau:\n\nBiển báo hình bát giác nền đỏ, chữ \"STOP\" trắng là biển báo hiệu lệnh (biển P.122 theo quy chuẩn kỹ thuật, yêu cầu người điều khiển phương tiện phải dừng lại hoàn toàn). Hành vi không dừng lại hoàn toàn mà chỉ đi chậm qua được coi là **\"Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu\"**.\n\nVì bạn không nêu rõ loại phương tiện đang điều khiển, tôi xin bóc tách mức phạt theo từng nhóm phương tiện dựa trên các nguồn dữ liệu đã cung cấp:\n\n### 1. Đối với người điều khiển xe ô tô và các loại xe tương tự xe ô tô\n*   **Hành vi:** Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu (biển STOP).\n*   **Căn cứ:** Điểm a, Khoản 1, Điều 6, Nghị định 168/2024/NĐ-CP.\n*   **Mức phạt tiền:** Từ 400.000 đồng đến 600.000 đồng.\n\n### 2. Đối với người điều khiển xe mô tô, xe gắn máy và các loại xe tương tự\n*   **Hành vi:** Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu (biển STOP).\n*   **Căn cứ:** Điểm a, Khoản 1, Điều 7, Nghị định 168/2024/NĐ-CP.\n*   **Mức phạt tiền:** Từ 200.000 đồng đến 400.000 đồng.\n\n### 3. Đối với người điều khiển xe máy chuyên dùng\n*   **Hành vi:** Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu (biển STOP).\n*   **Căn cứ:** Điểm a, Khoản 1, Điều 8, Nghị định 168/2024/NĐ-CP.\n*   **Mức phạt tiền:** Từ 400.000 đồng đến 600.000 đồng.\n\n### 4. Đối với người điều khiển xe đạp, xe đạp máy, xe thô sơ khác\n*   **Hành vi:** Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu (biển STOP).\n*   **Căn cứ:** Điểm c, Khoản 1, Điều 9, Nghị định 168/2024/NĐ-CP.\n*   **Mức phạt tiền:** Từ 100.000 đồng đến 200.000 đồng.\n\n### 5. Đối với người đi bộ\n*   **Hành vi:** Không chấp hành hiệu lệnh, chỉ dẫn của biển báo hiệu (biển STOP).\n*   **Căn cứ:** Điểm b, Khoản 1, Điều 10, Nghị định 168/2024/NĐ-CP.\n*   **Mức phạt tiền:** Từ 150.000 đồng đến 250.000 đồng.\n\n---\n\n### TỔNG HẬU QUẢ\nDo bạn không xác định loại phương tiện, mức hậu quả được tổng hợp theo các phương án:\n*   **Mức tiền phạt:** Từ 100.000 đồng đến 600.000 đồng (tùy thuộc vào loại phương tiện bạn đang điều khiển).\n*   **Hình phạt bổ sung:** Các điều khoản nêu trên không quy định hình phạt bổ sung (tước bằng lái) hoặc trừ điểm đối với hành vi này.\n*   **Biện pháp ngăn chặn:** Không có quy định tạm giữ xe đối với hành vi này trong các nguồn được cung cấp.\n\n**Căn cứ:**\n- Điểm a, Khoản 1, Điều 6, Nghị định 168/2024/NĐ-CP (Xe ô tô).\n- Điểm a, Khoản 1, Điều 7, Nghị định 168/2024/NĐ-CP (Xe mô tô, xe gắn máy).\n- Điểm a, Khoản 1, Điều 8, Nghị định 168/2024/NĐ-CP (Xe máy chuyên dùng).\n- Điểm c, Khoản 1, Điều 9, Nghị định 168/2024/NĐ-CP (Xe đạp, xe thô sơ).\n- Điểm b, Khoản 1, Điều 10, Nghị định 168/2024/NĐ-CP (Người đi bộ).",
+    "sources": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm a, Khoản 1, Điều 6, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_penalty_filter_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm a, Khoản 1, Điều 7, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_penalty_filter_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm a, Khoản 1, Điều 8, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_penalty_filter_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm c, Khoản 1, Điều 9, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_penalty_filter_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm b, Khoản 1, Điều 10, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_penalty_filter_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm b, Khoản 1, Điều 11, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_penalty_filter_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Khoản 1, Điều 6, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "same_article_sanction"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Khoản 1, Điều 6, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "same_article_sanction"
+        ]
+      }
+    ]
+  },
+  {
+    "question": "Kích thước của biển báo tốc độ tối đa cho phép (P.127) trên đường cao tốc được tính theo hệ số nào và đường kính thực tế là bao nhiêu?",
+    "answer": "Biển số P.127 - Tốc độ tối đa cho phép.\n\n\n\nNhận dạng: Biển tròn viền đỏ, nền trắng, có số tốc độ ở giữa.\n\nÝ nghĩa: báo tốc độ tối đa cho phép; xe không được chạy quá trị số ghi trên biển, trừ trường hợp xe ưu tiên theo quy định.\n\nẢnh biển báo: /processed/sign_assets/51-bgtvt-kem_P_127_2c5bac6515.png\n\nCăn cứ: Mục B.27, Điều 5, QCVN 41:2024 (Thông tư 51/2024).",
+    "sources": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 28.1, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_size_qcvn_scope",
+          "specific_violation_match"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục M, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope",
+          "specific_violation_match"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 3, Mục 47.22, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope",
+          "specific_violation_match"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục B, Điều 15, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope",
+          "specific_violation_match"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục M, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope",
+          "specific_violation_match"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục M, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục B.27, Điều 5, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "document_scope_match",
+          "domain_boost",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "planned_legal_term_match",
+          "planned_sign_code_match",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope",
+          "traffic_sign_catalog"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục Nhóm biển hiệu lệnh, Điều 20, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "intent_table_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost",
+          "sign_size_qcvn_scope"
+        ]
+      }
+    ]
+  },
+  {
+    "question": "Người 16 tuổi chạy xe máy 110cc vượt đèn đỏ và có nồng độ cồn 0.3mg/l khí thở thì bị xử lý tổng cộng như thế nào?",
+    "answer": "\"Say xỉn\" khi tham gia giao thông được hiểu là điều khiển phương tiện khi trong máu hoặc hơi thở có nồng độ cồn. Không có một mức phạt chung cho mọi trường hợp; phải tách theo loại phương tiện và mức nồng độ cồn.\n\n| Phương tiện | Chưa vượt quá 50 mg/100 ml máu hoặc 0,25 mg/l khí thở | Vượt quá 50 đến 80 mg/100 ml máu hoặc 0,25 đến 0,4 mg/l khí thở | Vượt quá 80 mg/100 ml máu hoặc 0,4 mg/l khí thở / không chấp hành kiểm tra | Căn cứ |\n|---|---:|---:|---:|---|\n| Mô tô, xe gắn máy | 2.000.000 - 3.000.000 đồng | 6.000.000 - 8.000.000 đồng | 8.000.000 - 10.000.000 đồng | Điều 7 Nghị định 168/2024/NĐ-CP |\n\nCăn cứ truy xuất: Điểm b, Khoản 8, Điều 7, Chương II, Nghị định 168/2024/NĐ-CP; Điều 7, Chương II, Nghị định 168/2024/NĐ-CP; Điểm d, Khoản 9, Điều 7, Chương II, Nghị định 168/2024/NĐ-CP.",
+    "sources": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm b, Khoản 8, Điều 7, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:PENALTY",
+          "intent_modality_match",
+          "intent_penalty_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "specific_violation_match",
+          "target_article_mismatch",
+          "vehicle_scope_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điều 7, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_linked_ref",
+          "document_scope_match",
+          "intent_modality_match",
+          "intent_penalty_filter_match",
+          "target_article_mismatch",
+          "vehicle_scope_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điều 7, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_linked_ref",
+          "document_scope_match",
+          "intent_modality_match",
+          "intent_penalty_filter_match",
+          "target_article_mismatch",
+          "vehicle_scope_match"
+        ]
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "ref_text": "Điểm d, Khoản 9, Điều 7, Chương II, Nghị định 168/2024/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:PENALTY",
+          "intent_modality_match",
+          "intent_penalty_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "specific_violation_match",
+          "target_article_mismatch",
+          "vehicle_scope_match"
+        ]
+      },
+      {
+        "doc": "Luật Trật tự ATGT 2024",
+        "ref_text": "Khoản 2, Điều 9, Chương I, Luật Trật tự ATGT 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "document_lexical_match",
+          "document_scope_match",
+          "intent_modality_match",
+          "planned_legal_term_match",
+          "specific_violation_match"
+        ]
+      },
+      {
+        "doc": "Luật Trật tự ATGT 2024",
+        "ref_text": "Điểm b, Khoản 4, Điều 11, Chương II, Luật Trật tự ATGT 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_document_probe",
+          "adaptive_multi_query",
+          "bm25",
+          "document_scope_match",
+          "intent_modality_match",
+          "qdrant_vector"
+        ]
+      },
+      {
+        "doc": "Luật Trật tự ATGT 2024",
+        "ref_text": "Điểm b, Khoản 4, Điều 11, Chương II, Luật Trật tự ATGT 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_document_probe",
+          "adaptive_multi_query",
+          "bm25",
+          "document_scope_match",
+          "intent_modality_match",
+          "qdrant_vector"
+        ]
+      },
+      {
+        "doc": "Luật Trật tự ATGT 2024",
+        "ref_text": "Điểm c, Khoản 4, Điều 11, Chương II, Luật Trật tự ATGT 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_document_probe",
+          "adaptive_multi_query",
+          "bm25",
+          "document_scope_match",
+          "intent_modality_match",
+          "qdrant_vector"
+        ]
+      }
+    ]
+  },
+  {
+    "question": "Biển báo hình tròn nền xanh có hình mũi tên màu trắng chỉ hướng sang trái là biển gì? Tôi có được phép đi thẳng khi gặp biển này không?",
+    "answer": "Các biển báo phù hợp nhất trong dữ liệu:\n- Biển số N/A: Đường viền biển chỉ dẫn trên đường cao tốc. Nhận dạng/ghi chú: Quy định kích thước đường viền xung quanh biển chỉ dẫn trên cao tốc.\n- Biển số IE.456A: Mô tả hình ảnh: Mã biển/vạch IE.456A được nhắc trong đoạn luật; dùng ảnh trang gốc để đối chiếu nếu chưa có crop riêng.. Nhận dạng/ghi chú: Mã biển/vạch IE.456A được nhắc trong đoạn luật; dùng ảnh trang gốc để đối chiếu nếu chưa có crop riêng.\n- Biển số IE.456B: Mô tả hình ảnh: Mã biển/vạch IE.456B được nhắc trong đoạn luật; dùng ảnh trang gốc để đối chiếu nếu chưa có crop riêng.. Nhận dạng/ghi chú: Mã biển/vạch IE.456B được nhắc trong đoạn luật; dùng ảnh trang gốc để đối chiếu nếu chưa có crop riêng.\n- Biển số IE.456C: Mô tả hình ảnh: Mã biển/vạch IE.456C được nhắc trong đoạn luật; dùng ảnh trang gốc để đối chiếu nếu chưa có crop riêng.. Nhận dạng/ghi chú: Mã biển/vạch IE.456C được nhắc trong đoạn luật; dùng ảnh trang gốc để đối chiếu nếu chưa có crop riêng.\n- Biển số I.407(b, c): Đường một chiều. Nhận dạng/ghi chú: Chỉ dẫn đường phía trước là đường một chiều.\n\nCăn cứ: Mục 46.4.1, 46.4.2, QCVN 41:2024 (Thông tư 51/2024); Phụ lục O, QCVN 41:2024 (Thông tư 51/2024).",
+    "sources": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 2, Phụ lục D, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 46.4.1, 46.4.2, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục O, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục O, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Phụ lục O, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 2, Phụ lục F, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "planned_legal_term_match",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 3, Mục 36, 38, 39.2, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "bm25",
+          "document_scope_match",
+          "domain_boost",
+          "intent:SIGN_MEANING",
+          "intent_modality_match",
+          "intent_qcvn_scope",
+          "intent_sign_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "sign_scope_boost"
+        ]
+      },
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "ref_text": "Mục 3, Điều 34, QCVN 41:2024 (Thông tư 51/2024)",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_facet_match",
+          "adaptive_linked_ref",
+          "document_scope_match",
+          "domain_boost",
+          "intent_modality_match",
+          "intent_qcvn_scope"
+        ]
+      }
+    ]
+  },
+  {
+    "question": "Xe đưa đón học sinh cần có những điều kiện gì về màu sơn và phù hiệu theo quy định mới nhất?",
+    "answer": "Dựa trên các nguồn dữ liệu được cung cấp, hệ thống Legal Graph RAG xin phản hồi câu hỏi của bạn như sau:\n\n**Phân tích câu hỏi:**\nCâu hỏi của bạn liên quan đến \"điều kiện về màu sơn và phù hiệu đối với xe đưa đón học sinh\".\n\n**Kết quả tra cứu:**\nSau khi rà soát toàn bộ các nguồn dữ liệu được cung cấp (bao gồm Luật Đường bộ 2024 và Nghị định 336/2025/NĐ-CP), hệ thống ghi nhận như sau:\n\n1.  **Về nội dung:** Các nguồn dữ liệu hiện có chỉ tập trung vào các quy định về:\n    *   Chi phí quản lý, vận hành, khai thác, bảo trì kết cấu hạ tầng đường bộ (Điều 41, 42 Luật Đường bộ 2024).\n    *   Trách nhiệm quản lý, vận hành, khai thác và bảo trì kết cấu hạ tầng đường bộ (Điều 37 Luật Đường bộ 2024).\n    *   Xử phạt nhân viên phục vụ trên xe buýt, xe vận chuyển hành khách (Điều 13, 14 Nghị định 336/2025/NĐ-CP).\n    *   Xử phạt người điều khiển xe ô tô kinh doanh vận tải (Điều 11, 12 Nghị định 336/2025/NĐ-CP).\n    *   Quy định về tạm giữ giấy tờ, phương tiện (Điều 24 Nghị định 336/2025/NĐ-CP).\n\n2.  **Kết luận:** Trong phạm vi các nguồn dữ liệu được cung cấp, **không có quy định cụ thể nào về điều kiện màu sơn và phù hiệu đối với xe đưa đón học sinh**.\n\nDo đó, hệ thống không thể trả lời câu hỏi của bạn dựa trên các nguồn dữ liệu hiện có. Nếu bạn có thêm các văn bản quy phạm pháp luật khác hoặc nguồn dữ liệu cụ thể về vấn đề này, vui lòng cung cấp để hệ thống thực hiện phân tích và giải đáp chi tiết cho bạn.\n\n**Căn cứ:**\n*   Luật Đường bộ 2024 (Điều 37, 41, 42).\n*   Nghị định 336/2025/NĐ-CP (Điều 11, 12, 13, 14, 24).",
+    "sources": [
+      {
+        "doc": "Luật Đường bộ 2024",
+        "ref_text": "Khoản 3, Điều 41, Chương II, Luật Đường bộ 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "document_scope_match",
+          "intent:PROCEDURE",
+          "intent_modality_match",
+          "intent_procedure_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan",
+          "target_article_mismatch"
+        ]
+      },
+      {
+        "doc": "Luật Đường bộ 2024",
+        "ref_text": "Điều 41, Chương II, Luật Đường bộ 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_linked_ref",
+          "adaptive_multihop_match",
+          "document_scope_match",
+          "intent_modality_match",
+          "target_article_mismatch"
+        ]
+      },
+      {
+        "doc": "Luật Đường bộ 2024",
+        "ref_text": "Khoản 8, Điều 37, Chương II, Luật Đường bộ 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_linked_ref",
+          "adaptive_multihop_match",
+          "document_scope_match",
+          "intent_modality_match",
+          "target_article_mismatch"
+        ]
+      },
+      {
+        "doc": "Luật Đường bộ 2024",
+        "ref_text": "Khoản 8, Điều 37, Chương II, Luật Đường bộ 2024",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "adaptive_linked_ref",
+          "adaptive_multihop_match",
+          "document_scope_match",
+          "intent_modality_match",
+          "target_article_mismatch"
+        ]
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "ref_text": "Khoản 4, Điều 13, Chương II, Nghị định 336/2025/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:PROCEDURE",
+          "intent_modality_match",
+          "intent_procedure_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan"
+        ]
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "ref_text": "Khoản 3, Điều 11, Chương II, Nghị định 336/2025/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:PROCEDURE",
+          "intent_modality_match",
+          "intent_procedure_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan"
+        ]
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "ref_text": "Điều 24, Chương II, Nghị định 336/2025/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:PROCEDURE",
+          "intent_modality_match",
+          "intent_procedure_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan"
+        ]
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "ref_text": "Điều 24, Chương II, Nghị định 336/2025/NĐ-CP",
+        "modality": "text",
+        "reasons": [
+          "adaptive_document_match",
+          "bm25",
+          "document_scope_match",
+          "intent:PROCEDURE",
+          "intent_modality_match",
+          "intent_procedure_filter_match",
+          "multi_query_rrf",
+          "qdrant_vector",
+          "query_plan"
+        ]
+      }
+    ]
+  }
+]

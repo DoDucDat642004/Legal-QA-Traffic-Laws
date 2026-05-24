@@ -1,5 +1,26 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Any, List, Optional, Literal
+import re
+
+
+EMPTY_NUMERIC_VALUES = {"", "n/a", "na", "none", "null", "không", "khong", "không có", "khong co", "-", "—"}
+
+
+def optional_int_from_llm(v: Any) -> Any:
+    """Coerce common LLM placeholders/units for optional integer fields."""
+    if v is None or isinstance(v, int):
+        return v
+    if isinstance(v, float):
+        return int(v) if v.is_integer() else None
+    if isinstance(v, str):
+        value = v.strip()
+        if value.lower() in EMPTY_NUMERIC_VALUES:
+            return None
+        numbers = re.findall(r'\d+(?:[.,]\d{3})*', value)
+        if len(numbers) == 1:
+            return int(numbers[0].replace(".", "").replace(",", ""))
+        return None
+    return v
 
 
 class BaseLegalReference(BaseModel):
@@ -21,6 +42,11 @@ class BaseLegalReference(BaseModel):
     figure: Optional[str] = Field(None, description="ID/số hình/biển báo nếu record gắn với hình")
     page_start: Optional[int] = Field(None, description="Trang bắt đầu trong PDF, zero-based")
     page_end: Optional[int] = Field(None, description="Trang kết thúc trong PDF, zero-based")
+
+    @field_validator('page_start', 'page_end', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        return optional_int_from_llm(v)
 
 
 class BoundingBox(BaseModel):
@@ -138,6 +164,11 @@ class MainPenalty168(BaseModel):
     description: Optional[str] = Field(None, description="Mô tả nguyên văn mức phạt")
     raw_penalty_text: Optional[str] = Field(None, description="Đoạn nguồn chứa hình phạt")
 
+    @field_validator('min_amount_vnd', 'max_amount_vnd', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        return optional_int_from_llm(v)
+
 
 class Penalties168(BaseModel):
     main_penalty: Optional[MainPenalty168] = None
@@ -146,6 +177,11 @@ class Penalties168(BaseModel):
     license_suspension: Optional[str] = None
     vehicle_impoundment: Optional[str] = None
     remedial_measures: List[str] = Field(default_factory=list)
+
+    @field_validator('point_deduction', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        return optional_int_from_llm(v)
 
 
 class DecreeViolationRule168(SourceLineageMixin):
@@ -175,6 +211,13 @@ class MainPenalty336(BaseModel):
     organization_min_vnd: Optional[int] = Field(None, description="Mức phạt tiền tối thiểu cho TỔ CHỨC (số nguyên, thường gấp đôi cá nhân).")
     organization_max_vnd: Optional[int] = Field(None, description="Mức phạt tiền tối đa cho TỔ CHỨC (số nguyên).")
     raw_penalty_text: Optional[str] = Field(None, description="Đoạn nguồn chứa hình phạt")
+
+    @field_validator('individual_min_vnd', 'individual_max_vnd', 'organization_min_vnd', 'organization_max_vnd', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        if v == "":
+            return None
+        return v
 
 
 class Penalties336(BaseModel):
@@ -225,6 +268,11 @@ class QuantitativeData(BaseModel):
     submission_method: Optional[str] = None
     processing_time_days: Optional[int] = None
     other_metrics: List[str] = Field(default_factory=list, description="Các thông số định lượng khác (vd: 'Lưu trữ 5 năm', 'Tuổi tối đa 55')")
+
+    @field_validator('total_training_hours', 'theory_hours', 'practice_hours', 'required_distance_km', 'processing_time_days', mode='before')
+    @classmethod
+    def empty_string_to_none(cls, v: Any) -> Any:
+        return optional_int_from_llm(v)
 
 
 class CircularRule(SourceLineageMixin):

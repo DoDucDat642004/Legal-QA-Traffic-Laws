@@ -14,15 +14,16 @@ from src.data_pipeline.figure_extractor import FigureExtractor
 from src.data_pipeline.text_normalizer import TextNormalizer
 from src.data_pipeline.coverage_validator import CoverageValidator
 from src.data_pipeline.reference_sanitizer import sanitize_record_reference
+from src.rag.model_policy import first_text_model
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("ExpertExtraction")
-load_dotenv()
+load_dotenv(override=True)
 
 MONEY_RE = re.compile(r'(\d{1,3}(?:\.\d{3})*)\s*(?:đồng|VNĐ|VND)', re.IGNORECASE)
 SIGN_CODE_RE = re.compile(r"\b(?:DP|IE|P|W|R|I|S|E)\s*\.?\s*\d{2,3}[a-zđ]?\b", re.IGNORECASE)
-EXTRACTION_CACHE_VERSION = "pdf_engine_v7_contextual_legal_keyword_normalizer"
-CHUNK_CACHE_VERSION = "legal_parser_v13_contextual_keyword_normalizer"
+EXTRACTION_CACHE_VERSION = "pdf_engine_v9_control_space_repair"
+CHUNK_CACHE_VERSION = "legal_parser_v15_qcvn_caption_spacing"
 
 def verify_penalties(rule_dict: dict, source_text: str) -> list[str]:
     """So sánh số tiền AI trích với số tiền trong text gốc."""
@@ -46,7 +47,7 @@ def verify_penalties(rule_dict: dict, source_text: str) -> list[str]:
     return warnings
 
 def check_penalty_integrity(records: list) -> list[dict]:
-    """Kiểm tra logic nghiệp vụ: min <= max, tổ chức ≈ 2x cá nhân."""
+    """Kiểm tra logic nghiệp vụ: min <= max, tổ chức ~ 2x cá nhân."""
     issues = []
     for rec in records:
         p = (rec.get("penalties") or {}).get("main_penalty") or {}
@@ -245,14 +246,28 @@ def figures_for_chunk(figures: list[dict], chunk: dict) -> list[dict]:
     start, end = chunk.get("page_start"), chunk.get("page_end")
     if start is None: return []
     if end is None: end = start
-        
+
+    text = chunk.get("text") or ""
+    chunk_codes = {
+        re.sub(r"[\s.]+", "", m.group(0)).upper()
+        for m in SIGN_CODE_RE.finditer(text)
+    }
     related = []
+    seen = set()
     for fig in figures:
-        if start <= fig.get("page", -1) <= end:
-            fig_copy = fig.copy()
-            fig_copy["linked_chunk_id"] = chunk.get("source_chunk_id")
-            fig_copy["linked_article"] = chunk.get("article_num")
-            related.append(fig_copy)
+        if not (start <= fig.get("page", -1) <= end):
+            continue
+        fig_code = re.sub(r"[\s.]+", "", str(fig.get("code", ""))).upper()
+        if chunk_codes and fig_code and fig_code not in chunk_codes:
+            continue
+        key = (fig.get("id"), fig_code, fig.get("image_path"))
+        if key in seen:
+            continue
+        seen.add(key)
+        fig_copy = fig.copy()
+        fig_copy["linked_chunk_id"] = chunk.get("source_chunk_id")
+        fig_copy["linked_article"] = chunk.get("article_num")
+        related.append(fig_copy)
     return related
 
 def attach_virtual_sign_figures(chunk: dict) -> dict:
@@ -593,7 +608,7 @@ async def stage_enrich(chunks: list[dict], doc_name: str, pdf_path: str, out_pat
                     "figures": c.get('figures', []),
                     "image_path": c.get('image_path', ''),
                     "extraction_meta": {
-                        "engine": os.getenv("EXTRACTION_MODEL", "gemini-2.5-flash"),
+                        "engine": first_text_model("EXTRACTION_MODEL", "EXTRACTION_PRIMARY_MODEL"),
                         "timestamp": time.time(),
                         "confidence": 0.95,
                         "warnings": verify_penalties(rule_dict, c.get('text', ''))
@@ -639,7 +654,21 @@ async def process_document(pdf_path: str, doc_name: str, out_dir: str, doc_sem: 
             logger.info(f"📊 Legal-Grade Coverage Report for {doc_name}:")
             logger.info(f"  - Status: {report['status']} (Overall Score: {report['overall_score']*100:.1f}%)")
             for level, data in report['levels'].items():
-                logger.info(f"  - {level.capitalize()}: {data['extracted_count']}/{data['expected_count']} ({data['score']*100:.1f}%)")
+                if data["expected_count"]:
+                    logger.info(
+                        "  - %s: %s/%s covered (%.1f%%), extracted unique=%s",
+                        level.capitalize(),
+                        data["covered_count"],
+                        data["expected_count"],
+                        data["score"] * 100,
+                        data["extracted_count"],
+                    )
+                else:
+                    logger.info(
+                        "  - %s: extracted unique=%s (no raw-text expectation)",
+                        level.capitalize(),
+                        data["extracted_count"],
+                    )
             chunk_cov = report.get("source_chunk_coverage")
             if chunk_cov:
                 logger.info(

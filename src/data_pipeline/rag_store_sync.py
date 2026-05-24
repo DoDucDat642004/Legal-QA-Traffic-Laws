@@ -15,7 +15,7 @@ project_root = os.path.abspath(os.path.join(current_dir, "../../"))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-load_dotenv(os.path.join(project_root, ".env"))
+load_dotenv(os.path.join(project_root, ".env"), override=True)
 
 from src.rag.legal_utils import normalized_legal_reference, source_text
 from src.rag.rag_store_config import RAGStoreConfig
@@ -436,7 +436,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Sync legal RAG data into PostgreSQL, Qdrant, Neo4j, and MinIO.")
     parser.add_argument("--processed-dir", default="data/processed")
     parser.add_argument("--graph-path", default="data/graph/legal_graph.json")
-    parser.add_argument("--embedding-model", default="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    parser.add_argument("--embedding-model", default="")
     parser.add_argument("--dry-run", action="store_true", help="Only print counts; do not connect to external stores.")
     parser.add_argument("--skip-postgres", action="store_true")
     parser.add_argument("--skip-qdrant", action="store_true")
@@ -455,6 +455,7 @@ def main() -> None:
         return
 
     config = RAGStoreConfig()
+    embedding_model = args.embedding_model or config.embedding_model
     canonical_records = load_processed_records(processed_dir)
     expanded_records = load_expanded_records(processed_dir)
     catalog = TrafficSignCatalog(expanded_records)
@@ -464,7 +465,7 @@ def main() -> None:
     if not args.skip_qdrant:
         QdrantLegalVectorStore(
             processed_path=processed_dir,
-            embedding_model=args.embedding_model,
+            embedding_model=embedding_model,
             force_reindex=True,
             config=config,
         )
