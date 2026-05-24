@@ -104,7 +104,18 @@ class FigureExtractor:
                 logger.info(f" - [APPENDIX MODE] Page {page_num} has {sign_caption_count} sign captions. Using caption bands.")
                 bands = self._extract_sign_page_by_caption_bands(page, page_rect)
                 for band in bands:
-                    self._save_asset(page, page_num, doc_base_name, doc_name, band["code"], band["name"], band["rect"], band["caption_bbox"], extracted_assets)
+                    self._save_asset(
+                        page,
+                        page_num,
+                        doc_base_name,
+                        doc_name,
+                        band["code"],
+                        band["name"],
+                        band["rect"],
+                        band["caption_bbox"],
+                        extracted_assets,
+                        source_mode="appendix_band",
+                    )
                 continue
 
             graphics_bboxes = self._get_graphical_regions(page)
@@ -125,9 +136,21 @@ class FigureExtractor:
                         target_bbox = self._find_best_region(cap_bbox, graphics_bboxes, page_rect)
                         
                         if target_bbox:
-                            self._save_asset(page, page_num, doc_base_name, doc_name, code, name, target_bbox, cap_bbox, extracted_assets)
+                            self._save_asset(
+                                page,
+                                page_num,
+                                doc_base_name,
+                                doc_name,
+                                code,
+                                name,
+                                target_bbox,
+                                cap_bbox,
+                                extracted_assets,
+                                source_mode="generic_caption",
+                            )
 
         # Save metadata
+        extracted_assets = self._postprocess_assets(extracted_assets)
         meta_path = os.path.join(self.asset_dir, f"{doc_base_name}_meta.json")
         with open(meta_path, "w", encoding="utf-8") as f:
             json.dump(extracted_assets, f, ensure_ascii=False, indent=2)
@@ -135,13 +158,16 @@ class FigureExtractor:
         doc.close()
         return extracted_assets
 
-    def _save_asset(self, page, page_num, doc_base_name, doc_name, code, name, target_bbox, cap_bbox, assets_list):
+    def _save_asset(self, page, page_num, doc_base_name, doc_name, code, name, target_bbox, cap_bbox, assets_list, source_mode: str = "generic_caption"):
         # Add padding to ensure full content is captured
         target_bbox.x0 = max(0, target_bbox.x0 - 5)
         target_bbox.y0 = max(0, target_bbox.y0 - 5)
         target_bbox.x1 = min(page.rect.width, target_bbox.x1 + 5)
         target_bbox.y1 = min(page.rect.height, target_bbox.y1 + 5)
         
+        code = re.sub(r"\s+", "", TextNormalizer.normalize_vietnamese(str(code or ""))).strip()
+        name = TextNormalizer.normalize_vietnamese(str(name or ""))
+
         asset_hash = hashlib.sha1(f"{doc_base_name}_{page_num}_{code}_{target_bbox}".encode("utf-8")).hexdigest()[:10]
         asset_id = f"{doc_base_name}_{code}_{asset_hash}".replace(".", "_").replace("/", "_")
         img_filename = f"{asset_id}.png"
@@ -158,10 +184,74 @@ class FigureExtractor:
             "page": page_num,
             "bbox": list(target_bbox),
             "caption_bbox": list(cap_bbox) if cap_bbox else None,
-            "image_path": os.path.join("data/processed/sign_assets", img_filename)
+            "image_path": os.path.join("data/processed/sign_assets", img_filename),
+            "source_mode": source_mode,
         }
         assets_list.append(asset_info)
         logger.info(f" - [PRO-CROP] Extracted: {code} - {name} on Page {page_num}")
+
+    def _caption_quality(self, asset: dict) -> int:
+        name = TextNormalizer.normalize_vietnamese(str(asset.get("name") or ""))
+        if not name:
+            return -100
+
+        lower = name.lower()
+        score = len(name)
+        if asset.get("source_mode") == "appendix_band":
+            score += 80
+        if re.search(r'\bbiển\s+số\s+(?:dp|ie|p|w|r|i|s|e)\s*\.?\s*\d', lower, re.IGNORECASE):
+            score -= 60
+        if any(k in lower for k in ["chỉ là", "trường hợp", "không áp dụng", "ví dụ"]):
+            score -= 50
+        if len(name.split()) < 3:
+            score -= 25
+        if any(
+            lower.startswith(prefix)
+            for prefix in [
+                "làn đường",
+                "hết làn đường",
+                "hướng đi",
+                "biển gộp",
+                "kết thúc",
+                "đường dành",
+            ]
+        ):
+            score += 30
+        return score
+
+    def _postprocess_assets(self, assets: list[dict]) -> list[dict]:
+        """Normalize duplicate sign metadata and repair weak captions by sign code."""
+        best_by_code: dict[str, dict] = {}
+        for asset in assets:
+            code = re.sub(r"\s+", "", TextNormalizer.normalize_vietnamese(str(asset.get("code") or ""))).strip()
+            name = TextNormalizer.normalize_vietnamese(str(asset.get("name") or ""))
+            asset["code"] = code
+            asset["name"] = name
+            if not code:
+                continue
+            asset["caption_quality"] = self._caption_quality(asset)
+            current = best_by_code.get(code)
+            if code and (current is None or asset["caption_quality"] > current["caption_quality"]):
+                best_by_code[code] = asset
+
+        seen = set()
+        out = []
+        for asset in assets:
+            if not asset.get("code"):
+                continue
+            key = (asset.get("code"), asset.get("image_path"))
+            if key in seen:
+                continue
+            seen.add(key)
+            best = best_by_code.get(asset.get("code") or "")
+            if best and best.get("name") and best["caption_quality"] >= asset.get("caption_quality", -100):
+                asset["name"] = best["name"]
+                asset["caption_source"] = best.get("source_mode") or asset.get("source_mode")
+            if not str(asset.get("name") or "").strip() and asset.get("code"):
+                asset["name"] = f"Biển số {asset['code']}"
+                asset["caption_source"] = "code_fallback"
+            out.append(asset)
+        return out
 
     def _find_best_region(self, cap_bbox: fitz.Rect, regions: list[fitz.Rect], page_rect: fitz.Rect) -> fitz.Rect:
         candidates = []

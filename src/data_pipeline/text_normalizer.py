@@ -5,6 +5,7 @@ import hashlib
 class TextNormalizer:
     # Suffixes common in Vietnamese syllables that get split by font artifacts
     VN_SPLIT_SUFFIXES = r'(?:ều|ển|ời|ành|ặt|ường|gược|ại|ồng|ắt|ừng|ược|ổi|ẫn|ộng|ến|ỉnh|ọng)'
+    PDF_CONTROL_SPACE_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]+')
     INTERNAL_MARKER_RE = re.compile(r'^\[INTERNAL_PAGE_MARKER_\d+\]$')
     PAGE_NUMBER_RE = re.compile(r'^(?:[-–—]\s*)?\d{1,4}(?:\s*[-–—])?$')
     TECHNICAL_METADATA_RE = re.compile(
@@ -26,6 +27,64 @@ class TextNormalizer:
         r')',
         re.IGNORECASE,
     )
+
+    @staticmethod
+    def restore_pdf_control_spaces(text: str) -> str:
+        """Turn PDF control separators into real spaces before text cleanup.
+
+        Some QCVN pages use control characters such as ``\x05`` between words.
+        Dropping them creates glued captions like "Lànđườngdànhcho".
+        """
+        if not text:
+            return ""
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        return TextNormalizer.PDF_CONTROL_SPACE_RE.sub(" ", text)
+
+    @staticmethod
+    def _preserve_initial_case(match: re.Match, replacement: str) -> str:
+        value = match.group(0)
+        if value[:1].isupper():
+            return replacement[:1].upper() + replacement[1:]
+        return replacement
+
+    @staticmethod
+    def fix_traffic_caption_spacing(text: str) -> str:
+        """Repair common glued traffic-sign caption phrases from QCVN PDFs."""
+        if not text:
+            return ""
+
+        phrase_fixes = [
+            (r'\blànđườngdànhcho\s*', 'làn đường dành cho '),
+            (r'\bhếtlànđườngdànhcho\s*', 'hết làn đường dành cho '),
+            (r'\bbiểngộplànđườngtheophươngtiện\b', 'biển gộp làn đường theo phương tiện'),
+            (r'\bkếtthúclànđườngtheophươngtiện\b', 'kết thúc làn đường theo phương tiện'),
+            (r'\bhướngđitrênmỗilànđường\b', 'hướng đi trên mỗi làn đường'),
+            (r'\bmỗilànđường\b', 'mỗi làn đường'),
+            (r'\blànđường\b', 'làn đường'),
+            (r'\bđườngtheophươngtiện\b', 'đường theo phương tiện'),
+            (r'\bphảitheo\b', 'phải theo'),
+            (r'vàxe', 'và xe'),
+            (r'\bxeôtôkhách\b', 'xe ô tô khách'),
+            (r'\bxeôtôcon\b', 'xe ô tô con'),
+            (r'\bxeôtôtải\b', 'xe ô tô tải'),
+            (r'\bxeôtô\b', 'xe ô tô'),
+            (r'\bôtôkhách\b', 'ô tô khách'),
+            (r'\bôtôcon\b', 'ô tô con'),
+            (r'\bôtôtải\b', 'ô tô tải'),
+            (r'\bôtô\b', 'ô tô'),
+            (r'\bxemáy\s*', 'xe máy '),
+            (r'\bxeđạp\s*', 'xe đạp '),
+            (r'\bxebuýt\s*', 'xe buýt '),
+            (r'\bbu\s*ýt\b', 'buýt'),
+        ]
+        for pattern, replacement in phrase_fixes:
+            text = re.sub(
+                pattern,
+                lambda m, repl=replacement: TextNormalizer._preserve_initial_case(m, repl),
+                text,
+                flags=re.IGNORECASE,
+            )
+        return text
 
     @staticmethod
     def fix_word_splits(text: str) -> str:
@@ -113,8 +172,10 @@ class TextNormalizer:
             return ""
         
         text = unicodedata.normalize('NFC', text)
+        text = TextNormalizer.restore_pdf_control_spaces(text)
         
         text = TextNormalizer.fix_word_splits(text)
+        text = TextNormalizer.fix_traffic_caption_spacing(text)
         
         text = TextNormalizer.recover_legal_keywords(text)
 

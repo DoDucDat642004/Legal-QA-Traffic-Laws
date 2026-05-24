@@ -9,8 +9,10 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
+from src.data_pipeline.text_normalizer import TextNormalizer
+from src.rag.model_policy import async_generate_content_with_fallback, model_candidates
 
-load_dotenv()
+load_dotenv(override=True)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("ExpertQA")
@@ -19,7 +21,7 @@ logger = logging.getLogger("ExpertQA")
 EXHAUSTED_MODELS = set()
 ALLOWED_INTENTS = {"DEFINITION", "PENALTY", "SCENARIO", "PROCEDURE", "EXCEPTION", "SIGN_MEANING", "TECHNICAL_SPEC"}
 ALLOWED_DIFFICULTIES = {"EASY", "MEDIUM", "HARD"}
-QA_PIPELINE_VERSION = "qa_v3_strict_quotes_diverse_fallback"
+QA_PIPELINE_VERSION = "qa_v4_strict_verbatim_quotes_no_default_fuzzy"
 
 
 def canonicalize_qa_pair(pair: dict, record: dict) -> dict:
@@ -129,15 +131,38 @@ def _load_qa_checkpoint(path: str) -> list[dict]:
         return []
 
 
+def _table_source_text(table: dict) -> str:
+    parts = [table.get("caption") or "", table.get("text") or ""]
+    headers = table.get("headers") or []
+    if headers:
+        parts.append(" | ".join(str(h) for h in headers if h is not None))
+    for row in table.get("rows") or []:
+        if isinstance(row, list):
+            parts.append(" | ".join(str(cell) for cell in row if cell is not None))
+    return "\n".join(p for p in parts if p)
+
+
+def _figure_source_text(figure: dict) -> str:
+    return " ".join(str(figure.get(k) or "") for k in ("code", "name", "caption")).strip()
+
+
 def _source_text(record: dict) -> str:
-    return (
+    parts = [
         record.get("source_body_exact")
         or record.get("original_text")
         or record.get("content")
-        or record.get("meaning_and_usage")
-        or record.get("violation_content")
-        or ""
-    )
+        or "",
+        record.get("meaning_and_usage") or "",
+        record.get("violation_content") or "",
+        record.get("qa_context") or "",
+    ]
+    for table in record.get("tables") or []:
+        if isinstance(table, dict):
+            parts.append(_table_source_text(table))
+    for figure in record.get("figures") or []:
+        if isinstance(figure, dict):
+            parts.append(_figure_source_text(figure))
+    return "\n".join(p for p in parts if p)
 
 
 def _short_exact_quote(source_text: str) -> str:
@@ -232,7 +257,19 @@ class ExpertQASet(BaseModel):
     thought_process: str = Field(description="Phân tích ngầm về hành vi, đối tượng và điều kiện trong đoạn text này.")
     qa_pairs: list[SingleQA]
 
-def validate_qa_pair(pair: dict, source_text: str, doc_name: str) -> bool:
+
+def canonical_quote_text(text: str) -> str:
+    text = TextNormalizer.normalize_vietnamese(text or "").lower()
+    text = re.sub(r'[“”]', '"', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def word_canonical_quote_text(text: str) -> str:
+    return re.sub(r'[^\w]+', ' ', canonical_quote_text(text)).strip()
+
+
+def validate_qa_pair(pair: dict, source_text: str, doc_name: str, *, log_failure: bool = False) -> bool:
     """Validate QA pairs while tolerating minor model formatting changes and OCR noise."""
     quote = pair.get("quote", "").strip()
     answer = pair.get("answer", "").strip()
@@ -241,28 +278,33 @@ def validate_qa_pair(pair: dict, source_text: str, doc_name: str) -> bool:
     if not quote or len(quote) < 8: return False
     if not answer or len(answer) < 15: return False
     
-    def clean(t): return re.sub(r'[^\w\s]', '', t.lower()).strip().replace(' ', '').replace('\n', '')
-    
-    clean_quote = clean(quote)
-    clean_source = clean(source_text)
+    clean_quote = canonical_quote_text(quote)
+    clean_source = canonical_quote_text(source_text)
     
     if clean_quote in clean_source:
         return True
+
+    word_quote = word_canonical_quote_text(quote)
+    word_source = word_canonical_quote_text(source_text)
+    if word_quote and word_quote in word_source:
+        return True
         
     relaxed_validation = os.getenv("QA_RELAXED_QUOTE_VALIDATION", "").lower() in {"1", "true", "yes"}
+    fuzzy_validation = os.getenv("QA_ENABLE_FUZZY_QUOTE_VALIDATION", "").lower() in {"1", "true", "yes"}
+    fuzzy_threshold = float(os.getenv("QA_FUZZY_QUOTE_MIN_RATIO", "0.94"))
 
     # Keep fuzzy matching opt-in because QA citations must remain auditable.
-    if len(clean_quote) > 15:
-        source_words = source_text.lower().split()
-        quote_words = quote.lower().split()
+    if fuzzy_validation and len(word_quote) > 40:
+        source_words = word_source.split()
+        quote_words = word_quote.split()
         window_size = len(quote_words) + 15
         
         best_ratio = 0
         for i in range(len(source_words) - len(quote_words) + 1):
             segment = " ".join(source_words[i:i+window_size])
-            ratio = difflib.SequenceMatcher(None, quote.lower(), segment).ratio()
+            ratio = difflib.SequenceMatcher(None, word_quote, segment).ratio()
             if ratio > best_ratio: best_ratio = ratio
-            if ratio > 0.88:
+            if ratio >= fuzzy_threshold:
                 logger.info(f" - [FUZZY PASS] Quote matches segment with {ratio:.2f} similarity")
                 return True
                 
@@ -277,11 +319,22 @@ def validate_qa_pair(pair: dict, source_text: str, doc_name: str) -> bool:
             logger.info(f" - [RELAXED KEYWORD PASS] Found {len(set(matches))} key terms from quote in source.")
             return True
     
-    logger.warning(f"QA Validation Failed: Verbatim quote '{quote[:40]}...' not found (even fuzzy/keyword) in source text.")
+    modes = ["strict"]
+    if fuzzy_validation:
+        modes.append(f"fuzzy>={fuzzy_threshold:.2f}")
+    if relaxed_validation:
+        modes.append("relaxed-keyword")
+    should_log_failure = log_failure or os.getenv("QA_LOG_INVALID_QUOTES", "").lower() in {"1", "true", "yes", "on"}
+    if should_log_failure:
+        logger.warning(
+            "QA Validation Failed: Verbatim quote '%s...' not found in source text (%s validation).",
+            quote[:40],
+            "+".join(modes),
+        )
     return False
 
 async def generate_expert_qa(client: genai.Client, record: dict, semaphore: asyncio.Semaphore) -> list[dict]:
-    source_body = record.get('source_body_exact', record.get('original_text', record.get('content', '')))
+    source_body = _source_text(record)
     doc_name = record.get('doc_name', 'Văn bản pháp luật')
     chunk_id = record.get('source_chunk_id', 'unknown')
     
@@ -409,13 +462,7 @@ Return ONLY a JSON object following this schema:
         model_fail_counts = {}
         for attempt in range(6):
             try:
-                models_to_try = [
-                    os.getenv("QA_PRIMARY_MODEL", "gemini-3.1-flash-lite"),
-                    "gemma-4-26b-a4b-it",
-                    "gemma-4-31b-it",
-                    "gemini-2.5-flash",
-                ]
-                models_to_try = list(dict.fromkeys(m for m in models_to_try if m))
+                models_to_try = model_candidates("QA_PRIMARY_MODEL", "QA_MODEL")
                 available_models = [m for m in models_to_try if m not in EXHAUSTED_MODELS]
                 if not available_models:
                     logger.critical(f"ALL MODELS EXHAUSTED! Cannot process chunk {chunk_id}")
@@ -437,7 +484,15 @@ Return ONLY a JSON object following this schema:
                     response_schema=ExpertQASet,
                 )
                 
-                res = await client.aio.models.generate_content(model=model_name, contents=prompt, config=config)                
+                res, model_name = await async_generate_content_with_fallback(
+                    client,
+                    contents=prompt,
+                    config=config,
+                    env_names=("QA_PRIMARY_MODEL", "QA_MODEL"),
+                    models=available_models,
+                    logger=logger,
+                    label="QA generation",
+                )
                 if res.text:
                     json_text = res.text.strip()
                     # Robust JSON cleanup
@@ -454,20 +509,28 @@ Return ONLY a JSON object following this schema:
                             raise ValueError(f"Model {model_name} returned invalid JSON: {json_text[:200]}")
                     
                     final_qa = []
+                    rejected_quotes = 0
                     for pair in parsed_data.qa_pairs:
                         data = canonicalize_qa_pair(pair.model_dump(), record)
-                        if validate_qa_pair(data, source_body, doc_name):
+                        if validate_qa_pair(data, source_body, doc_name, log_failure=False):
                             data.update({
                                 "source_chunk_id": chunk_id, "doc_name": doc_name,
                                 "source_reference": reference, "thought_process": parsed_data.thought_process,
                                 "validated": True
                             })
                             final_qa.append(data)
+                        else:
+                            rejected_quotes += 1
                     
                     if final_qa: 
                         return final_qa
                     else:
-                        logger.warning(f" - [VALIDATION FAIL] {model_name} produced data but it failed all validation checks.")
+                        logger.warning(
+                            " - [VALIDATION FAIL] %s produced %s QA pair(s), all rejected by strict quote validation for %s.",
+                            model_name,
+                            rejected_quotes,
+                            chunk_id,
+                        )
                 
             except Exception as e:
                 err_str = str(e)

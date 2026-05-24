@@ -12,8 +12,54 @@ except ImportError:
     genai = None
 
 from google.genai import types
+from src.data_pipeline.schemas import optional_int_from_llm
+from src.rag.model_policy import generate_content_with_fallback, model_candidates
 
 logger = logging.getLogger("BaseParser")
+
+
+INT_LIKE_FIELDS = {
+    "page_start",
+    "page_end",
+    "min_amount_vnd",
+    "max_amount_vnd",
+    "point_deduction",
+    "total_training_hours",
+    "theory_hours",
+    "practice_hours",
+    "required_distance_km",
+    "processing_time_days",
+}
+LIST_FIELDS = {
+    "remedial_measures",
+    "additional_penalties",
+    "vehicle_type",
+    "keyword_tags",
+    "subject_target",
+    "rules",
+    "qa_pairs",
+    "asset_ids",
+    "other_metrics",
+    "target_audience",
+    "traffic_participant",
+}
+
+
+def sanitize_llm_json(obj):
+    """Repair common LLM JSON shape issues before Pydantic validation."""
+    if isinstance(obj, dict):
+        for key, value in list(obj.items()):
+            if key in LIST_FIELDS and isinstance(value, str):
+                obj[key] = [] if not value.strip() else [value.strip()]
+                continue
+            if key in INT_LIKE_FIELDS:
+                obj[key] = optional_int_from_llm(value)
+                continue
+            sanitize_llm_json(value)
+    elif isinstance(obj, list):
+        for item in obj:
+            sanitize_llm_json(item)
+    return obj
 
 class BaseParser:
     """Abstract base for legal document parsing with support for Hybrid Vision-Text Flow."""
@@ -35,17 +81,10 @@ class BaseParser:
         vision_repaired_context = ""
         has_visuals = bool(chunk.get("tables") or chunk.get("figures") or chunk.get("is_sign_page"))
         
-        models_to_try = [
-            os.getenv("EXTRACTION_PRIMARY_MODEL", "gemini-3.1-flash-lite"),
-            "gemma-4-26b-a4b-it",
-            "gemma-4-31b-it",
-            "gemini-2.5-flash",
-        ]
-        models_to_try = list(dict.fromkeys(m for m in models_to_try if m))
+        models_to_try = model_candidates("EXTRACTION_PRIMARY_MODEL", "EXTRACTION_MODEL")
         
         if has_visuals:
             logger.info(f" - [VISION REPAIR] Processing visuals for {chunk.get('source_chunk_id')}...")
-            vision_models = ["gemini-3.1-flash-lite", "gemini-2.5-flash"]
             
             vision_contents = [
                 "Bạn là chuyên gia về báo hiệu đường bộ. Dưới đây là hình ảnh từ Quy chuẩn QCVN 41 hoặc văn bản luật. "
@@ -73,40 +112,42 @@ class BaseParser:
                         vision_contents.append(f"\n[ẢNH CROP BIỂN {fig.get('code')}]:")
                         vision_contents.append(PIL.Image.open(fig_path))
 
-            for v_model in vision_models:
-                try:
-                    vision_res = self.client.models.generate_content(
-                        model=v_model,
-                        contents=vision_contents,
-                        config=types.GenerateContentConfig(temperature=0.0)
-                    )
-                    if vision_res.text:
-                        vision_repaired_context = f"\n[NỘI DUNG ĐÃ ĐƯỢC AI PHỤC HỒI TỪ ẢNH]:\n{vision_res.text}\n"
-                        break
-                except Exception as e:
-                    logger.warning(f"Vision repair failed with {v_model}: {e}")
+            try:
+                vision_res, _model = generate_content_with_fallback(
+                    self.client,
+                    contents=vision_contents,
+                    config=types.GenerateContentConfig(temperature=0.0),
+                    env_names=("EXTRACTION_VISION_MODEL",),
+                    vision=True,
+                    logger=logger,
+                    label="Vision repair",
+                )
+                if vision_res.text:
+                    vision_repaired_context = f"\n[NỘI DUNG ĐÃ ĐƯỢC AI PHỤC HỒI TỪ ẢNH]:\n{vision_res.text}\n"
+            except Exception as e:
+                logger.warning("Vision repair failed across allowed Gemini VLM models: %s", e)
 
         extraction_prompt = f"""
-{system_prompt}
+                {system_prompt}
 
-# INPUT DATA
-[ORIGINAL TEXT]:
-{chunk.get('text', '')}
+                # INPUT DATA
+                [ORIGINAL TEXT]:
+                {chunk.get('text', '')}
 
-{vision_repaired_context}
+                {vision_repaired_context}
 
-# TASK
-Perform structured legal extraction into JSON format using the above data.
-Return ONLY the JSON block.
-"""
+                # TASK
+                Perform structured legal extraction into JSON format using the above data.
+                Return ONLY the JSON block.
+            """
         for attempt in range(10): 
             model_name = models_to_try[attempt % len(models_to_try)]
             try:
                 # 13s wait for free tier RPM limits
                 time.sleep(13)
                 
-                response = self.client.models.generate_content(
-                    model=model_name,
+                response, used_model = generate_content_with_fallback(
+                    self.client,
                     contents=[extraction_prompt],
                     config=types.GenerateContentConfig(
                         temperature=0.1,
@@ -118,7 +159,11 @@ Return ONLY the JSON block.
                             types.SafetySetting(category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold=types.HarmBlockThreshold.BLOCK_NONE),
                         ]
                     ),
+                    env_names=("EXTRACTION_PRIMARY_MODEL", "EXTRACTION_MODEL"),
+                    logger=logger,
+                    label="Structured extraction",
                 )
+                model_name = used_model
                 
                 if not response.text:
                     raise ValueError("API returned empty text")
@@ -133,23 +178,13 @@ Return ONLY the JSON block.
                 if start != -1 and end != -1:
                     json_str = json_str[start:end+1]
                 
-                # Robust List-Field Repair
+                # Robust LLM JSON repair before schema validation.
                 try:
                     data = json.loads(json_str)
-                    def repair_lists(obj):
-                        if isinstance(obj, dict):
-                            list_fields = ['remedial_measures', 'additional_penalties', 'vehicle_type', 'keyword_tags', 'subject_target', 'rules', 'qa_pairs', 'asset_ids']
-                            for k, v in obj.items():
-                                if k in list_fields and isinstance(v, str):
-                                    obj[k] = [v]
-                                else:
-                                    repair_lists(v)
-                        elif isinstance(obj, list):
-                            for item in obj:
-                                repair_lists(item)
-                    repair_lists(data)
-                    json_str = json.dumps(data)
-                except: pass
+                    sanitize_llm_json(data)
+                    json_str = json.dumps(data, ensure_ascii=False)
+                except Exception:
+                    pass
 
                 return schema.model_validate_json(json_str)
             except Exception as e:

@@ -5,6 +5,7 @@ import asyncio
 import fitz
 import pdfplumber
 import hashlib
+import re
 from src.data_pipeline.text_normalizer import TextNormalizer
 try:
     from llama_parse import LlamaParse
@@ -150,6 +151,57 @@ class PDFEngine:
             if any((cell or "").strip() for cell in row)
         ).strip()
 
+    def _normalize_table_rows(self, rows: list[list[str | None]]) -> list[list[str]]:
+        """Normalize pdfplumber/Camelot table cells while preserving row shape."""
+        normalized = []
+        max_cols = max((len(row) for row in rows), default=0)
+        previous = [""] * max_cols
+        for row in rows:
+            clean_row = []
+            for idx in range(max_cols):
+                value = row[idx] if idx < len(row) else ""
+                cell = "" if value is None else TextNormalizer.normalize_vietnamese(str(value)).strip()
+                if not cell and idx < len(previous):
+                    cell = ""
+                clean_row.append(cell)
+            if any(clean_row):
+                normalized.append(clean_row)
+                previous = clean_row
+        return normalized
+
+    def _infer_table_headers(self, rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+        if len(rows) < 2:
+            return [], rows
+        first = rows[0]
+        filled = [cell for cell in first if cell.strip()]
+        if not filled:
+            return [], rows
+        alpha_cells = sum(1 for cell in filled if re.search(r"[A-Za-zÀ-ỹ]", cell))
+        numeric_cells = sum(1 for cell in filled if re.fullmatch(r"[\d\s.,/%-]+", cell))
+        looks_like_header = alpha_cells >= max(1, len(filled) // 2) and numeric_cells <= len(filled) // 2
+        if not looks_like_header:
+            return [], rows
+        return first, rows[1:]
+
+    def _build_table_payload(self, *, table_id: str, page_idx: int, bbox: list | None, rows_raw: list, image_path: str, layout: dict | None = None, note: str = "") -> dict:
+        rows = self._normalize_table_rows(rows_raw or [])
+        headers, body_rows = self._infer_table_headers(rows)
+        caption = TextNormalizer.normalize_vietnamese(self._find_nearest_caption(bbox, layout) or "") if bbox and layout else ""
+        table_text = self._table_to_text([headers] + body_rows if headers else body_rows)
+        payload = {
+            "id": table_id,
+            "page": page_idx,
+            "bbox": bbox,
+            "caption": caption,
+            "headers": headers,
+            "rows": body_rows,
+            "text": table_text,
+            "image_path": image_path,
+        }
+        if note:
+            payload["note"] = note
+        return payload
+
     def _has_merged_cells(self, table: dict) -> bool:
         rows = table.get("rows", [])
         return any(cell is None for row in rows for cell in row)
@@ -171,6 +223,7 @@ class PDFEngine:
         page_tables: dict[int, list[dict]] = {}
         doc_base_name = os.path.basename(pdf_path).replace(".pdf", "")
         pages_needing_camelot = []
+        fitz_doc = fitz.open(pdf_path)
 
         with pdfplumber.open(pdf_path) as pdf:
             total_pages = len(pdf.pages)
@@ -179,6 +232,8 @@ class PDFEngine:
                     logger.info(f"   - [TABLE PROGRESS] Page {page_idx + 1}/{total_pages} analyzed...")
 
                 tables = []
+                page_has_merged_cells = False
+                layout = self._clean_bytes(fitz_doc.load_page(page_idx).get_text("dict"))
                 try:
                     found_tables = page.find_tables()
                 except Exception:
@@ -188,6 +243,8 @@ class PDFEngine:
                     for table_idx, table in enumerate(found_tables):
                         rows = table.extract() or []
                         if not rows: continue
+                        if any(cell is None for row in rows for cell in row):
+                            page_has_merged_cells = True
                         bbox = list(table.bbox) if table.bbox else None
                         img_path_rel = ""
                         if bbox:
@@ -198,16 +255,17 @@ class PDFEngine:
                                 img_path_rel = os.path.join("data/processed/table_imgs", doc_base_name, f"{table_id}.png")
                             except: pass
                             
-                        tables.append({
-                            "id": f"p{page_idx}_t{table_idx}",
-                            "page": page_idx,
-                            "bbox": bbox,
-                            "rows": rows,
-                            "text": self._table_to_text(rows),
-                            "image_path": img_path_rel
-                        })
+                        table_id = f"p{page_idx}_t{table_idx}"
+                        tables.append(self._build_table_payload(
+                            table_id=table_id,
+                            page_idx=page_idx,
+                            bbox=bbox,
+                            rows_raw=rows,
+                            image_path=img_path_rel,
+                            layout=layout,
+                        ))
                 
-                if any(self._has_merged_cells(t) for t in tables):
+                if page_has_merged_cells:
                     pages_needing_camelot.append(page_idx)
                 page_tables[page_idx] = tables
         
@@ -220,15 +278,19 @@ class PDFEngine:
                 for ct in camelot_tables_all:
                     p_idx = ct.page - 1
                     if p_idx in page_tables:
-                        page_tables[p_idx].append({
-                            "id": f"p{p_idx}_ct_{len(page_tables[p_idx])}",
-                            "page": p_idx,
-                            "rows": ct.df.values.tolist(),
-                            "text": self._table_to_text(ct.df.values.tolist()),
-                            "image_path": "",
-                            "note": "Extracted via Camelot Lattice"
-                        })
+                        layout = self._clean_bytes(fitz_doc.load_page(p_idx).get_text("dict"))
+                        table_id = f"p{p_idx}_ct_{len(page_tables[p_idx])}"
+                        page_tables[p_idx].append(self._build_table_payload(
+                            table_id=table_id,
+                            page_idx=p_idx,
+                            bbox=list(ct._bbox) if getattr(ct, "_bbox", None) else None,
+                            rows_raw=ct.df.values.tolist(),
+                            image_path="",
+                            layout=layout,
+                            note="Extracted via Camelot Lattice",
+                        ))
             except: pass
+        fitz_doc.close()
         return page_tables
 
     def _find_nearest_caption(self, bbox, layout_dict):

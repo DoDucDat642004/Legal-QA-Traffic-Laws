@@ -4,7 +4,12 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from src.data_pipeline.qa_generator import ALLOWED_DIFFICULTIES, ALLOWED_INTENTS, validate_qa_pair
+from src.data_pipeline.qa_generator import (
+    ALLOWED_DIFFICULTIES,
+    ALLOWED_INTENTS,
+    canonical_quote_text,
+    word_canonical_quote_text,
+)
 
 
 def _load_json(path: Path):
@@ -28,6 +33,48 @@ def _norm_question(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().lower())
 
 
+def _table_text(table: dict) -> str:
+    parts = [table.get("caption") or "", table.get("text") or ""]
+    headers = table.get("headers") or []
+    if headers:
+        parts.append(" | ".join(str(h) for h in headers if h is not None))
+    for row in table.get("rows") or []:
+        if isinstance(row, list):
+            parts.append(" | ".join(str(cell) for cell in row if cell is not None))
+    return "\n".join(p for p in parts if p)
+
+
+def _record_source_text(record: dict) -> str:
+    parts = [
+        record.get("source_body_exact") or "",
+        record.get("original_text") or "",
+        record.get("content") or "",
+        record.get("qa_context") or "",
+    ]
+    for table in record.get("tables") or []:
+        if isinstance(table, dict):
+            parts.append(_table_text(table))
+    for figure in record.get("figures") or []:
+        if isinstance(figure, dict):
+            parts.append(" ".join(str(figure.get(k) or "") for k in ("code", "name", "caption")))
+    return "\n".join(p for p in parts if p)
+
+
+def _strict_quote_in_cached_source(qa: dict, source_cache: tuple[str, str]) -> bool:
+    quote = (qa.get("quote") or "").strip()
+    answer = (qa.get("answer") or "").strip()
+    if not quote or len(quote) < 8:
+        return False
+    if not answer or len(answer) < 15:
+        return False
+    clean_source, word_source = source_cache
+    clean_quote = canonical_quote_text(quote)
+    if clean_quote and clean_quote in clean_source:
+        return True
+    word_quote = word_canonical_quote_text(quote)
+    return bool(word_quote and word_quote in word_source)
+
+
 def audit_qa_file(qa_path: Path, chunks_dir: Path, processed_dir: Path) -> dict:
     base = _base_from_qa(qa_path)
     qa_pairs = _load_json(qa_path)
@@ -38,16 +85,23 @@ def audit_qa_file(qa_path: Path, chunks_dir: Path, processed_dir: Path) -> dict:
 
     processed_path = processed_dir / f"{base}.pdf.extracted.json"
     records = _load_json(processed_path) if processed_path.exists() else []
-    source_by_chunk = {}
+    source_parts_by_chunk = {}
+    for chunk in chunks:
+        chunk_id = chunk.get("source_chunk_id")
+        if chunk_id:
+            source_parts_by_chunk.setdefault(chunk_id, []).append(chunk.get("text") or "")
     for record in records:
         chunk_id = record.get("source_chunk_id")
-        if chunk_id and chunk_id not in source_by_chunk:
-            source_by_chunk[chunk_id] = (
-                record.get("source_body_exact")
-                or record.get("original_text")
-                or record.get("content")
-                or ""
-            )
+        if chunk_id:
+            source_parts_by_chunk.setdefault(chunk_id, []).append(_record_source_text(record))
+    source_by_chunk = {
+        chunk_id: "\n".join(part for part in parts if part)
+        for chunk_id, parts in source_parts_by_chunk.items()
+    }
+    source_cache_by_chunk = {
+        chunk_id: (canonical_quote_text(source), word_canonical_quote_text(source))
+        for chunk_id, source in source_by_chunk.items()
+    }
 
     covered_chunk_ids = {q.get("source_chunk_id") for q in qa_pairs if q.get("source_chunk_id")}
     invalid_intents = []
@@ -70,8 +124,8 @@ def audit_qa_file(qa_path: Path, chunks_dir: Path, processed_dir: Path) -> dict:
         if not qa.get("search_queries"):
             no_search_queries.append(qa_id)
 
-        source = source_by_chunk.get(qa.get("source_chunk_id"), "")
-        if source and not validate_qa_pair(qa, source, qa.get("doc_name", "")):
+        source_cache = source_cache_by_chunk.get(qa.get("source_chunk_id"))
+        if source_cache and not _strict_quote_in_cached_source(qa, source_cache):
             invalid_quotes.append(qa_id)
         questions.append(_norm_question(qa.get("question", "")))
 
