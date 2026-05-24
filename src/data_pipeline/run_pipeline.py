@@ -15,7 +15,7 @@ project_root = os.path.abspath(os.path.join(current_dir, "../../"))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-load_dotenv(os.path.join(project_root, ".env"))
+load_dotenv(os.path.join(project_root, ".env"), override=True)
 
 from src.data_pipeline.extraction_audit_report import audit_file
 from src.data_pipeline.graph_exporter import export_graph

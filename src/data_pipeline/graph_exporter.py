@@ -16,6 +16,7 @@ CROSS_REF_RE = re.compile(
     r"(?:(điểm)\s+([a-zđ])\s+)?(?:(khoản)\s+(\d+)\s+)?điều\s+(\d+[a-z]?)",
     re.IGNORECASE,
 )
+NORMALIZED_SIGN_CODE_RE = re.compile(r"^(?:DP|IE|[PWRISE])\d{2,3}[A-ZĐ]?$", re.IGNORECASE)
 
 
 def _load_json(path: Path):
@@ -50,6 +51,62 @@ def _record_ref_key(record: dict) -> str:
 
 def _safe_id(value: str) -> str:
     return re.sub(r"[^0-9A-Za-zÀ-ỹ_:.|-]+", "_", str(value or "")).strip("_")
+
+
+def _record_sign_codes(record: dict) -> set[str]:
+    codes = set()
+    sign_info = record.get("sign_info") if isinstance(record.get("sign_info"), dict) else {}
+    for value in [
+        sign_info.get("sign_code"),
+        (record.get("legal_reference") or {}).get("figure"),
+        record.get("sign_code"),
+    ]:
+        normalized = normalize_sign_code(str(value or ""))
+        if normalized:
+            codes.add(normalized)
+    doc_name = str(record.get("doc_name") or (record.get("legal_reference") or {}).get("document") or "").lower()
+    record_id = str(record.get("id") or "")
+    if record_id and ("qcvn" in doc_name or "thông tư 51" in doc_name):
+        first = record_id.split("_", 1)[0]
+        normalized = normalize_sign_code(first)
+        if normalized and NORMALIZED_SIGN_CODE_RE.fullmatch(normalized):
+            codes.add(normalized)
+    return codes
+
+
+def _figures_for_record(record: dict) -> list[dict]:
+    figures = [fig for fig in (record.get("figures") or []) if isinstance(fig, dict)]
+    seen = set()
+    deduped = []
+    for fig in figures:
+        key = (fig.get("id"), normalize_sign_code(str(fig.get("code") or "")), fig.get("image_path"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(fig)
+
+    target_codes = _record_sign_codes(record)
+    if not target_codes:
+        return deduped
+    return [
+        fig
+        for fig in deduped
+        if normalize_sign_code(str(fig.get("code") or "")) in target_codes
+    ]
+
+
+def _tables_for_record(record: dict) -> list[dict]:
+    out = []
+    seen = set()
+    for table in record.get("tables") or []:
+        if not isinstance(table, dict) or not table.get("id"):
+            continue
+        key = (table.get("id"), table.get("page"), table.get("image_path"), table.get("text"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(table)
+    return out
 
 
 def _ensure_legal_hierarchy(nodes: dict, edges: list, record: dict, chunk_id: str) -> None:
@@ -215,10 +272,8 @@ def export_graph(processed_files: list[Path], out_path: Path) -> dict:
                 }
                 edges.append({"source": parent_id, "target": rid, "type": "PARENT_OF"})
 
-            for table in record.get("tables") or []:
-                if not isinstance(table, dict) or not table.get("id"):
-                    continue
-                table_id = f"table::{table['id']}"
+            for table in _tables_for_record(record):
+                table_id = f"table::{_safe_id(record.get('doc_name') or ref.get('document') or '')}::{_safe_id(table['id'])}"
                 nodes[table_id] = {
                     "id": table_id,
                     "type": "table",
@@ -231,8 +286,8 @@ def export_graph(processed_files: list[Path], out_path: Path) -> dict:
                 }
                 edges.append({"source": rid, "target": table_id, "type": "HAS_TABLE"})
 
-            for fig in record.get("figures") or []:
-                if not isinstance(fig, dict) or not fig.get("id"):
+            for fig in _figures_for_record(record):
+                if not fig.get("id"):
                     continue
                 fig_id = f"figure::{fig['id']}"
                 nodes[fig_id] = {

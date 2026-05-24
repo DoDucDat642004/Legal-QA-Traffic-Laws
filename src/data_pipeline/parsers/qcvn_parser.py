@@ -1,10 +1,13 @@
 import re
 import json
 import os
+import logging
 from typing import Optional
 from src.data_pipeline.text_normalizer import TextNormalizer
 from .decree_parser import DecreeParser
 from ..schemas import QCVNRuleList
+
+logger = logging.getLogger("QcvnParser")
 
 class QcvnParser(DecreeParser):
     """

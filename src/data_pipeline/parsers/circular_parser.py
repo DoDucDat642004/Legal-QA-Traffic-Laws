@@ -43,6 +43,7 @@ Return ONLY a JSON block. Use VIETNAMESE for all values.
 
 # CRITICAL CONSTRAINTS
 - **Legal Reference**: Do NOT use "Không xác định", "N/A", or "None". If a value is unknown, return an empty string "".
+- **Quantitative integers**: For numeric fields such as theory_hours, practice_hours, processing_time_days, total_training_hours, required_distance_km, return an integer only when the source states one exact number. If missing or unclear, return null, never "".
 - Accuracy: All numbers, time periods, and dossier items must be 100% accurate.
 - Prioritize images if text is garbled.
 """

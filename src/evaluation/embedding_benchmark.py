@@ -6,6 +6,10 @@ import statistics
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
 from src.rag.embedding_backends import make_embedder
 from src.rag.record_expander import load_expanded_records
 

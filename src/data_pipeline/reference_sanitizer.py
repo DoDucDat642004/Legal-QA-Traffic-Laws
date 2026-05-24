@@ -60,10 +60,26 @@ def sanitize_record_reference(record: dict, chunk: dict | None = None, doc_name:
         "point": chunk.get("point_key", ""),
     }
     for field in CORE_REF_FIELDS:
-        cleaned, changed = clean_value(ref.get(field), fallback_map[field])
+        raw_value = ref.get(field)
+        raw_text = "" if raw_value is None else str(raw_value).strip()
+        fallback_text = str(fallback_map[field] or "").strip()
+        has_marker = has_garbage_marker(raw_value)
+
+        if raw_text and not has_marker:
+            cleaned = raw_text
+            changed = False
+        elif fallback_text:
+            cleaned = fallback_text
+            changed = raw_text != fallback_text
+        else:
+            cleaned = ""
+            # Empty article/clause/point fields are valid for higher-level chunks.
+            # Only warn when we actually removed a garbage marker such as unknown/n/a.
+            changed = has_marker
+
         if changed and cleaned:
             warnings.append(f"REF_{field.upper()}_RECOVERED_FROM_CHUNK")
-        elif changed:
+        elif has_marker:
             warnings.append(f"REF_{field.upper()}_EMPTY_AFTER_SANITIZE")
         ref[field] = cleaned
 
@@ -97,11 +113,14 @@ def sanitize_record_reference(record: dict, chunk: dict | None = None, doc_name:
         existing = meta.get("warnings")
         if not isinstance(existing, list):
             existing = []
+        new_warnings = []
         for warning in warnings:
             if warning not in existing:
                 existing.append(warning)
+                new_warnings.append(warning)
         meta["warnings"] = existing
         record["extraction_meta"] = meta
+        warnings = new_warnings
 
     return record, warnings
 

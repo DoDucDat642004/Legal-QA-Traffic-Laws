@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=False)
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -41,5 +41,6 @@ class RAGStoreConfig:
     minio_secure: bool = _bool_env("MINIO_SECURE", False)
 
     embedding_model: str = os.getenv("RAG_EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    embedding_batch_size: int = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "32"))
     enable_embeddings: bool = _bool_env("RAG_ENABLE_EMBEDDINGS", False)
     allow_model_download: bool = _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False)

@@ -46,6 +46,19 @@ class CoverageValidator:
             return ""
         return value
 
+    def _has_garbage_marker(self, value) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, dict):
+            return any(self._has_garbage_marker(v) for v in value.values())
+        if isinstance(value, list):
+            return any(self._has_garbage_marker(v) for v in value)
+        text = str(value).strip().lower()
+        if not text:
+            return False
+        garbage_terms = ["không xác định", "n/a", "none", "unknown", "khh", "không biết", "null"]
+        return any(g == text or g in text for g in garbage_terms)
+
     def _coord_key(self, ref: dict) -> str:
         article = self._clean_ref_value(ref.get("article"))
         clause = self._clean_ref_value(ref.get("clause"))
@@ -115,12 +128,8 @@ class CoverageValidator:
         # Calculate quality signals
         total_records = len(extracted_records)
         garbage_records = 0
-        garbage_terms = ["không xác định", "n/a", "none", "unknown", "khh"]
-        
         for rec in extracted_records:
-            ref_str = str(rec.get("legal_reference", "")).lower()
-            content_str = str(rec.get("violation_content", "")).lower()
-            if any(g in ref_str for g in garbage_terms) or any(g in content_str for g in garbage_terms):
+            if self._has_garbage_marker(rec.get("legal_reference")) or self._has_garbage_marker(rec.get("violation_content")):
                 garbage_records += 1
         
         garbage_ratio = garbage_records / total_records if total_records > 0 else 0
@@ -130,10 +139,12 @@ class CoverageValidator:
             exp = expected[level]
             ext = extracted[level]
             missing = sorted(list(exp - ext))
-            score = (len(exp) - len(missing)) / len(exp) if exp else 1.0
+            covered = len(exp) - len(missing)
+            score = covered / len(exp) if exp else 1.0
             results[level] = {
                 "expected_count": len(exp),
                 "extracted_count": len(ext),
+                "covered_count": covered if exp else len(ext),
                 "missing": missing,
                 "score": score
             }
@@ -164,14 +175,25 @@ class CoverageValidator:
                 "expected_by_kind": {k: len(v) for k, v in expected_chunks["by_kind"].items()},
             }
 
-        # Overall score penalizes garbage and, when available, missing source chunks/coords.
-        base_coverage = min(r["score"] for r in results.values())
+        # Overall score penalizes garbage and, when available, prioritizes source
+        # chunk coverage over noisy raw-text hierarchy heuristics.
+        hierarchy_scores = [r["score"] for r in results.values() if r["expected_count"] > 0]
+        hierarchy_score = min(hierarchy_scores) if hierarchy_scores else 1.0
+        base_coverage = hierarchy_score
         if chunk_report:
-            base_coverage = min(
-                base_coverage,
-                chunk_report["chunk_coverage_score"],
-                chunk_report["coordinate_coverage_score"],
+            chunk_score = chunk_report["chunk_coverage_score"]
+            coord_score = chunk_report["coordinate_coverage_score"]
+            source_only_ratio = (
+                chunk_report["source_only_chunk_count"] / chunk_report["expected_chunk_count"]
+                if chunk_report["expected_chunk_count"]
+                else 0.0
             )
+            base_coverage = (
+                0.60 * chunk_score
+                + 0.25 * coord_score
+                + 0.15 * hierarchy_score
+            )
+            base_coverage = max(0.0, base_coverage - min(0.20, source_only_ratio * 0.50))
         overall_score = base_coverage * (1.0 - garbage_ratio)
         
         status = "ENTERPRISE_READY" if overall_score > 0.95 else "INCOMPLETE"

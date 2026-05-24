@@ -15,6 +15,16 @@ class Neo4jLegalGraphStore:
     def __init__(self, config: RAGStoreConfig | None = None):
         self.config = config or RAGStoreConfig()
         self.driver = self._driver()
+        try:
+            self.driver.verify_connectivity()
+        except Exception as exc:
+            self.driver.close()
+            raise RuntimeError(
+                "Cannot connect to Neo4j graph backend at "
+                f"{self.config.neo4j_uri}. Start it with "
+                "`docker compose -f docker-compose.rag.yml up -d neo4j` "
+                "and sync graph data, or run evaluation with RAG_GRAPH_BACKEND=local."
+            ) from exc
         self.loaded = True
 
     def _driver(self):

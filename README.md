@@ -1,142 +1,83 @@
-# Legal-QA Traffic Laws
+# 🚦 Vietnamese Traffic Law AI (Legal-QA-RAG)
 
-Hệ thống RAG cho tra cứu luật giao thông Việt Nam. Project tập trung vào trích xuất PDF pháp lý, lập catalog biển báo/bảng, lưu vector/graph/canonical records và đánh giá truy xuất bằng ground truth.
+Hệ thống hỏi đáp pháp luật giao thông đường bộ Việt Nam sử dụng kỹ thuật **RAG (Retrieval-Augmented Generation)** tiên tiến, kết hợp giữa Graph DB và Vector DB để cung cấp câu trả lời chính xác, có căn cứ pháp lý và minh họa bằng hình ảnh.
 
-## Kiến trúc
+## 🌟 Tính năng nổi bật
 
-1. `src/data_pipeline`: trích xuất PDF, chuẩn hóa Điều/Khoản/Điểm, bảng, hình và quan hệ tham chiếu.
-2. `src/rag`: truy xuất hybrid qua Qdrant/FAISS, graph expansion qua Neo4j/JSON, route riêng cho biển báo và bảng.
-3. `api`: FastAPI endpoint cho text, ảnh biển báo và bảng.
-4. `src/evaluation`: benchmark embedding và đánh giá RAG bằng Recall@k, MRR, ref hit, modality hit, latency.
+- **Hybrid Retrieval:** Kết hợp tìm kiếm ngữ nghĩa (FAISS) và tìm kiếm cấu trúc (Graph) để truy xuất Điều/Khoản chính xác.
+- **Đa phương thức (Multimodal):** Nhận diện biển báo giao thông qua hình ảnh tải lên.
+- **Xoay vòng Model thông minh:** Tự động chuyển đổi giữa Gemini 2.0 Flash, Flash-Lite và Gemma khi chạm ngưỡng giới hạn truy vấn (Quota).
+- **Căn cứ hình ảnh:** Hiển thị ảnh trích xuất trực tiếp từ QCVN 41:2024 và các Nghị định.
+- **Hỗ trợ 7 nguồn tài liệu mới nhất:**
+  - Nghị định 168/2024/NĐ-CP (Xử phạt)
+  - Luật Đường bộ 2024
+  - Luật Trật tự ATGT 2024 (Phần 1 & 2)
+  - QCVN 41:2024 (Biển báo & Vạch kẻ đường)
+  - Thông tư 35/2024/TT-BGTVT
+  - Nghị định 336/2025/NĐ-CP
 
-## Cấu trúc thư mục
+## 🏗️ Kiến trúc hệ thống
+
 ```text
-├── api/                # FastAPI app
-├── data/
-│   ├── raw/            # PDF và kết quả parse thô
-│   ├── processed/      # Legal records đã chuẩn hóa
-│   ├── graph/          # Legal graph JSON
-│   ├── qa_pairs/       # QA sinh từ dữ liệu pháp lý
-│   └── eval/           # Ground truth và report đánh giá
-├── scripts/            # Lệnh vận hành/đánh giá
-├── src/
-│   ├── data_pipeline/  # PDF extraction, parsers, audits, store sync
-│   ├── rag/            # Retriever, vector store, graph store, answer generation
-│   └── evaluation/     # Metrics, evaluator, embedding benchmark
-└── requirements.txt
+[Người dùng] <-> [Streamlit UI] <-> [FastAPI Backend]
+                                          |
+        ---------------------------------------------------
+        |                 |               |               |
+ [Query Planner]   [Vector Store]   [Graph Store]   [LLM Manager]
+ (Intent Analysis) (Semantic Search) (Legal Hierarchy) (Model Rotation)
 ```
 
-## Cài đặt
+## 🚀 Hướng dẫn cài đặt
+
+### 1. Yêu cầu hệ thống
+- Python 3.10+
+- RAM: Tối thiểu 8GB (để chạy FAISS và Sentence Transformers)
+
+### 2. Cài đặt môi trường
 ```bash
+# Clone dự án
+git clone https://github.com/your-username/Legal-QA-Traffic-Laws.git
+cd Legal-QA-Traffic-Laws
+
+# Tạo môi trường ảo
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Cài đặt thư viện
 pip install -r requirements.txt
 ```
 
-## RAG stores
-
-Mặc định hệ thống vẫn chạy local với FAISS/BM25 và graph JSON. Để chạy với store dịch vụ, dựng hạ tầng sau:
-
-```bash
-docker compose -f docker-compose.rag.yml up -d
+### 3. Cấu hình
+Tạo file `.env` tại thư mục gốc:
+```env
+GEMINI_API_KEY=your_api_key_here
+RAG_VECTOR_BACKEND=local
+RAG_GRAPH_BACKEND=local
 ```
 
-Tạo cấu hình từ mẫu:
-
+### 4. Chạy ứng dụng
 ```bash
-cp .env.rag.example .env
+# Chạy Backend (Cổng 8002)
+python -m uvicorn api.main:app --port 8002 --reload
+
+# Chạy Frontend (Cổng 7860/8501)
+streamlit run frontend/app.py
 ```
 
-Các backend chính:
+## ☁️ Triển khai (Deployment)
 
-- `Qdrant`: lưu dense vectors kèm payload filter theo `doc`, `article`, `modality`, `has_table`, `has_sign`, `sign_codes`.
-- `Neo4j`: lưu graph pháp lý `document -> article -> clause -> point -> table/figure/sign/reference`.
-- `PostgreSQL`: lưu canonical records, bảng đã parse theo rows/headers, sign catalog và bản sao expanded RAG records.
-- `MinIO`: lưu ảnh trang, crop biển báo, ảnh bảng.
+Dự án đã được tối ưu để chạy trên **Hugging Face Spaces** qua Docker:
+1. Tạo Space mới trên Hugging Face (SDK: Docker).
+2. Thêm `GEMINI_API_KEY` vào mục **Settings > Secrets**.
+3. Push toàn bộ code và thư mục `data/processed` lên Space.
 
-Nạp dữ liệu vào các store RAG:
+## 🛠️ Cấu trúc thư mục
 
-```bash
-python -m src.data_pipeline.rag_store_sync --dry-run
-python -m src.data_pipeline.rag_store_sync
-```
+- `api/`: Mã nguồn FastAPI Backend.
+- `frontend/`: Giao diện người dùng Streamlit.
+- `src/rag/`: Logic cốt lõi của hệ thống RAG (Retriever, Planner, Model Policy).
+- `data/processed/`: Dữ liệu pháp luật đã được trích xuất và index.
+- `scripts/`: Các script đánh giá và kiểm thử chất lượng câu trả lời.
 
-Hoặc chạy cùng pipeline:
-
-```bash
-python -m src.data_pipeline.run_pipeline --skip-extraction --skip-qa --sync-rag-stores
-```
-
-Khi muốn API đọc từ Qdrant/Neo4j, đặt:
-
-```bash
-export RAG_VECTOR_BACKEND=qdrant
-export RAG_GRAPH_BACKEND=neo4j
-export RAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-export RAG_EMBEDDING_BACKEND=auto
-```
-
-### Tối ưu local Intel Mac
-
-Trên Mac Intel/Core i9, cấu hình mặc định nên ưu tiên CPU ổn định:
-
-```bash
-export RAG_EMBEDDING_DEVICE=cpu
-export RAG_EMBEDDING_BATCH_SIZE=64
-export TOKENIZERS_PARALLELISM=false
-export OMP_NUM_THREADS=8
-export MKL_NUM_THREADS=8
-```
-
-Nếu đã cài `openvino` và `optimum-intel[openvino]`, có thể export model OpenVINO một lần:
-
-```bash
-RAG_EMBEDDING_BACKEND=openvino \
-RAG_OPENVINO_EXPORT=true \
-RAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 \
-python -m src.evaluation.embedding_benchmark --backend openvino --limit 64
-```
-
-Sau đó chạy backend `auto` hoặc `openvino`. Nếu OpenVINO chưa sẵn sàng, `auto` sẽ fallback về SentenceTransformers.
-
-Khi trả lời bằng Gemini, hệ thống sẽ thử `RAG_ANSWER_MODEL` trước, rồi tự fallback sang `RAG_ANSWER_FALLBACK_MODELS`
-nếu model đầu bị hết quota/rate limit. Mặc định fallback là `gemma-4-31b-it`.
-
-Chạy đánh giá RAG:
-
-```bash
-RETRIEVAL_ONLY=1 NO_RERANKER=1 scripts/run_rag_evaluation.sh
-```
-
-Kết quả nằm trong `data/eval/reports/rag_eval_*`, gồm summary, failures, manifest môi trường và embedding benchmark.
-
-## Pipeline trích xuất dữ liệu luật
-
-Pipeline chuẩn hóa dữ liệu theo các tầng:
-
-1. `PDF -> text layer/OCR fallback`
-2. `clean -> chapter/article/clause/point`
-3. `context-preserving chunks`
-4. `cross-reference graph`
-5. `deterministic QA pairs`
-
-### Chạy pipeline
-```bash
-python -m src.data_pipeline.run_pipeline
-```
-
-Chỉ trích xuất dữ liệu cấu trúc:
-```bash
-python -m src.data_pipeline.run_pipeline --skip-qa
-```
-
-### Output chính
-
-- `data/processed/*.extracted.json`: legal records đã chuẩn hóa theo từng văn bản.
-- `data/chunks/*.chunks.jsonl`: chunk nguồn giữ ngữ cảnh, bảng, hình và tọa độ trang.
-- `data/graph/legal_graph.json`: graph tham chiếu giữa văn bản, điều khoản, bảng và biển báo.
-- `data/qa_pairs/*.qa.json`: bộ câu hỏi đáp sinh tự động bám đúng điều khoản.
-
-### Ghi chú OCR
-
-- Pipeline tự ưu tiên `tesseract` với ngôn ngữ `vie` nếu máy có sẵn.
-- Nếu máy chưa có `vie`, pipeline sẽ fallback sang `eng`; vẫn nhận diện được cấu trúc `Điều/Khoản/Điểm` cho PDF scan nhưng độ chính xác tiếng Việt sẽ thấp hơn.
-- Với các PDF scan quan trọng như `168-nd-cp.signed.pdf` và `336nd.signed.pdf`, nên cài thêm `vie.traineddata` để tối đa độ chính xác.
+## ⚖️ Giấy phép & Tuyên bố miễn trừ
+Dự án được phát triển cho mục đích tra cứu hỗ trợ. Người dùng nên đối chiếu với văn bản pháp luật gốc trên Cổng Thông tin điện tử Chính phủ khi thực hiện các thủ tục hành chính.
