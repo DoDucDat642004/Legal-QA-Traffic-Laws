@@ -1,3 +1,13 @@
+---
+title: LuatGiaoThongDuongBoAI
+emoji: 🚦
+colorFrom: green
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
+
 # 🚦 Vietnamese Traffic Law AI (Legal-QA-RAG)
 
 Hệ thống hỏi đáp pháp luật giao thông đường bộ Việt Nam sử dụng kỹ thuật **RAG (Retrieval-Augmented Generation)** tiên tiến, kết hợp giữa Graph DB và Vector DB để cung cấp câu trả lời chính xác, có căn cứ pháp lý và minh họa bằng hình ảnh.
