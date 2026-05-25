@@ -6,16 +6,6 @@ API_PORT="${API_PORT:-8002}"
 STREAMLIT_HOST="${STREAMLIT_HOST:-0.0.0.0}"
 STREAMLIT_PORT="${PORT:-${STREAMLIT_PORT:-7860}}"
 
-if [[ "${TRAFFIC_LAW_FORCE_LOCAL_RETRIEVAL:-false}" =~ ^(1|true|yes|on)$ ]]; then
-  export RAG_VECTOR_BACKEND=local
-  export RAG_ENABLE_EMBEDDINGS=false
-  export RAG_ALLOW_MODEL_DOWNLOAD=false
-  export RAG_ENABLE_RERANKER=false
-  export RAG_STRICT_VECTOR_BACKEND=false
-  export HF_HUB_OFFLINE=1
-  export TRANSFORMERS_OFFLINE=1
-fi
-
 export TRAFFIC_LAW_API_URL="${TRAFFIC_LAW_API_URL:-http://127.0.0.1:${API_PORT}}"
 
 cleanup() {

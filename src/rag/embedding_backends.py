@@ -51,16 +51,6 @@ def _model_cache_dir(model_name: str) -> Path:
     return model_dir
 
 
-def _sentence_transformer_model_dir(model_name: str) -> Path:
-    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", model_name).strip("_")
-    model_dir = Path(
-        os.getenv("RAG_SENTENCE_TRANSFORMER_MODEL_DIR", f"data/models/sentence-transformers/{slug}")
-    ).expanduser()
-    if not model_dir.is_absolute():
-        model_dir = Path(__file__).resolve().parents[2] / model_dir
-    return model_dir
-
-
 def _looks_like_lfs_pointer(path: Path) -> bool:
     try:
         if not path.is_file() or path.stat().st_size > 2048:
@@ -115,30 +105,20 @@ class SentenceTransformerEmbedder:
         from sentence_transformers import SentenceTransformer
 
         allow_model_download = _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False)
-        if allow_model_download:
-            os.environ.pop("HF_HUB_OFFLINE", None)
-            os.environ.pop("TRANSFORMERS_OFFLINE", None)
-        else:
+        if not allow_model_download:
             # Enforce offline mode if downloads are restricted
             os.environ.setdefault("HF_HUB_OFFLINE", "1")
             os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
-        packaged_model_path = _sentence_transformer_model_dir(model_name)
-        explicit_model_path = Path(model_name).expanduser()
-        if packaged_model_path.exists():
-            source = packaged_model_path
-        elif explicit_model_path.exists():
-            source = explicit_model_path
-        else:
-            source = model_name
-        kwargs: dict[str, Any] = {"local_files_only": isinstance(source, Path) or not allow_model_download}
+        local_model_path = Path(model_name).expanduser()
+        kwargs: dict[str, Any] = {"local_files_only": not allow_model_download}
         
         device = os.getenv("RAG_EMBEDDING_DEVICE")
         if device:
             kwargs["device"] = device
 
         self.model = SentenceTransformer(
-            str(source),
+            str(local_model_path) if local_model_path.exists() else model_name,
             **kwargs,
         )
 
@@ -250,10 +230,7 @@ class OpenVINOEmbedder:
             ) from exc
 
         allow_model_download = _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False)
-        if allow_model_download:
-            os.environ.pop("HF_HUB_OFFLINE", None)
-            os.environ.pop("TRANSFORMERS_OFFLINE", None)
-        else:
+        if not allow_model_download:
             os.environ.setdefault("HF_HUB_OFFLINE", "1")
             os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
@@ -413,20 +390,7 @@ def make_embedder(model_name: str) -> Embedder:
     backend = os.getenv("RAG_EMBEDDING_BACKEND", DEFAULT_EMBEDDING_BACKEND).strip().lower()
 
     if backend in {"openvino", "ov"}:
-        try:
-            return OpenVINOEmbedder(model_name)
-        except Exception as exc:
-            fallback_enabled = _bool_env(
-                "RAG_OPENVINO_FALLBACK_TO_SENTENCE_TRANSFORMERS",
-                _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False),
-            )
-            if not fallback_enabled:
-                raise
-            logger.warning(
-                "OpenVINO embedding backend unavailable; falling back to SentenceTransformers: %s",
-                exc,
-            )
-            return SentenceTransformerEmbedder(model_name)
+        return OpenVINOEmbedder(model_name)
 
     if backend == "auto":
         model_dir = _model_cache_dir(model_name)
