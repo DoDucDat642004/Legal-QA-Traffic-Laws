@@ -1,0 +1,489 @@
+[
+  {
+    "id": "36-2024-qh15-0001",
+    "source": {
+      "type": "handmade",
+      "file": "36-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Theo Luật Trật tự, an toàn giao thông đường bộ 2024, 'Thiết bị an toàn cho trẻ em' sử dụng trên xe ô tô được định nghĩa như thế nào?",
+    "gold_answer": "Thiết bị an toàn cho trẻ em là thiết bị có đủ khả năng bảo đảm an toàn cho trẻ em ở tư thế ngồi hoặc nằm trên xe ô tô, được thiết kế để giảm nguy cơ chấn thương cho người dùng trong trường hợp xảy ra va chạm hoặc xe ô tô giảm tốc độ đột ngột, bằng cách hạn chế sự di chuyển của cơ thể trẻ em.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "2",
+        "clause": "13",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 13 Điều 2 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": ["luat_ttatgt_36_2024_2_13_0_abc001"],
+    "acceptable_chunks": ["luat_ttatgt_36_2024_2_13_0_abc001"],
+    "reference_quote": "13. Thiết bị an toàn cho trẻ em là thiết bị có đủ khả năng bảo đảm an toàn cho trẻ em ở tư thế ngồi hoặc nằm trên xe ô tô, được thiết kế để giảm nguy cơ chấn thương cho người dùng trong trường hợp xảy ra va chạm hoặc xe ô tô giảm tốc độ đột ngột, bằng cách hạn chế sự di chuyển của cơ thể trẻ em.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Thiết bị an toàn cho trẻ em là thiết bị bảo đảm an toàn cho trẻ ngồi/nằm trên ô tô, thiết kế giảm chấn thương khi va chạm hoặc giảm tốc đột ngột bằng cách hạn chế di chuyển cơ thể.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "2",
+            "clause": "13",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 13 Điều 2"
+          }
+        ],
+        "support_quote": "thiết bị có đủ khả năng bảo đảm an toàn cho trẻ em ở tư thế ngồi hoặc nằm trên xe ô tô, được thiết kế để giảm nguy cơ chấn thương cho người dùng trong trường hợp xảy ra va chạm hoặc xe ô tô giảm tốc độ đột ngột, bằng cách hạn chế sự di chuyển của cơ thể trẻ em"
+      }
+    ],
+    "required_citations": ["Khoản 13 Điều 2"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_ttatgt_36_2024_2_13_0_abc001",
+          "record_id": "Dinh_nghia_thiet_bi_tre_em",
+          "score": 5.0,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Luật Trật tự, an toàn giao thông đường bộ",
+            "article": "2",
+            "clause": "13"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15-0002",
+    "source": {
+      "type": "handmade",
+      "file": "36-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Tại một ngã tư, tín hiệu đèn giao thông đang là màu đỏ. Đồng thời, có một biển báo hiệu tạm thời chỉ hướng rẽ phải và một Cảnh sát giao thông đang đứng giữa ngã tư giơ gậy chỉ huy ra hiệu lệnh cho phép các phương tiện đi thẳng. Tình huống này khá phức tạp, người tham gia giao thông bắt buộc phải ưu tiên chấp hành theo hiệu lệnh của ai hoặc biển báo nào?",
+    "gold_answer": "Người tham gia giao thông bắt buộc phải chấp hành theo hiệu lệnh của Cảnh sát giao thông (tức là được phép đi thẳng). Theo quy định của Luật Trật tự, an toàn giao thông đường bộ, thứ tự ưu tiên chấp hành báo hiệu đường bộ từ cao xuống thấp là: (1) Hiệu lệnh của người điều khiển giao thông; (2) Tín hiệu đèn giao thông; (3) Biển báo hiệu đường bộ.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "11",
+        "clause": "2",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 2 Điều 11 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": ["luat_ttatgt_36_2024_11_2_a_def002"],
+    "acceptable_chunks": ["luat_ttatgt_36_2024_11_2_a_def002"],
+    "reference_quote": "2. Người tham gia giao thông đường bộ phải chấp hành báo hiệu đường bộ theo thứ tự ưu tiên từ trên xuống dưới như sau: a) Hiệu lệnh của người điều khiển giao thông; b) Tín hiệu đèn giao thông; c) Biển báo hiệu đường bộ...",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Người tham gia giao thông phải ưu tiên chấp hành hiệu lệnh của người điều khiển giao thông cao nhất.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "11",
+            "clause": "2",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 2 Điều 11"
+          }
+        ],
+        "support_quote": "chấp hành báo hiệu đường bộ theo thứ tự ưu tiên từ trên xuống dưới như sau: a) Hiệu lệnh của người điều khiển giao thông; b) Tín hiệu đèn giao thông; c) Biển báo hiệu đường bộ"
+      }
+    ],
+    "required_citations": ["Khoản 2 Điều 11"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_ttatgt_36_2024_11_2_a_def002",
+          "record_id": "Thu_tu_uu_tien_bao_hieu",
+          "score": 4.9,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Trật tự, an toàn giao thông đường bộ",
+            "article": "11",
+            "clause": "2",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15-0003",
+    "source": {
+      "type": "handmade",
+      "file": "36-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Vào lúc 23h30 đêm, anh A lái xe tải lưu thông trong khu đô thị đông dân cư và muốn vượt một chiếc xe con đang đi chậm phía trước. Anh A định bóp còi để báo hiệu xin vượt. Việc dùng còi xin vượt trong trường hợp và thời điểm này có được phép không? Pháp luật quy định tài xế phải ra tín hiệu như thế nào?",
+    "gold_answer": "Việc anh A dùng còi để xin vượt vào lúc 23h30 trong khu đô thị là vi phạm pháp luật. Theo Luật Trật tự, an toàn giao thông đường bộ, trong đô thị và khu đông dân cư, trong thời gian từ 22 giờ ngày hôm trước đến 05 giờ ngày hôm sau, người lái xe chỉ được báo hiệu xin vượt bằng đèn (nhấp nháy đèn chiếu sáng phía trước). Hơn nữa, việc sử dụng còi trong khung giờ này tại khu đông dân cư cũng bị nghiêm cấm, trừ xe ưu tiên.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "14",
+        "clause": "5",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 5 Điều 14 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      },
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "21",
+        "clause": "2",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 2 Điều 21 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": [
+      "luat_ttatgt_36_2024_14_5_0_ghi003",
+      "luat_ttatgt_36_2024_21_2_0_klm004"
+    ],
+    "acceptable_chunks": [
+      "luat_ttatgt_36_2024_14_5_0_ghi003",
+      "luat_ttatgt_36_2024_21_2_0_klm004"
+    ],
+    "reference_quote": "(Điều 14 Khoản 5) trong đô thị và khu đông dân cư trong thời gian từ 22 giờ ngày hôm trước đến 05 giờ ngày hôm sau chỉ được báo hiệu xin vượt bằng đèn. \n(Điều 21 Khoản 2) Không sử dụng còi liên tục... không sử dụng còi trong thời gian từ 22 giờ ngày hôm trước đến 05 giờ ngày hôm sau trong khu đông dân cư... trừ xe ưu tiên.",
+    "expected_numbers": ["23h30", "22", "05"],
+    "required_claims": [
+      {
+        "claim": "Không được dùng còi để xin vượt từ 22h đêm đến 5h sáng trong khu đô thị/đông dân cư.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "14",
+            "clause": "5",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 5 Điều 14"
+          }
+        ],
+        "support_quote": "trong đô thị và khu đông dân cư trong thời gian từ 22 giờ ngày hôm trước đến 05 giờ ngày hôm sau chỉ được báo hiệu xin vượt bằng đèn"
+      },
+      {
+        "claim": "Việc sử dụng còi từ 22h đến 5h sáng bị nghiêm cấm trong khu đông dân cư (trừ xe ưu tiên).",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "21",
+            "clause": "2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 2 Điều 21"
+          }
+        ],
+        "support_quote": "không sử dụng còi trong thời gian từ 22 giờ ngày hôm trước đến 05 giờ ngày hôm sau trong khu đông dân cư... trừ xe ưu tiên"
+      }
+    ],
+    "required_citations": ["Khoản 5 Điều 14", "Khoản 2 Điều 21"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_ttatgt_36_2024_14_5_0_ghi003",
+          "record_id": "Xin_vuot_trong_do_thi",
+          "score": 4.8,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Luật Trật tự, an toàn giao thông đường bộ",
+            "article": "14",
+            "clause": "5"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15-0004",
+    "source": {
+      "type": "handmade",
+      "file": "36-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Bác C năm nay 56 tuổi (Nam) và cô D năm nay 54 tuổi (Nữ). Cả hai đều có Giấy phép lái xe hạng D (theo hệ thống luật mới) và muốn xin vào công ty vận tải để lái xe khách giường nằm trên 29 chỗ. Dựa theo Luật Trật tự an toàn giao thông đường bộ 2024, suy luận xem bác C và cô D có đủ điều kiện về độ tuổi để tiếp tục hành nghề lái loại xe này không?",
+    "gold_answer": "Cả bác C và cô D đều đủ điều kiện về độ tuổi để điều khiển xe ô tô chở người giường nằm (trên 29 chỗ). Theo Luật quy định, tuổi tối đa của người lái xe ô tô chở người (kể cả xe buýt) trên 29 chỗ, xe ô tô chở người giường nằm là đủ 57 tuổi đối với nam và đủ 55 tuổi đối với nữ. Bác C mới 56 tuổi và cô D 54 tuổi nên vẫn nằm trong độ tuổi được phép.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "59",
+        "clause": "1",
+        "point": "e",
+        "section": "",
+        "raw": "Điểm e Khoản 1 Điều 59 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": ["luat_ttatgt_36_2024_59_1_e_nop005"],
+    "acceptable_chunks": ["luat_ttatgt_36_2024_59_1_e_nop005"],
+    "reference_quote": "e) Tuổi tối đa của người lái xe ô tô chở người (kể cả xe buýt) trên 29 chỗ (không kể chỗ của người lái xe), xe ô tô chở người giường nằm là đủ 57 tuổi đối với nam, đủ 55 tuổi đối với nữ.",
+    "expected_numbers": ["56", "54", "29", "57", "55"],
+    "required_claims": [
+      {
+        "claim": "Tuổi tối đa lái xe khách trên 29 chỗ, giường nằm là đủ 57 tuổi với nam và đủ 55 tuổi với nữ.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "59",
+            "clause": "1",
+            "point": "e",
+            "section": "",
+            "raw": "Điểm e Khoản 1 Điều 59"
+          }
+        ],
+        "support_quote": "Tuổi tối đa của người lái xe ô tô chở người... trên 29 chỗ... xe ô tô chở người giường nằm là đủ 57 tuổi đối với nam, đủ 55 tuổi đối với nữ"
+      },
+      {
+        "claim": "Bác C 56 tuổi (Nam) và cô D 54 tuổi (Nữ) đều chưa vượt quá tuổi tối đa nên đủ điều kiện.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "59",
+            "clause": "1",
+            "point": "e",
+            "section": "",
+            "raw": "Điểm e Khoản 1 Điều 59"
+          }
+        ],
+        "support_quote": "Tuổi tối đa của người lái xe... là đủ 57 tuổi đối với nam, đủ 55 tuổi đối với nữ."
+      }
+    ],
+    "required_citations": ["Điểm e Khoản 1 Điều 59"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_ttatgt_36_2024_59_1_e_nop005",
+          "record_id": "Do_tuoi_toi_da_lai_xe_29_cho",
+          "score": 4.7,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Trật tự, an toàn giao thông đường bộ",
+            "article": "59",
+            "clause": "1",
+            "point": "e"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15-0005",
+    "source": {
+      "type": "handmade",
+      "file": "36-2024-qh15_tiep.pdf",
+      "index": 1
+    },
+    "question": "Anh H trúng đấu giá một biển số xe ô tô, đã nộp đủ tiền và được cơ quan chức năng cấp quyết định xác nhận biển số xe trúng đấu giá. Thật không may, 10 tháng sau anh H qua đời đột ngột trong khi anh vẫn chưa mua xe và chưa thực hiện thủ tục đăng ký xe để gắn biển số đó. Tình huống này giải quyết ra sao? Kết quả trúng đấu giá có bị hủy không và quyền lợi của gia đình/người thừa kế của anh H đối với số tiền đã nộp được quy định như thế nào?",
+    "gold_answer": "Trong trường hợp này, kết quả trúng đấu giá biển số xe của anh H sẽ bị hủy. Do anh H đã được cấp quyết định xác nhận biển số xe trúng đấu giá nhưng chết trong thời hạn 12 tháng kể từ ngày được cấp quyết định mà chưa thực hiện thủ tục đăng ký xe. Tuy nhiên, người thừa kế theo quy định của pháp luật về thừa kế của anh H sẽ được nhận lại đủ số tiền trúng đấu giá mà anh H đã nộp.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "38",
+        "clause": "1",
+        "point": "đ",
+        "section": "",
+        "raw": "Điểm đ Khoản 1 Điều 38 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": ["luat_ttatgt_36_2024_38_1_đ_qrs006"],
+    "acceptable_chunks": ["luat_ttatgt_36_2024_38_1_đ_qrs006"],
+    "reference_quote": "đ) Trong thời hạn 12 tháng kể từ ngày được cấp quyết định xác nhận biển số xe trúng đấu giá, nếu người trúng đấu giá chết nhưng chưa thực hiện thủ tục đăng ký xe để gắn biển số xe trúng đấu giá thì kết quả trúng đấu giá sẽ bị hủy, người thừa kế theo quy định của pháp luật về thừa kế được nhận đủ số tiền trúng đấu giá mà người trúng đấu giá đã nộp.",
+    "expected_numbers": ["10", "12"],
+    "required_claims": [
+      {
+        "claim": "Kết quả trúng đấu giá biển số bị hủy vì anh H mất trong thời hạn 12 tháng từ khi có quyết định xác nhận mà chưa đăng ký xe.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "38",
+            "clause": "1",
+            "point": "đ",
+            "section": "",
+            "raw": "Điểm đ Khoản 1 Điều 38"
+          }
+        ],
+        "support_quote": "Trong thời hạn 12 tháng kể từ ngày được cấp quyết định xác nhận biển số xe trúng đấu giá, nếu người trúng đấu giá chết nhưng chưa thực hiện thủ tục đăng ký xe... thì kết quả trúng đấu giá sẽ bị hủy"
+      },
+      {
+        "claim": "Người thừa kế hợp pháp được hoàn trả lại đủ toàn bộ số tiền trúng đấu giá đã nộp.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "38",
+            "clause": "1",
+            "point": "đ",
+            "section": "",
+            "raw": "Điểm đ Khoản 1 Điều 38"
+          }
+        ],
+        "support_quote": "người thừa kế theo quy định của pháp luật về thừa kế được nhận đủ số tiền trúng đấu giá mà người trúng đấu giá đã nộp"
+      }
+    ],
+    "required_citations": ["Điểm đ Khoản 1 Điều 38"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_ttatgt_36_2024_38_1_đ_qrs006",
+          "record_id": "Nguoi_trung_dau_gia_bien_chet",
+          "score": 5.0,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Trật tự, an toàn giao thông đường bộ",
+            "article": "38",
+            "clause": "1",
+            "point": "đ"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15-0006",
+    "source": {
+      "type": "handmade",
+      "file": "36-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Giấy phép lái xe theo hệ thống mới phân hạng như thế nào đối với người khuyết tật muốn tự điều khiển xe ô tô số tự động có kết cấu phù hợp? Suy luận: Khác biệt gì so với người khuyết tật lái xe mô tô ba bánh?",
+    "gold_answer": "Theo Luật Trật tự, an toàn giao thông đường bộ 2024, người khuyết tật điều khiển xe ô tô số tự động có kết cấu phù hợp với tình trạng khuyết tật thì được cấp giấy phép lái xe hạng B. Trong khi đó, nếu người khuyết tật điều khiển xe mô tô ba bánh dùng cho người khuyết tật thì được cấp giấy phép lái xe hạng A1.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+        "article": "57",
+        "clause": "2",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 2 Điều 57 Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": ["luat_ttatgt_36_2024_57_2_0_tuv007"],
+    "acceptable_chunks": ["luat_ttatgt_36_2024_57_2_0_tuv007"],
+    "reference_quote": "2. Người khuyết tật điều khiển xe mô tô ba bánh dùng cho người khuyết tật được cấp giấy phép lái xe hạng A1. Người khuyết tật điều khiển xe ô tô số tự động có kết cấu phù hợp với tình trạng khuyết tật thì được cấp giấy phép lái xe hạng B.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Người khuyết tật điều khiển xe ô tô số tự động phù hợp với tình trạng khuyết tật được cấp GPLX hạng B.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "57",
+            "clause": "2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 2 Điều 57"
+          }
+        ],
+        "support_quote": "Người khuyết tật điều khiển xe ô tô số tự động có kết cấu phù hợp với tình trạng khuyết tật thì được cấp giấy phép lái xe hạng B."
+      },
+      {
+        "claim": "Người khuyết tật điều khiển mô tô ba bánh dùng cho người khuyết tật được cấp GPLX hạng A1.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự, an toàn giao thông đường bộ 36/2024/QH15",
+            "article": "57",
+            "clause": "2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 2 Điều 57"
+          }
+        ],
+        "support_quote": "Người khuyết tật điều khiển xe mô tô ba bánh dùng cho người khuyết tật được cấp giấy phép lái xe hạng A1."
+      }
+    ],
+    "required_citations": ["Khoản 2 Điều 57"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_ttatgt_36_2024_57_2_0_tuv007",
+          "record_id": "GPLX_nguoi_khuyet_tat",
+          "score": 4.6,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Luật Trật tự, an toàn giao thông đường bộ",
+            "article": "57",
+            "clause": "2"
+          }
+        }
+      ]
+    }
+  }
+]

@@ -1,0 +1,577 @@
+[
+  {
+    "id": "336-nd-cp-0001",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/336-2025-nd-cp.signed.json",
+      "index": 1
+    },
+    "question": "Theo Nghị định 336/2025/NĐ-CP, mức phạt tiền tối đa trong hoạt động đường bộ thuộc lĩnh vực giao thông đường bộ đối với cá nhân và tổ chức được quy định là bao nhiêu?",
+    "gold_answer": "Mức phạt tiền tối đa trong hoạt động đường bộ thuộc lĩnh vực giao thông đường bộ đối với cá nhân là 75.000.000 đồng và đối với tổ chức là 150.000.000 đồng.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "3",
+        "clause": "1",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 1 Điều 3 Nghị định 336/2025/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghi_dinh_336_2025_nd_cp_3_1_0_abcd01"],
+    "acceptable_chunks": ["nghi_dinh_336_2025_nd_cp_3_1_0_abcd01"],
+    "reference_quote": "1. Mức phạt tiền tối đa trong hoạt động đường bộ thuộc lĩnh vực giao thông đường bộ đối với cá nhân là 75.000.000 đồng và đối với tổ chức là 150.000.000 đồng.",
+    "expected_numbers": ["75.000.000", "150.000.000"],
+    "required_claims": [
+      {
+        "claim": "Mức phạt tiền tối đa đối với cá nhân là 75.000.000 đồng.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "3",
+            "clause": "1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 1 Điều 3 Nghị định 336/2025/NĐ-CP"
+          }
+        ],
+        "support_quote": "mức phạt tiền tối đa... đối với cá nhân là 75.000.000 đồng"
+      },
+      {
+        "claim": "Mức phạt tiền tối đa đối với tổ chức là 150.000.000 đồng.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "3",
+            "clause": "1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 1 Điều 3 Nghị định 336/2025/NĐ-CP"
+          }
+        ],
+        "support_quote": "và đối với tổ chức là 150.000.000 đồng"
+      }
+    ],
+    "required_citations": ["Khoản 1 Điều 3"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghi_dinh_336_2025_nd_cp_3_1_0_abcd01",
+          "record_id": "Muc_phat_toi_da_001",
+          "score": 4.8,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 336/2025/NĐ-CP",
+            "article": "3",
+            "clause": "1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "336-nd-cp-0002",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/336-2025-nd-cp.signed.json",
+      "index": 2
+    },
+    "question": "Ông A tự ý trồng một cây to trong phạm vi hành lang an toàn đường bộ che khuất hoàn toàn tầm nhìn biển báo hiệu đường bộ. Đồng thời, ông A cũng đặt một biển quảng cáo trên đất của đường bộ ở đoạn đường ngoài đô thị. Hỏi ông A sẽ phải chịu các mức phạt tiền nào và biện pháp khắc phục hậu quả ra sao đối với hai hành vi trên?",
+    "gold_answer": "Ông A sẽ bị phạt tiền từ 500.000 đồng đến 1.000.000 đồng cho hành vi trồng cây che khuất biển báo hiệu đường bộ. Đối với hành vi đặt biển quảng cáo trên đất đường bộ ngoài đô thị, ông bị phạt từ 1.000.000 đồng đến 2.000.000 đồng. Biện pháp khắc phục hậu quả là ông A buộc phải di dời cây trồng che khuất biển báo và buộc thu dọn biển hiệu, bảng quảng cáo.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "5",
+        "clause": "1",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 1 Điều 5 Nghị định 336/2025/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "5",
+        "clause": "2",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 2 Điều 5 Nghị định 336/2025/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "5",
+        "clause": "7",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 7 Điều 5 Nghị định 336/2025/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "5",
+        "clause": "7",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 7 Điều 5 Nghị định 336/2025/NĐ-CP"
+      }
+    ],
+    "expected_chunks": [
+      "nghi_dinh_336_2025_nd_cp_5_1_0_abcd02",
+      "nghi_dinh_336_2025_nd_cp_5_2_c_abcd03",
+      "nghi_dinh_336_2025_nd_cp_5_7_a_abcd04"
+    ],
+    "acceptable_chunks": [
+      "nghi_dinh_336_2025_nd_cp_5_1_0_abcd02",
+      "nghi_dinh_336_2025_nd_cp_5_7_a_abcd04"
+    ],
+    "reference_quote": "1. Phạt tiền từ 500.000 đồng đến 1.000.000 đồng đối với cá nhân... thực hiện hành vi vi phạm trồng cây trong phạm vi hành lang an toàn đường bộ làm che khuất tầm nhìn của người điều khiển phương tiện giao thông hoặc che lấp báo hiệu đường bộ... 2. Phạt tiền từ 1.000.000 đồng đến 2.000.000 đồng đối với cá nhân... c) Đặt, treo biển hiệu, bảng quảng cáo trên đất của đường bộ ở đoạn đường ngoài đô thị... 7. Ngoài việc bị áp dụng hình thức xử phạt... a) Thực hiện hành vi vi phạm quy định tại khoản 1 Điều này buộc di dời cây trồng... c) Thực hiện hành vi vi phạm quy định tại điểm b, điểm c khoản 2 Điều này buộc thu dọn băng rôn, biển hiệu, bảng quảng cáo;",
+    "expected_numbers": ["500.000", "1.000.000", "2.000.000"],
+    "required_claims": [
+      {
+        "claim": "Phạt 500.000 - 1.000.000 đồng đối với hành vi trồng cây che lấp biển báo.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "5",
+            "clause": "1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 1 Điều 5"
+          }
+        ],
+        "support_quote": "Phạt tiền từ 500.000 đồng đến 1.000.000 đồng đối với cá nhân... trồng cây trong phạm vi hành lang an toàn đường bộ làm che khuất... báo hiệu đường bộ"
+      },
+      {
+        "claim": "Buộc di dời cây trồng che khuất biển báo và thu dọn biển quảng cáo.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "5",
+            "clause": "7",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a, c Khoản 7 Điều 5"
+          }
+        ],
+        "support_quote": "buộc di dời cây trồng che khuất tầm nhìn... buộc thu dọn băng rôn, biển hiệu, bảng quảng cáo"
+      }
+    ],
+    "required_citations": [
+      "Khoản 1 Điều 5",
+      "Điểm c Khoản 2 Điều 5",
+      "Điểm a, c Khoản 7 Điều 5"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghi_dinh_336_2025_nd_cp_5_1_0_abcd02",
+          "record_id": "Vi_pham_hanh_lang_cay_trong",
+          "score": 4.7,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 336/2025/NĐ-CP",
+            "article": "5",
+            "clause": "1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "336-nd-cp-0003",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/336-2025-nd-cp.signed.json",
+      "index": 3
+    },
+    "question": "Một công ty xây dựng thi công sửa chữa trên tuyến đường bộ đang khai thác vào ban đêm nhưng lại không đặt đèn cảnh báo giao thông và chiếu sáng ban đêm. Chủ tịch UBND cấp xã có phát hiện vụ việc. Xin hỏi công ty này sẽ bị phạt mức tiền là bao nhiêu, và Chủ tịch UBND cấp xã có đủ thẩm quyền ra quyết định xử phạt tiền đối với công ty này không?",
+    "gold_answer": "Công ty xây dựng (tổ chức) sẽ bị phạt tiền từ 14.000.000 đồng đến 20.000.000 đồng (do mức phạt cá nhân là 7-10 triệu đồng, tổ chức gấp đôi). Chủ tịch Ủy ban nhân dân cấp xã có đủ thẩm quyền phạt tiền đối với công ty này, vì theo quy định Chủ tịch UBND cấp xã có quyền phạt tiền đến 37.500.000 đồng (đối với cá nhân), tương đương thẩm quyền phạt tổ chức tối đa là 75.000.000 đồng, hoàn toàn bao phủ mức phạt 20.000.000 đồng của hành vi này.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "8",
+        "clause": "4",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 4 Điều 8 Nghị định 336/2025/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "17",
+        "clause": "1",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 1 Điều 17 Nghị định 336/2025/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "20",
+        "clause": "2",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 2 Điều 20 Nghị định 336/2025/NĐ-CP"
+      }
+    ],
+    "expected_chunks": [
+      "nghi_dinh_336_2025_nd_cp_8_4_a_abcd05",
+      "nghi_dinh_336_2025_nd_cp_17_1_b_abcd06",
+      "nghi_dinh_336_2025_nd_cp_20_2_0_abcd07"
+    ],
+    "acceptable_chunks": [
+      "nghi_dinh_336_2025_nd_cp_8_4_a_abcd05",
+      "nghi_dinh_336_2025_nd_cp_17_1_b_abcd06"
+    ],
+    "reference_quote": "4. Phạt tiền từ 7.000.000 đồng đến 10.000.000 đồng đối với cá nhân, từ 14.000.000 đồng đến 20.000.000 đồng đối với tổ chức thực hiện một trong các hành vi... a) Thi công trên đường bộ đang khai thác không đặt đèn cảnh báo giao thông và chiếu sáng ban đêm. \n(Điều 17.1) b) Phạt tiền đến 37.500.000 đồng. \n(Điều 20.2)... trong trường hợp phạt tiền, thẩm quyền xử phạt tổ chức gấp 02 lần thẩm quyền xử phạt cá nhân.",
+    "expected_numbers": [
+      "14.000.000",
+      "20.000.000",
+      "37.500.000",
+      "75.000.000"
+    ],
+    "required_claims": [
+      {
+        "claim": "Hành vi thi công không đặt đèn cảnh báo ban đêm bị phạt 14.000.000 - 20.000.000 đồng đối với tổ chức.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "8",
+            "clause": "4",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 4 Điều 8"
+          }
+        ],
+        "support_quote": "từ 14.000.000 đồng đến 20.000.000 đồng đối với tổ chức... Thi công trên đường bộ đang khai thác không đặt đèn cảnh báo giao thông và chiếu sáng ban đêm"
+      },
+      {
+        "claim": "Chủ tịch UBND cấp xã có thẩm quyền phạt tiền đến 37.500.000 đồng đối với cá nhân (75.000.000 đồng với tổ chức), nên đủ thẩm quyền xử phạt.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "17",
+            "clause": "1",
+            "point": "b",
+            "section": "",
+            "raw": "Khoản 1 Điều 17"
+          },
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "20",
+            "clause": "2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 2 Điều 20"
+          }
+        ],
+        "support_quote": "Chủ tịch Ủy ban nhân dân cấp xã có quyền:... Phạt tiền đến 37.500.000 đồng... thẩm quyền xử phạt tổ chức gấp 02 lần thẩm quyền xử phạt cá nhân."
+      }
+    ],
+    "required_citations": [
+      "Điểm a Khoản 4 Điều 8",
+      "Điểm b Khoản 1 Điều 17",
+      "Khoản 2 Điều 20"
+    ],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghi_dinh_336_2025_nd_cp_8_4_a_abcd05",
+          "record_id": "Thi_cong_khong_bien_bao",
+          "score": 4.9,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Nghị định 336/2025/NĐ-CP",
+            "article": "8",
+            "clause": "4",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "336-nd-cp-0004",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/336-2025-nd-cp.signed.json",
+      "index": 4
+    },
+    "question": "Công ty công nghệ X cung cấp phần mềm ứng dụng gọi xe trực tuyến đã thiết kế phần mềm sao cho tài xế bắt buộc phải thao tác trên điện thoại nhiều lần để nhận chuyến xe ngay cả khi xe đang di chuyển trên đường. Việc này có vi phạm luật không, nếu có thì theo Nghị định 336/2025/NĐ-CP, Công ty X sẽ bị xử phạt như thế nào?",
+    "gold_answer": "Công ty X có vi phạm pháp luật. Việc đơn vị cung cấp phần mềm ứng dụng hỗ trợ kết nối vận tải thiết kế để lái xe phải thực hiện nhiều thao tác nhận chuyến xe khi xe đang di chuyển là hành vi vi phạm quy định về vận tải. Công ty X sẽ bị phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "12",
+        "clause": "7",
+        "point": "e",
+        "section": "",
+        "raw": "Điểm e Khoản 7 Điều 12 Nghị định 336/2025/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghi_dinh_336_2025_nd_cp_12_7_e_abcd08"],
+    "acceptable_chunks": ["nghi_dinh_336_2025_nd_cp_12_7_e_abcd08"],
+    "reference_quote": "7. Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với đơn vị cung cấp phần mềm ứng dụng hỗ trợ kết nối vận tải thực hiện một trong các hành vi vi phạm sau đây: ... e) Phần mềm ứng dụng hỗ trợ kết nối vận tải để lái xe phải thực hiện nhiều thao tác nhận chuyến xe khi xe đang di chuyển.",
+    "expected_numbers": ["30.000.000", "50.000.000"],
+    "required_claims": [
+      {
+        "claim": "Công ty X có vi phạm vì thiết kế phần mềm để lái xe phải thao tác nhận chuyến khi đang di chuyển.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "12",
+            "clause": "7",
+            "point": "e",
+            "section": "",
+            "raw": "Điểm e Khoản 7 Điều 12"
+          }
+        ],
+        "support_quote": "Phần mềm ứng dụng hỗ trợ kết nối vận tải để lái xe phải thực hiện nhiều thao tác nhận chuyến xe khi xe đang di chuyển."
+      },
+      {
+        "claim": "Mức phạt áp dụng cho đơn vị cung cấp phần mềm là từ 30.000.000 đồng đến 50.000.000 đồng.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "12",
+            "clause": "7",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 7 Điều 12"
+          }
+        ],
+        "support_quote": "Phạt tiền từ 30.000.000 đồng đến 50.000.000 đồng đối với đơn vị cung cấp phần mềm ứng dụng hỗ trợ kết nối vận tải"
+      }
+    ],
+    "required_citations": ["Điểm e Khoản 7 Điều 12"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghi_dinh_336_2025_nd_cp_12_7_e_abcd08",
+          "record_id": "Phat_app_goi_xe_001",
+          "score": 4.5,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Nghị định 336/2025/NĐ-CP",
+            "article": "12",
+            "clause": "7",
+            "point": "e"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "336-nd-cp-0005",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/336-2025-nd-cp.signed.json",
+      "index": 5
+    },
+    "question": "Một tài xế vi phạm lỗi an toàn giao thông đường bộ, bị lập biên bản và ra quyết định tước quyền sử dụng Giấy phép lái xe (GPLX) trong 03 tháng. Tuy nhiên, thời hạn sử dụng còn lại ghi trên GPLX của tài xế này chỉ còn 01 tháng là hết hạn. Cơ quan chức năng có quyền ra quyết định tước GPLX không? Trong thời gian bị tước, tài xế có được làm thủ tục cấp đổi GPLX mới không và có được phép tiếp tục lái xe không?",
+    "gold_answer": "Cơ quan có thẩm quyền vẫn ra quyết định tước quyền sử dụng GPLX đối với tài xế đó, dù thời hạn của GPLX ít hơn thời hạn bị tước. Trong thời gian bị tước, tài xế vẫn được phép làm thủ tục cấp đổi, cấp mới Giấy phép lái xe, nhưng tuyệt đối không được tiến hành các hoạt động ghi trong giấy phép (nghĩa là không được phép lái xe).",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "23",
+        "clause": "3",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 3 Điều 23 Nghị định 336/2025/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghi_dinh_336_2025_nd_cp_23_3_0_abcd09"],
+    "acceptable_chunks": ["nghi_dinh_336_2025_nd_cp_23_3_0_abcd09"],
+    "reference_quote": "3. Trường hợp người có hành vi vi phạm bị áp dụng hình thức xử phạt tước quyền sử dụng giấy phép trong hoạt động đường bộ nhưng thời hạn sử dụng còn lại của giấy phép đó ít hơn thời hạn bị tước thì người có thẩm quyền vẫn ra quyết định xử phạt có áp dụng hình thức tước quyền sử dụng giấy phép theo quy định đối với hành vi vi phạm. Trong thời gian bị tước quyền sử dụng giấy phép trong hoạt động đường bộ, cá nhân, tổ chức được làm thủ tục cấp đổi, cấp mới giấy phép nhưng không được tiến hành các hoạt động ghi trong giấy phép, chứng chỉ hành nghề.",
+    "expected_numbers": ["03", "01"],
+    "required_claims": [
+      {
+        "claim": "Người có thẩm quyền vẫn ra quyết định xử phạt tước GPLX dù thời hạn GPLX còn lại ít hơn thời hạn tước.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "23",
+            "clause": "3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3 Điều 23"
+          }
+        ],
+        "support_quote": "thời hạn sử dụng còn lại của giấy phép đó ít hơn thời hạn bị tước thì người có thẩm quyền vẫn ra quyết định xử phạt có áp dụng hình thức tước quyền sử dụng giấy phép"
+      },
+      {
+        "claim": "Được làm thủ tục cấp đổi, cấp mới giấy phép nhưng không được tiến hành lái xe (hoạt động ghi trong giấy phép).",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "23",
+            "clause": "3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3 Điều 23"
+          }
+        ],
+        "support_quote": "Trong thời gian bị tước... được làm thủ tục cấp đổi, cấp mới giấy phép nhưng không được tiến hành các hoạt động ghi trong giấy phép"
+      }
+    ],
+    "required_citations": ["Khoản 3 Điều 23"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghi_dinh_336_2025_nd_cp_23_3_0_abcd09",
+          "record_id": "Tuoc_GPLX_het_han_001",
+          "score": 5.0,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 336/2025/NĐ-CP",
+            "article": "23",
+            "clause": "3"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "336-nd-cp-0006",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/336-2025-nd-cp.signed.json",
+      "index": 6
+    },
+    "question": "Trong trường hợp một cá nhân cố tình làm giả dữ liệu hoặc tự ý bóc chuyển thẻ đầu cuối thu phí điện tử không dừng (ETC) từ xe phương tiện này sang một xe phương tiện khác thì cá nhân đó bị phạt bao nhiêu tiền?",
+    "gold_answer": "Cá nhân thực hiện hành vi tự ý chuyển thẻ đầu cuối từ phương tiện này sang phương tiện khác hoặc phá hủy, làm giả, xoá dữ liệu, can thiệp nội dung thẻ đầu cuối sẽ bị phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "10",
+        "clause": "1",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 1 Điều 10 Nghị định 336/2025/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 336/2025/NĐ-CP",
+        "article": "10",
+        "clause": "1",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 1 Điều 10 Nghị định 336/2025/NĐ-CP"
+      }
+    ],
+    "expected_chunks": [
+      "nghi_dinh_336_2025_nd_cp_10_1_a_abcd10",
+      "nghi_dinh_336_2025_nd_cp_10_1_b_abcd11"
+    ],
+    "acceptable_chunks": [
+      "nghi_dinh_336_2025_nd_cp_10_1_a_abcd10",
+      "nghi_dinh_336_2025_nd_cp_10_1_b_abcd11"
+    ],
+    "reference_quote": "1. Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng đối với cá nhân... a) Tự ý chuyển thẻ đầu cuối từ phương tiện này sang phương tiện khác; b) Phá hủy, làm giả, xoá dữ liệu hoặc can thiệp nội dung thẻ đầu cuối;",
+    "expected_numbers": ["3.000.000", "5.000.000"],
+    "required_claims": [
+      {
+        "claim": "Bị phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 336/2025/NĐ-CP",
+            "article": "10",
+            "clause": "1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 1 Điều 10"
+          }
+        ],
+        "support_quote": "Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng đối với cá nhân... Tự ý chuyển thẻ đầu cuối từ phương tiện này sang phương tiện khác; Phá hủy, làm giả, xoá dữ liệu hoặc can thiệp nội dung thẻ đầu cuối"
+      }
+    ],
+    "required_citations": ["Điểm a, b Khoản 1 Điều 10"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghi_dinh_336_2025_nd_cp_10_1_a_abcd10",
+          "record_id": "Thu_phi_ETC_001",
+          "score": 4.6,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 336/2025/NĐ-CP",
+            "article": "10",
+            "clause": "1"
+          }
+        }
+      ]
+    }
+  }
+]
