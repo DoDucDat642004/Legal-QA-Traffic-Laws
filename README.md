@@ -1,13 +1,13 @@
----
+<!--
 title: LuatGiaoThongDuongBoAI
 emoji: "🚦"
 colorFrom: green
 colorTo: blue
 sdk: docker
 pinned: false
----
+-->
 
-# LuatGiaoThongDuongBoAI
+# Luật giao thông đường bộ (RAG + Gemini-3.1-flash-lite + Gemma-4-31b-it)
 
 Vietnamese Traffic Law AI is a personal RAG project for looking up Vietnamese road traffic law. It combines a Streamlit UI, FastAPI backend, Qdrant vector retrieval, OpenVINO-accelerated `bkai-foundation-models/vietnamese-bi-encoder` embeddings, graph expansion, table/sign evidence, and optional Gemini synthesis.
 
