@@ -44,7 +44,43 @@ def _bool_env(name: str, default: bool = False) -> bool:
 def _model_cache_dir(model_name: str) -> Path:
     """Generates a cache directory path for a given model name."""
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", model_name).strip("_")
-    return Path(os.getenv("RAG_OPENVINO_MODEL_DIR", f"data/models/openvino/{slug}"))
+    model_dir = Path(os.getenv("RAG_OPENVINO_MODEL_DIR", f"data/models/openvino/{slug}")).expanduser()
+    if not model_dir.is_absolute():
+        project_root = Path(__file__).resolve().parents[2]
+        model_dir = project_root / model_dir
+    return model_dir
+
+
+def _looks_like_lfs_pointer(path: Path) -> bool:
+    try:
+        if not path.is_file() or path.stat().st_size > 2048:
+            return False
+        return path.read_text(encoding="utf-8", errors="ignore").startswith("version https://git-lfs.github.com/spec/v1")
+    except OSError:
+        return False
+
+
+def _validate_local_model_dir(model_dir: Path) -> None:
+    required_files = [
+        "config.json",
+        "openvino_model.xml",
+        "openvino_model.bin",
+        "tokenizer_config.json",
+        "vocab.txt",
+        "bpe.codes",
+    ]
+    missing = [name for name in required_files if not (model_dir / name).exists()]
+    pointer_files = [name for name in required_files if _looks_like_lfs_pointer(model_dir / name)]
+    if missing or pointer_files:
+        details = []
+        if missing:
+            details.append(f"missing files: {', '.join(missing)}")
+        if pointer_files:
+            details.append(f"Git LFS pointer files not downloaded: {', '.join(pointer_files)}")
+        raise RuntimeError(
+            f"Local OpenVINO model at {model_dir} is incomplete ({'; '.join(details)}). "
+            "Run `git lfs pull` during deployment or push the LFS objects to the Space."
+        )
 
 
 def _normalize_embeddings(vectors: np.ndarray) -> np.ndarray:
@@ -207,10 +243,15 @@ class OpenVINOEmbedder:
                 f"OpenVINO model not found at {self.model_dir}. "
                 "Provide the exported vietnamese-bi-encoder OpenVINO directory or run with RAG_OPENVINO_EXPORT=true."
             )
+        if self.model_dir.exists():
+            _validate_local_model_dir(self.model_dir)
+
+        source_is_local = isinstance(source, Path) and source.exists()
+        local_files_only = source_is_local or not allow_model_download
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             str(source),
-            local_files_only=not allow_model_download,
+            local_files_only=local_files_only,
         )
 
         self.model = OVModelForFeatureExtraction.from_pretrained(
@@ -218,7 +259,7 @@ class OpenVINOEmbedder:
             export=bool(not self.model_dir.exists() and export_model),
             device=os.getenv("RAG_OPENVINO_DEVICE", "CPU"),
             compile=True,
-            local_files_only=not allow_model_download,
+            local_files_only=local_files_only,
         )
 
         if export_model and not self.model_dir.exists():
