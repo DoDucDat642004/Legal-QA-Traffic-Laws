@@ -1,7 +1,6 @@
 import logging
 import os
 import re
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.rag.hybrid_vector_store import HybridLegalVectorStore
@@ -21,6 +20,7 @@ from src.rag.legal_utils import (
     source_text,
 )
 from src.rag.query_planner import LegalQueryPlanner, QueryIntent, QueryPlan
+from src.rag.reranker_backends import make_reranker
 from src.rag.structured_table_retriever import StructuredTableRetriever
 from src.rag.traffic_sign_catalog import TrafficSignCatalog
 
@@ -103,22 +103,12 @@ class CustomLegalRetriever:
         self.reranker = None
         
         if use_reranker:
-            reranker_model = reranker_model or os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-            model_path = Path(reranker_model).expanduser()
-            allow_download = os.getenv("RAG_ALLOW_RERANKER_DOWNLOAD", "false").lower() in {"1", "true", "yes", "on"}
-            if model_path.exists() or allow_download:
-                try:
-                    from sentence_transformers import CrossEncoder
-                    device = os.getenv("RAG_RERANKER_DEVICE") or None
-                    self.reranker = CrossEncoder(
-                        str(model_path) if model_path.exists() else reranker_model,
-                        max_length=512,
-                        device=device,
-                    )
-                except Exception as exc:
-                    logger.warning("Reranker disabled: %s", exc)
-            else:
-                logger.info("Reranker skipped because model is not local and downloads are disabled.")
+            reranker_model = reranker_model or os.getenv("RAG_RERANKER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
+            try:
+                self.reranker = make_reranker(reranker_model)
+                logger.info("Reranker enabled: %s", type(self.reranker).__name__)
+            except Exception as exc:
+                logger.warning("Reranker disabled: %s", exc)
         
         self.query_planner = LegalQueryPlanner()
         from src.rag.adaptive_query import AdaptiveQuestionAnalyzer
@@ -2668,7 +2658,42 @@ class CustomLegalRetriever:
         for record in tail:
             record["retrieval_rank_score"] = float(record.get("retrieval_score") or 0)
             ranked.append(record)
-        return sorted(ranked, key=lambda r: float(r.get("retrieval_rank_score") or 0), reverse=True)[:limit]
+        ranked = sorted(ranked, key=lambda r: float(r.get("retrieval_rank_score") or 0), reverse=True)
+        if self.reranker is None:
+            return ranked[:limit]
+
+        model_limit = self._env_int("RAG_MODEL_RERANK_LIMIT", 32, minimum=8, maximum=128)
+        model_pool = ranked[:model_limit]
+        pairs = [(query, self._rerank_text(record)) for record in model_pool]
+        try:
+            raw_scores = self.reranker.predict(pairs)
+            scores = [float(score) for score in raw_scores]
+        except Exception as exc:
+            logger.warning("Model rerank failed; keeping lexical ranking: %s", exc)
+            return ranked[:limit]
+
+        if scores:
+            lo = min(scores)
+            hi = max(scores)
+            scale = max(hi - lo, 1e-6)
+            for record, score in zip(model_pool, scores):
+                normalized = (score - lo) / scale
+                record["reranker_score"] = score
+                record["retrieval_rank_score"] = float(record.get("retrieval_rank_score") or 0) + normalized * 4.0
+                record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["model_rerank"]))
+        return sorted(model_pool + ranked[model_limit:], key=lambda r: float(r.get("retrieval_rank_score") or 0), reverse=True)[:limit]
+
+    def _rerank_text(self, record: Dict[str, Any]) -> str:
+        chunks = [
+            format_reference(record),
+            source_text(record),
+            str(record.get("qa_context") or ""),
+            str(record.get("semantic_context") or ""),
+            str(record.get("rag_text") or ""),
+        ]
+        text = "\n".join(chunk for chunk in chunks if chunk)
+        max_chars = self._env_int("RAG_RERANK_TEXT_MAX_CHARS", 1800, minimum=400, maximum=6000)
+        return text[:max_chars]
 
     def _dedupe(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Ensures unique legal chunks in the final set."""
