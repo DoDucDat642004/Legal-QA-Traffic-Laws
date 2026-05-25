@@ -23,11 +23,10 @@ export PROGRESS_EVERY="${PROGRESS_EVERY:-25}"
 export OUT_DIR="${OUT_DIR:-data/eval/reports/rag_core_eval_${STAMP}}"
 export CORE_LEXICAL_ONLY="${CORE_LEXICAL_ONLY:-0}"
 
-# Core loop target: finish all 556 cases quickly while keeping the production
-# accuracy profile untouched in .env. The expensive graph/rerank/LLM stages are
-# reserved for full evaluation and real answering. Qdrant is retained so this
-# still tests the production vector index. Override RAG_EMBEDDING_BACKEND=openvino
-# only when the OpenVINO model is already exported and warm.
+# Core loop target: finish all 556 cases quickly while leaving the normal
+# answering profile in .env untouched. The heavier graph/rerank/LLM stages are
+# reserved for full evaluation and real answering. Qdrant plus the exported
+# OpenVINO vietnamese-bi-encoder remains the default vector index.
 export RAG_VECTOR_BACKEND="${RAG_VECTOR_BACKEND:-qdrant}"
 export RAG_GRAPH_BACKEND="${RAG_GRAPH_BACKEND:-local}"
 export RAG_ENABLE_AI_PLANNER="${RAG_ENABLE_AI_PLANNER:-false}"

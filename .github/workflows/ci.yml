@@ -27,4 +27,13 @@ jobs:
         run: find api frontend scripts src -name '*.py' -print0 | xargs -0 python -m py_compile
 
       - name: Check shell scripts
-        run: bash -n scripts/run_rag_evaluation.sh
+        run: |
+          bash -n entrypoint.sh
+          find scripts -name '*.sh' -print0 | xargs -0 bash -n
+
+      - name: Check release config files
+        run: |
+          test -f README.md
+          test -f requirements.txt
+          test -f .env.sample
+          test -f .dockerignore

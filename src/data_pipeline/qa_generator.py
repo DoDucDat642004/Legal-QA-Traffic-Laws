@@ -310,7 +310,7 @@ def validate_qa_pair(pair: dict, source_text: str, doc_name: str, *, log_failure
                 
     if relaxed_validation:
         # Last resort for very messy OCR. This is deliberately opt-in because it is not
-        # strong enough for legal-grade quote verification.
+        # strict enough for citation-grade quote verification.
         stop_words = {"và", "của", "cho", "các", "những", "là", "theo", "tại", "với", "trong", "được", "phải", "này"}
         quote_keywords = [w for w in re.findall(r'\w{3,}', quote.lower()) if w not in stop_words]
         source_words_set = set(re.findall(r'\w{3,}', source_text.lower()))

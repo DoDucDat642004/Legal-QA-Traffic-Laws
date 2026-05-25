@@ -50,7 +50,7 @@ Return ONLY a JSON block. Use VIETNAMESE for all values.
         try:
             return self.extract_with_llm(chunk, schema, system_prompt)
         except Exception as e:
-            logger.error(f"Error in Circular optimized extraction: {e}")
+            logger.error(f"Error in Circular LLM extraction: {e}")
             return None
 
     def parse(self, md_text: str, doc_name: str, doc_map: dict = None) -> list[dict]:

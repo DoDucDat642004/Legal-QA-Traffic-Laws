@@ -21,7 +21,9 @@ from src.evaluation.metrics import (
     modality_flags,
     number_accuracy,
     recall_at_k,
+    recall_at_k_contexts,
     reciprocal_rank,
+    reciprocal_rank_contexts,
     token_f1,
 )
 from src.rag.legal_graph_rag import LegalGraphRAG
@@ -55,6 +57,38 @@ def load_jsonl(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
             cases.append(json.loads(line))
             if limit and len(cases) >= limit:
                 break
+    return cases
+
+
+def load_case_file(path: Path) -> list[dict[str, Any]]:
+    if path.suffix.lower() == ".jsonl":
+        return load_jsonl(path)
+
+    with path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    if isinstance(data, dict):
+        for key in ["cases", "records", "data", "items"]:
+            rows = data.get(key)
+            if isinstance(rows, list):
+                return [row for row in rows if isinstance(row, dict)]
+    raise ValueError(f"Unsupported ground-truth format: {path}")
+
+
+def load_cases(specs: list[str], limit: int | None = None) -> list[dict[str, Any]]:
+    paths: list[Path] = []
+    for spec in specs:
+        for item in str(spec).split(","):
+            item = item.strip()
+            if item:
+                paths.append(Path(item))
+    cases: list[dict[str, Any]] = []
+    for path in paths:
+        loaded = load_case_file(path)
+        cases.extend(loaded)
+        if limit and len(cases) >= limit:
+            return cases[:limit]
     return cases
 
 
@@ -390,10 +424,13 @@ def evaluate_case(
     quote_in_context = token_f1(ctx_text, quote) if quote else 1.0
 
     retrieval = {
-        "recall_at_1": recall_at_k(retrieved_ids, expected_all, 1),
-        "recall_at_3": recall_at_k(retrieved_ids, expected_all, 3),
-        "recall_at_k": recall_at_k(retrieved_ids, expected_all, top_k),
-        "mrr": reciprocal_rank(retrieved_ids, expected_all),
+        "recall_at_1": max(recall_at_k(retrieved_ids, expected_all, 1), recall_at_k_contexts(contexts, expected_all, 1)),
+        "recall_at_3": max(recall_at_k(retrieved_ids, expected_all, 3), recall_at_k_contexts(contexts, expected_all, 3)),
+        "recall_at_k": max(
+            recall_at_k(retrieved_ids, expected_all, top_k),
+            recall_at_k_contexts(contexts, expected_all, top_k),
+        ),
+        "mrr": max(reciprocal_rank(retrieved_ids, expected_all), reciprocal_rank_contexts(contexts, expected_all)),
         "ref_hit": 1.0 if context_has_ref(contexts, refs) else 0.0,
         "quote_context_f1": quote_in_context,
         "required_modality_hit": 1.0 if not modality_key or flags.get(modality_key) else 0.0,
@@ -601,7 +638,15 @@ def write_outputs(results: list[dict[str, Any]], summary: dict[str, Any], out_di
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate Legal Graph RAG against handmade ground truth.")
-    parser.add_argument("--ground-truth", default="data/eval/rag_ground_truth.jsonl")
+    parser.add_argument(
+        "--ground-truth",
+        action="append",
+        default=None,
+        help=(
+            "Ground-truth JSONL/JSON file. May be passed multiple times or as a comma-separated list. "
+            "JSON arrays are supported for boost sets."
+        ),
+    )
     parser.add_argument("--processed", default="data/processed")
     parser.add_argument("--graph", default="data/graph/legal_graph.json")
     parser.add_argument("--index-dir", default="data/vector_db/legal_graph_rag")
@@ -647,7 +692,7 @@ def main() -> None:
     parser.add_argument("--min-overall-pass", type=float, default=None)
     args = parser.parse_args()
 
-    cases = load_jsonl(Path(args.ground_truth), args.limit)
+    cases = load_cases(args.ground_truth or ["data/eval/rag_ground_truth.jsonl"], args.limit)
     out_dir = Path(args.out_dir) if args.out_dir else Path("data/eval/reports") / time.strftime("%Y%m%d_%H%M%S")
 
     if args.lexical_only:

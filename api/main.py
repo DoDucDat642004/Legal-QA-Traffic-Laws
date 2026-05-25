@@ -10,19 +10,29 @@ import json
 import logging
 import os
 import re
+from collections import Counter
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from google import genai
+from google.genai import types
 from PIL import Image
 
 from src.rag.legal_graph_rag import LegalGraphRAG
-from src.rag.legal_utils import public_asset_path, record_image_paths
+from src.rag.legal_utils import (
+    ascii_lower,
+    format_reference,
+    normalize_sign_code,
+    public_asset_path,
+    record_image_paths,
+    source_text,
+)
 from src.rag.model_policy import generate_content_with_fallback
 
 # --- Configuration & Initialization ---
@@ -77,10 +87,13 @@ def _traffic_sign_query_hints(description: str, user_query: str = "") -> str:
     
     mappings = {
         "ngược chiều": "P.102", "no entry": "P.102", "thanh ngang": "P.102",
+        "vạch ngang trắng": "P.102", "vạch trắng": "P.102",
         "đường cấm": "P.101", "ô tô": "P.103a", "xe máy": "P.104",
         "xe tải": "P.106a", "người đi bộ": "P.112", "rẽ trái": "P.123a",
         "rẽ phải": "P.123b", "quay đầu": "P.124a", "vượt": "P.125",
         "tốc độ": "P.127", "dừng": "P.130", "đỗ": "P.131",
+        "trẻ em": "W.225", "học sinh": "W.225", "tam giác": "biển báo nguy hiểm",
+        "nền vàng": "biển báo nguy hiểm", "đèn tín hiệu": "W.209",
     }
     for phrase, code in mappings.items():
         if phrase in text: sign_hints.append(code)
@@ -99,6 +112,64 @@ def _parse_vision_json(text: str) -> Dict[str, Any]:
         codes = re.findall(r"\b(?:P|W|R|I|S|IE)\.?\d{2,3}[a-zđ]?\b", text, re.IGNORECASE)
         return {"candidate_codes": list(dict.fromkeys(codes)), "is_traffic_sign": bool(codes)}
 
+def _vision_candidate_codes(vision: Dict[str, Any]) -> List[str]:
+    raw_values: List[Any] = []
+    for key in ["candidate_codes", "alternatives"]:
+        value = vision.get(key)
+        if isinstance(value, list):
+            raw_values.extend(value)
+    codes: List[str] = []
+    for item in raw_values:
+        if isinstance(item, dict):
+            item = item.get("code") or item.get("sign_code") or item.get("id")
+        code = normalize_sign_code(str(item or ""))
+        if code:
+            codes.append(code)
+    return list(dict.fromkeys(codes))[:6]
+
+def _trusted_vision_codes(rag: LegalGraphRAG, vision: Dict[str, Any]) -> List[str]:
+    try:
+        confidence = float(vision.get("confidence") or 0)
+    except Exception:
+        confidence = 0.0
+    codes = [
+        code
+        for code in _vision_candidate_codes(vision)
+        if rag.retriever.sign_catalog.lookup(code)
+    ]
+    if confidence >= 0.58:
+        return codes[:4]
+    if len(codes) == 1 and confidence >= 0.45:
+        return codes[:1]
+    return []
+
+def _vision_text(vision: Dict[str, Any]) -> str:
+    values: List[str] = []
+    for key in ["raw_description", "shape", "dominant_colors", "symbol", "text", "sign_group"]:
+        value = vision.get(key)
+        if isinstance(value, list):
+            values.extend(str(item) for item in value if item)
+        elif value:
+            values.append(str(value))
+    return ". ".join(values)
+
+def _sign_image_query(vision: Dict[str, Any], trusted_codes: List[str], user_query: str) -> str:
+    visual_desc = _vision_text(vision)
+    if trusted_codes:
+        code_text = " ".join(trusted_codes)
+        return (
+            f"Biển báo {code_text}. {visual_desc}. "
+            "Tra cứu ý nghĩa, hình dạng nhận dạng, phạm vi áp dụng, căn cứ hình ảnh gốc trong QCVN 41:2024 "
+            "và nếu đi trái hiệu lệnh biển báo thì mức xử phạt liên quan theo Nghị định 168/2024/NĐ-CP. "
+            f"Câu hỏi người dùng: {user_query}"
+        )
+    hints = _traffic_sign_query_hints(visual_desc, user_query)
+    return (
+        f"{hints}. {visual_desc}. "
+        "Ảnh biển báo chưa đủ chắc chắn mã số; tra cứu nhóm biển, ý nghĩa, căn cứ gốc và nêu rõ nếu cần xác nhận thêm. "
+        f"Câu hỏi người dùng: {user_query}"
+    )
+
 def _references(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Formats source records for API metadata."""
     def images_for_doc(doc: Dict[str, Any]) -> List[str]:
@@ -107,32 +178,542 @@ def _references(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     references = []
     for d in docs:
         images = images_for_doc(d)
+        ref = d.get("legal_reference") or {}
         references.append({
             "source_chunk_id": d.get("source_chunk_id"),
+            "reference_text": format_reference(d),
+            "doc_name": d.get("doc_name") or ref.get("document"),
             "modality": d.get("rag_modality"),
-            "legal_reference": d.get("legal_reference"),
+            "legal_reference": ref,
+            "page_start": ref.get("page_start") or d.get("page_start"),
+            "page_end": ref.get("page_end") or d.get("page_end"),
             "image": images[0] if images else "",
             "images": images,
             "retrieval_reasons": d.get("retrieval_reasons", []),
             "retrieval_score": d.get("retrieval_score"),
+            "retrieval_slot_id": d.get("retrieval_slot_id"),
+            "retrieval_slot_facet": d.get("retrieval_slot_facet"),
+            "excerpt": _snippet(source_text(d), 900),
+            "penalties": d.get("penalties") or {},
         })
     return references
 
-def _context_images(docs: List[Dict[str, Any]]) -> List[str]:
-    images: List[str] = []
+def _context_images(docs: List[Dict[str, Any]], *, limit: int = 80) -> List[str]:
+    ranked: List[tuple[int, str]] = []
     seen = set()
-    for doc in docs:
+    for idx, doc in enumerate(docs):
+        modality = str(doc.get("rag_modality") or "")
+        slot = str(doc.get("retrieval_slot_facet") or "")
+        reason_text = " ".join(str(x) for x in (doc.get("retrieval_reasons") or []))
+        priority = 50 + idx
+        if modality == "sign":
+            priority = 0 + idx
+        elif slot == "source_image":
+            priority = 10 + idx
+        elif modality in {"figure", "table"}:
+            priority = 20 + idx
+        elif "legal_detail" in reason_text or "document_overview" in reason_text:
+            priority = 35 + idx
         for path in record_image_paths(doc):
             public = public_asset_path(path)
             if public and public not in seen:
                 seen.add(public)
-                images.append(public)
-    return images
+                ranked.append((priority, public))
+    return [path for _priority, path in sorted(ranked, key=lambda item: item[0])[:limit]]
+
+def _snippet(text: str, limit: int = 800) -> str:
+    compact = re.sub(r"\s+", " ", text or "").strip()
+    if len(compact) <= limit:
+        return compact
+    return compact[: max(0, limit - 1)].rstrip() + "…"
+
+def _record_payload(record: Dict[str, Any], *, text_limit: int = 1200) -> Dict[str, Any]:
+    ref = record.get("legal_reference") or {}
+    images = [public_asset_path(path) for path in record_image_paths(record)]
+    return {
+        "source_chunk_id": record.get("source_chunk_id") or record.get("id"),
+        "record_id": record.get("record_id") or record.get("id"),
+        "reference_text": format_reference(record),
+        "doc_name": record.get("doc_name") or ref.get("document"),
+        "modality": record.get("rag_modality") or record.get("type") or "text",
+        "legal_reference": ref,
+        "page_start": ref.get("page_start") or record.get("page_start"),
+        "page_end": ref.get("page_end") or record.get("page_end"),
+        "retrieval_score": record.get("retrieval_score"),
+        "retrieval_reasons": record.get("retrieval_reasons") or [],
+        "retrieval_slot_id": record.get("retrieval_slot_id"),
+        "retrieval_slot_facet": record.get("retrieval_slot_facet"),
+        "images": images,
+        "image": images[0] if images else "",
+        "excerpt": _snippet(source_text(record), text_limit),
+        "penalties": record.get("penalties") or {},
+        "rag_metadata": record.get("rag_metadata") or {},
+    }
+
+def _node_label(node: Dict[str, Any]) -> str:
+    node_type = node.get("type") or "node"
+    if node_type == "document":
+        return str(node.get("name") or node.get("id") or "document")
+    if node_type in {"article", "clause", "point"}:
+        bits = [node_type]
+        if node.get("num"):
+            bits.append(str(node["num"]))
+        if node.get("doc_name"):
+            bits.append(str(node["doc_name"]))
+        return " ".join(bits)
+    ref = node.get("legal_reference") or {}
+    parts = []
+    if ref.get("point"):
+        parts.append(f"Điểm {ref.get('point')}")
+    if ref.get("clause"):
+        parts.append(f"Khoản {ref.get('clause')}")
+    if ref.get("article"):
+        parts.append(f"Điều {ref.get('article')}")
+    if ref.get("document") or node.get("doc_name"):
+        parts.append(str(ref.get("document") or node.get("doc_name")))
+    if parts:
+        return ", ".join(parts)
+    return str(node.get("code") or node.get("normalized_code") or node.get("id") or node_type)
+
+def _node_payload(node: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": node.get("id"),
+        "type": node.get("type"),
+        "label": _node_label(node),
+        "doc_name": node.get("doc_name") or node.get("name"),
+        "legal_reference": node.get("legal_reference") or {},
+        "source_chunk_id": node.get("source_chunk_id") or node.get("id"),
+        "page_start": node.get("page_start"),
+        "page_end": node.get("page_end"),
+        "graph_distance": node.get("graph_distance"),
+        "graph_cost": node.get("graph_cost"),
+        "graph_via": node.get("graph_via"),
+    }
+
+def _neo4j_edges_between(graph_store: Any, node_ids: set[str], *, limit: int = 140) -> List[Dict[str, Any]]:
+    if not node_ids or not hasattr(graph_store, "driver"):
+        return []
+    try:
+        with graph_store.driver.session(database=graph_store.config.neo4j_database) as session:
+            rows = session.run(
+                """
+                MATCH (a:LegalNode)-[r]->(b:LegalNode)
+                WHERE a.id IN $ids AND b.id IN $ids
+                RETURN a.id AS source, b.id AS target, type(r) AS type, r.data_json AS data_json
+                LIMIT $limit
+                """,
+                ids=list(node_ids),
+                limit=limit,
+            )
+            edges = []
+            for row in rows:
+                data = {}
+                try:
+                    data = json.loads(row["data_json"] or "{}")
+                except Exception:
+                    data = {}
+                edges.append({
+                    "source": row["source"],
+                    "target": row["target"],
+                    "type": row["type"] or data.get("type") or "RELATED",
+                    "raw": data.get("raw") or "",
+                    "target_ref": data.get("target_ref") or "",
+                })
+            return edges
+    except Exception as exc:
+        logger.warning("Could not read Neo4j trace edges: %s", exc)
+        return []
+
+def _graph_store_stats(graph_store: Any) -> Dict[str, Any]:
+    if hasattr(graph_store, "nodes") and hasattr(graph_store, "out_edges"):
+        graph_nodes = getattr(graph_store, "nodes", {}) or {}
+        graph_out_edges = getattr(graph_store, "out_edges", {}) or {}
+        edge_types = Counter(
+            str(edge.get("type") or "RELATED")
+            for edges in graph_out_edges.values()
+            for edge in edges
+        )
+        node_types = Counter(str(node.get("type") or "unknown") for node in graph_nodes.values())
+        return {
+            "node_count": len(graph_nodes),
+            "edge_count": sum(len(edges) for edges in graph_out_edges.values()),
+            "node_types": [{"name": name, "count": count} for name, count in node_types.most_common()],
+            "edge_types": [{"name": name, "count": count} for name, count in edge_types.most_common()],
+        }
+
+    if hasattr(graph_store, "driver"):
+        try:
+            with graph_store.driver.session(database=graph_store.config.neo4j_database) as session:
+                node_total = session.run("MATCH (n:LegalNode) RETURN count(n) AS count").single()["count"]
+                edge_total = session.run("MATCH (:LegalNode)-[r]->(:LegalNode) RETURN count(r) AS count").single()["count"]
+                node_type_rows = session.run(
+                    """
+                    MATCH (n:LegalNode)
+                    RETURN coalesce(n.type, 'unknown') AS name, count(n) AS count
+                    ORDER BY count DESC
+                    """
+                )
+                edge_type_rows = session.run(
+                    """
+                    MATCH (:LegalNode)-[r]->(:LegalNode)
+                    RETURN type(r) AS name, count(r) AS count
+                    ORDER BY count DESC
+                    """
+                )
+                return {
+                    "node_count": int(node_total or 0),
+                    "edge_count": int(edge_total or 0),
+                    "node_types": [{"name": row["name"], "count": row["count"]} for row in node_type_rows],
+                    "edge_types": [{"name": row["name"], "count": row["count"]} for row in edge_type_rows],
+                }
+        except Exception as exc:
+            logger.warning("Could not read graph stats: %s", exc)
+
+    return {"node_count": 0, "edge_count": 0, "node_types": [], "edge_types": []}
+
+def _graph_trace(rag: LegalGraphRAG, docs: List[Dict[str, Any]], *, depth: int = 3, max_nodes: int = 70) -> Dict[str, Any]:
+    graph_store = rag.graph_store
+    if not docs or not getattr(graph_store, "loaded", False):
+        return {"seed_node_ids": [], "nodes": [], "edges": [], "relation_counts": {}, "node_type_counts": {}}
+
+    seed_ids = graph_store.lookup_record_nodes(docs)
+    if not seed_ids:
+        seed_ids = [
+            str(doc.get("source_chunk_id") or doc.get("id"))
+            for doc in docs
+            if doc.get("source_chunk_id") or doc.get("id")
+        ]
+    seed_ids = list(dict.fromkeys(seed_ids))[:12]
+    expanded = graph_store.expand(seed_ids, depth=max(1, min(int(depth), 5)), max_nodes=max_nodes)
+    if hasattr(graph_store, "same_ref_context"):
+        expanded.extend(graph_store.same_ref_context(seed_ids, max_nodes=max_nodes // 2, per_seed=16))
+
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for node in expanded:
+        node_id = node.get("id")
+        if node_id and node_id not in by_id:
+            by_id[node_id] = node
+    node_ids = set(by_id)
+
+    edges: List[Dict[str, Any]] = []
+    seen_edges = set()
+    if hasattr(graph_store, "out_edges"):
+        for source_id in node_ids:
+            for edge in graph_store.out_edges.get(source_id, []):
+                targets: List[str] = []
+                target = edge.get("target")
+                if target in node_ids:
+                    targets.append(target)
+                elif edge.get("target_ref") and hasattr(graph_store, "_resolve_target_ref"):
+                    targets.extend(
+                        target_id
+                        for target_id in graph_store._resolve_target_ref(str(edge["target_ref"]), limit=6)
+                        if target_id in node_ids
+                    )
+                for target_id in targets:
+                    key = (source_id, target_id, edge.get("type"), edge.get("raw"))
+                    if key in seen_edges:
+                        continue
+                    seen_edges.add(key)
+                    edges.append({
+                        "source": source_id,
+                        "target": target_id,
+                        "type": edge.get("type") or "RELATED",
+                        "raw": edge.get("raw") or "",
+                        "target_ref": edge.get("target_ref") or "",
+                    })
+    elif hasattr(graph_store, "driver"):
+        edges.extend(_neo4j_edges_between(graph_store, node_ids, limit=140))
+
+    node_type_counts = Counter(str(node.get("type") or "unknown") for node in by_id.values())
+    relation_counts = Counter(str(edge.get("type") or "RELATED") for edge in edges)
+    return {
+        "seed_node_ids": seed_ids,
+        "nodes": [_node_payload(node) for node in by_id.values()],
+        "edges": edges[:140],
+        "relation_counts": dict(relation_counts),
+        "node_type_counts": dict(node_type_counts),
+        "backend": type(graph_store).__name__,
+    }
+
+def _matches_source_filters(
+    record: Dict[str, Any],
+    *,
+    document: str = "",
+    article: str = "",
+    clause: str = "",
+    point: str = "",
+    modality: str = "",
+    has_penalty: bool = False,
+    has_sign: bool = False,
+    has_table: bool = False,
+    has_procedure: bool = False,
+) -> bool:
+    ref = record.get("legal_reference") or {}
+    meta = record.get("rag_metadata") or {}
+    doc = str(record.get("doc_name") or ref.get("document") or meta.get("doc") or "")
+    if document and doc != document:
+        return False
+    if article and ascii_lower(str(ref.get("article") or "")) != ascii_lower(article):
+        return False
+    if clause and ascii_lower(str(ref.get("clause") or "")) != ascii_lower(clause):
+        return False
+    if point and ascii_lower(str(ref.get("point") or "")) != ascii_lower(point):
+        return False
+    if modality and str(record.get("rag_modality") or "text") != modality:
+        return False
+    if has_penalty and not (meta.get("has_penalty") or record.get("penalties")):
+        return False
+    if has_sign and not meta.get("has_sign"):
+        return False
+    if has_table and not meta.get("has_table"):
+        return False
+    if has_procedure and not meta.get("has_procedure"):
+        return False
+    return True
+
+def _dedupe_records(records: List[Dict[str, Any]], *, limit: int) -> List[Dict[str, Any]]:
+    deduped: List[Dict[str, Any]] = []
+    seen = set()
+    for record in records:
+        key = record.get("source_chunk_id") or record.get("id") or json.dumps(record.get("legal_reference") or {}, sort_keys=True)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(record)
+        if len(deduped) >= limit:
+            break
+    return deduped
+
+def _claim_tokens(text: str) -> set[str]:
+    stopwords = {
+        "theo", "cua", "va", "hoac", "neu", "thi", "la", "co", "duoc", "khong",
+        "trong", "voi", "cho", "nguoi", "dieu", "khien", "phuong", "tien",
+    }
+    return {tok for tok in re.findall(r"[a-z0-9đ]+", ascii_lower(text)) if len(tok) >= 3 and tok not in stopwords}
+
+def _extract_claims(answer: str, *, limit: int = 24) -> List[str]:
+    claims: List[str] = []
+    for raw_line in (answer or "").splitlines():
+        line = re.sub(r"^\s*(?:[-*+]|\d+[\.)])\s*", "", raw_line).strip()
+        line = re.sub(r"^\|?[-:\s|]+$", "", line).strip()
+        if not line or len(line) < 28:
+            continue
+        if line.startswith("#") or set(line) <= {"|", "-", " "}:
+            continue
+        if "|" in line and len(line.split("|")) >= 3:
+            cells = [cell.strip() for cell in line.split("|") if cell.strip()]
+            for cell in cells:
+                if len(cell) >= 28:
+                    claims.append(cell)
+        else:
+            claims.append(line)
+        if len(claims) >= limit:
+            break
+    return list(dict.fromkeys(claims))[:limit]
+
+def _verify_claims(answer: str, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    claims = _extract_claims(answer)
+    prepared = [(record, _claim_tokens(source_text(record))) for record in records]
+    out = []
+    for claim in claims:
+        tokens = _claim_tokens(claim)
+        ranked = []
+        for record, source_tokens in prepared:
+            if not tokens or not source_tokens:
+                continue
+            overlap = tokens & source_tokens
+            score = len(overlap) / max(1, len(tokens))
+            if score <= 0:
+                continue
+            ranked.append((score, len(overlap), record))
+        ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        best_score = ranked[0][0] if ranked else 0.0
+        if best_score >= 0.24:
+            status = "supported"
+        elif best_score >= 0.12:
+            status = "weak"
+        else:
+            status = "needs_review"
+        out.append({
+            "claim": claim,
+            "status": status,
+            "score": round(best_score, 3),
+            "supports": [_record_payload(record, text_limit=700) for _score, _overlap, record in ranked[:3]],
+        })
+    return {
+        "claim_count": len(out),
+        "supported_count": sum(1 for item in out if item["status"] == "supported"),
+        "weak_count": sum(1 for item in out if item["status"] == "weak"),
+        "needs_review_count": sum(1 for item in out if item["status"] == "needs_review"),
+        "claims": out,
+    }
 
 # --- API Endpoints ---
 @app.get("/health")
 async def health():
     return {"status": "ok", "rag_loaded": get_rag.cache_info().currsize > 0}
+
+@app.get("/system/status")
+async def system_status():
+    try:
+        rag = get_rag()
+        vector_store = rag.vector_store
+        embedder = getattr(vector_store, "embedder", None)
+        records = getattr(vector_store, "records", []) or []
+        graph_store = rag.graph_store
+        docs = Counter(
+            str(record.get("doc_name") or (record.get("legal_reference") or {}).get("document") or "Không rõ")
+            for record in records
+        )
+        modalities = Counter(str(record.get("rag_modality") or "text") for record in records)
+        graph_stats = _graph_store_stats(graph_store)
+        graph_path = Path(getattr(graph_store, "graph_path", "data/graph/legal_graph.json"))
+        return {
+            "status": "ok",
+            "api_version": app.version,
+            "rag_loaded": get_rag.cache_info().currsize > 0,
+            "configured_vector_backend": getattr(getattr(rag, "config", None), "vector_backend", ""),
+            "vector_backend": type(vector_store).__name__,
+            "using_qdrant": type(vector_store).__name__ == "QdrantLegalVectorStore",
+            "graph_backend": type(graph_store).__name__,
+            "embedding_backend": os.getenv(
+                "RAG_EMBEDDING_BACKEND",
+                getattr(getattr(rag, "config", None), "embedding_backend", "openvino"),
+            ),
+            "embedding_runtime": type(embedder).__name__ if embedder is not None else "",
+            "using_openvino": type(embedder).__name__ == "OpenVINOEmbedder",
+            "embedding_model": getattr(
+                vector_store,
+                "embedding_model_name",
+                getattr(getattr(rag, "config", None), "embedding_model", ""),
+            ),
+            "configured_embedding_dimension": getattr(getattr(rag, "config", None), "embedding_dimension", 768),
+            "embedding_dimension": getattr(vector_store, "dimension", None),
+            "openvino_device": os.getenv(
+                "RAG_OPENVINO_DEVICE",
+                getattr(getattr(rag, "config", None), "openvino_device", "CPU"),
+            ),
+            "openvino_model_dir": str(
+                getattr(
+                    embedder,
+                    "model_dir",
+                    getattr(getattr(rag, "config", None), "openvino_model_dir", ""),
+                )
+            ),
+            "vector_record_count": len(records),
+            "documents": [{"name": name, "count": count} for name, count in docs.most_common()],
+            "modalities": [{"name": name, "count": count} for name, count in modalities.most_common()],
+            "graph": {
+                "loaded": bool(getattr(graph_store, "loaded", False)),
+                "path": str(graph_path),
+                "modified_time": graph_path.stat().st_mtime if graph_path.exists() else None,
+                **graph_stats,
+            },
+            "qdrant_collection": getattr(getattr(rag, "config", None), "qdrant_collection", ""),
+        }
+    except Exception as e:
+        logger.exception("Error in /system/status")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/sources/search")
+async def sources_search(
+    q: str = Query("", max_length=800),
+    document: str = Query(""),
+    article: str = Query(""),
+    clause: str = Query(""),
+    point: str = Query(""),
+    modality: str = Query(""),
+    has_penalty: bool = Query(False),
+    has_sign: bool = Query(False),
+    has_table: bool = Query(False),
+    has_procedure: bool = Query(False),
+    limit: int = Query(30, ge=1, le=100),
+):
+    try:
+        rag = get_rag()
+        filters = {
+            "documents": [document] if document else [],
+            "modalities": [modality] if modality else [],
+            "has_penalty": has_penalty,
+            "has_sign": has_sign,
+            "has_table": has_table,
+            "has_procedure": has_procedure,
+        }
+        if q.strip():
+            candidates = rag.vector_store.search(q.strip(), top_k=max(limit * 4, 80), filters=filters)
+        else:
+            candidates = [dict(record) for record in getattr(rag.vector_store, "records", []) or []]
+        filtered = [
+            record
+            for record in candidates
+            if _matches_source_filters(
+                record,
+                document=document,
+                article=article,
+                clause=clause,
+                point=point,
+                modality=modality,
+                has_penalty=has_penalty,
+                has_sign=has_sign,
+                has_table=has_table,
+                has_procedure=has_procedure,
+            )
+        ]
+        records = _dedupe_records(filtered, limit=limit)
+        return {
+            "query": q,
+            "count": len(records),
+            "results": [_record_payload(record) for record in records],
+        }
+    except Exception as e:
+        logger.exception("Error in /sources/search")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/graph/trace")
+async def graph_trace(
+    query: str = Query("", max_length=800),
+    source_chunk_ids: str = Query(""),
+    depth: int = Query(3, ge=1, le=5),
+    limit: int = Query(70, ge=10, le=180),
+):
+    try:
+        rag = get_rag()
+        ids = [item.strip() for item in re.split(r"[,;\n]+", source_chunk_ids or "") if item.strip()]
+        if ids:
+            records = rag.vector_store.by_source_chunk_ids(ids)
+            known_ids = {record.get("source_chunk_id") or record.get("id") for record in records}
+            records.extend({"source_chunk_id": source_id, "id": source_id} for source_id in ids if source_id not in known_ids)
+        elif query.strip():
+            records = rag.retrieve(query.strip(), top_k=8, expand_depth=1)
+        else:
+            records = []
+        return {
+            "query": query,
+            "source_chunk_ids": ids,
+            "seeds": [_record_payload(record, text_limit=500) for record in records[:12]],
+            "trace": _graph_trace(rag, records, depth=depth, max_nodes=limit),
+        }
+    except Exception as e:
+        logger.exception("Error in /graph/trace")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/chat/verify")
+async def chat_verify(answer: str = Form(...), source_chunk_ids: str = Form("")):
+    try:
+        rag = get_rag()
+        ids = []
+        try:
+            parsed = json.loads(source_chunk_ids or "[]")
+            if isinstance(parsed, list):
+                ids = [str(item) for item in parsed if item]
+        except Exception:
+            ids = [item.strip() for item in re.split(r"[,;\n]+", source_chunk_ids or "") if item.strip()]
+        records = rag.vector_store.by_source_chunk_ids(ids) if ids else []
+        return _verify_claims(answer, records)
+    except Exception as e:
+        logger.exception("Error in /chat/verify")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/analyze")
 async def chat_analyze(query: str = Form(...), history: str = Form("[]")):
@@ -185,6 +766,7 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
             "images": images,
             "reference_images": images,
             "references": _references(docs),
+            "graph_trace": _graph_trace(rag, docs),
             "metadata": extra
         }
     except Exception as e:
@@ -224,6 +806,7 @@ async def chat_sign(query: str = Form(...)):
             "answer": ans,
             "reference_images": images,
             "references": _references(docs),
+            "graph_trace": _graph_trace(rag, docs),
         }
     except Exception as e:
         logger.exception("Error in /chat/sign")
@@ -240,6 +823,7 @@ async def chat_table(query: str = Form(...)):
             "answer": ans,
             "table_images": images,
             "references": _references(docs),
+            "graph_trace": _graph_trace(rag, docs),
         }
     except Exception as e:
         logger.exception("Error in /chat/table")
@@ -254,39 +838,66 @@ async def chat_image(image: UploadFile = File(...), query: str = Form("")):
         user_img = Image.open(io.BytesIO(image_bytes))
         
         vision_prompt = (
-            "Nhận diện biển báo giao thông Việt Nam theo QCVN 41:2024. "
-            "Trả về JSON: {\"is_traffic_sign\": bool, \"candidate_codes\": [string], \"confidence\": float, \"raw_description\": string}."
+            "Bạn là bộ nhận diện biển báo giao thông Việt Nam theo QCVN 41:2024.\n"
+            "Hãy quan sát ảnh thật kỹ: hình dạng, màu nền, viền, ký hiệu ở giữa, chữ/số, mũi tên, phương tiện, người, công trường, trẻ em, đèn tín hiệu.\n"
+            "Không được đoán mã nếu ký hiệu không rõ. Nếu không chắc, để candidate_codes rỗng và mô tả đặc điểm nhìn thấy.\n"
+            "Chỉ trả về JSON object, không markdown, schema:\n"
+            "{"
+            "\"is_traffic_sign\": true,"
+            "\"candidate_codes\": [\"P.102\"],"
+            "\"alternatives\": [{\"code\":\"W.225\",\"reason\":\"...\"}],"
+            "\"confidence\": 0.0,"
+            "\"shape\": \"tròn/tam giác/chữ nhật/bát giác/khác\","
+            "\"dominant_colors\": [\"đỏ\",\"vàng\"],"
+            "\"symbol\": \"mô tả ký hiệu chính\","
+            "\"text\": \"chữ/số nhìn thấy nếu có\","
+            "\"sign_group\": \"cấm|nguy hiểm/cảnh báo|hiệu lệnh|chỉ dẫn|phụ|không rõ\","
+            "\"raw_description\": \"mô tả ngắn, trung tính theo ảnh\""
+            "}."
         )
         
         res, _model = generate_content_with_fallback(
             client,
             contents=[vision_prompt, user_img],
+            config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=2048),
             env_names=("RAG_VISION_MODEL",),
             vision=True,
             logger=logger,
             label="Vision sign recognition",
         )
         vision = _parse_vision_json(res.text or "")
-        
-        visual_desc = vision.get("raw_description", "")
-        codes = vision.get("candidate_codes", [])
-        
+        rag = get_rag()
+        trusted_codes = _trusted_vision_codes(rag, vision)
+
         if not vision.get("is_traffic_sign", True) and float(vision.get("confidence", 0)) < 0.4:
             return {"answer": "Không nhận diện được biển báo giao thông trong ảnh.", "references": []}
 
-        sign_hints = _traffic_sign_query_hints(" ".join([visual_desc, *[str(c) for c in codes]]), query)
-        final_query = f"{sign_hints}. {' '.join(str(c) for c in codes)}. {visual_desc}. {query}"
-        rag = get_rag()
+        final_query = _sign_image_query(vision, trusted_codes, query)
         result = rag.query_adaptive(final_query)
-        ans, docs = result["answer"], result["contexts"]
+        docs = result["contexts"]
+        if trusted_codes:
+            exact_sign_docs = rag.retriever.sign_catalog.records_for_codes(trusted_codes, per_code=8)
+            merged_docs: List[Dict[str, Any]] = []
+            seen = set()
+            for doc in [*exact_sign_docs, *docs]:
+                key = doc.get("source_chunk_id") or doc.get("id") or json.dumps(doc.get("legal_reference") or {}, sort_keys=True)
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged_docs.append(doc)
+            docs = merged_docs[:80]
+            ans = rag.generate_answer(final_query, docs)
+        else:
+            ans = result["answer"]
         images = _context_images(docs)
         return {
             "answer": ans,
-            "vision": vision,
+            "vision": {**vision, "trusted_codes": trusted_codes},
             "query_analysis": result.get("query_analysis"),
             "metadata": result.get("metadata"),
             "reference_images": images,
             "references": _references(docs),
+            "graph_trace": _graph_trace(rag, docs),
         }
     except Exception as e:
         logger.exception("Error in /chat/image")

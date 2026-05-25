@@ -37,7 +37,9 @@ venv.bak/
 .env.test.local
 .env.production.local
 *.env*
+!.env.example
 !.env.rag.example
+!.env.huggingface.example
 
 # IDEs
 .vscode/
@@ -53,6 +55,10 @@ data/graph/
 data/interim/
 data/locks/
 data/models/
+!data/models/
+!data/models/openvino/
+!data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/
+!data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**
 data/processed/
 data/qa_pairs/
 data/reports/

@@ -8,12 +8,14 @@ from typing import Any
 from rank_bm25 import BM25Okapi
 
 from src.rag.legal_utils import normalized_legal_reference, tokenize
-from src.rag.rag_store_config import RAGStoreConfig
+from src.rag.rag_store_config import DEFAULT_EMBEDDING_MODEL, RAGStoreConfig
 from src.rag.record_expander import load_expanded_records
 from src.rag.embedding_backends import make_embedder
 
 
 logger = logging.getLogger("QdrantLegalVectorStore")
+
+QDRANT_INDEX_VERSION = "qdrant_openvino_vietnamese_bi_encoder_768_v1"
 
 
 def _embedding_text(record: dict[str, Any]) -> str:
@@ -61,7 +63,7 @@ class QdrantLegalVectorStore:
     def __init__(
         self,
         processed_path: str | Path = "data/processed",
-        embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
         force_reindex: bool = False,
         config: RAGStoreConfig | None = None,
     ):
@@ -75,7 +77,7 @@ class QdrantLegalVectorStore:
         self.bm25 = None
         self.client = self._client()
         self.embedder = self._embedder(force_reindex=force_reindex)
-        self.dimension = self.embedder.get_embedding_dimension()
+        self.dimension = self._validated_dimension()
 
         if force_reindex:
             self.build(recreate=True)
@@ -96,6 +98,25 @@ class QdrantLegalVectorStore:
     def _embedder(self, *, force_reindex: bool):
         return make_embedder(self.embedding_model_name)
 
+    def _validated_dimension(self) -> int:
+        actual = int(self.embedder.get_embedding_dimension())
+        expected = int(getattr(self.config, "embedding_dimension", 0) or 0)
+        if expected and actual != expected:
+            raise RuntimeError(
+                "Embedding dimension mismatch: "
+                f"configured RAG_EMBEDDING_DIMENSION={expected}, "
+                f"but {type(self.embedder).__name__} returned {actual}."
+            )
+        return actual
+
+    def _index_metadata(self) -> dict[str, Any]:
+        return {
+            "rag_index_version": QDRANT_INDEX_VERSION,
+            "rag_embedding_backend": os.getenv("RAG_EMBEDDING_BACKEND", getattr(self.config, "embedding_backend", "openvino")),
+            "rag_embedding_model": self.embedding_model_name,
+            "rag_embedding_dimension": self.dimension,
+        }
+
     def _load_or_build(self) -> None:
         source_records = load_expanded_records(self.processed_path)
         if not source_records:
@@ -104,6 +125,23 @@ class QdrantLegalVectorStore:
         expected_points = len({_point_id(record) for record in source_records})
         exists = self.client.collection_exists(self.config.qdrant_collection)
         point_count = self._collection_point_count() if exists else 0
+        vector_size = self._collection_vector_size() if exists else 0
+        if exists and vector_size and vector_size != self.dimension:
+            logger.warning(
+                "Qdrant collection %s has vector size %s, expected %s. Recreating collection.",
+                self.config.qdrant_collection,
+                vector_size,
+                self.dimension,
+            )
+            self.build(recreate=True, source_records=source_records)
+            return
+        if exists and point_count and not self._collection_index_matches():
+            logger.warning(
+                "Qdrant collection %s was built with stale/missing embedding metadata. Recreating collection.",
+                self.config.qdrant_collection,
+            )
+            self.build(recreate=True, source_records=source_records)
+            return
         if exists and point_count == expected_points:
             self.records = source_records
             self.documents = [record.get("rag_text", "") or "" for record in self.records]
@@ -161,18 +199,13 @@ class QdrantLegalVectorStore:
             if not batch_records:
                 continue
             batch_texts = [_embedding_text(record) for record in batch_records]
-            vectors = self.embedder.encode(
-                batch_texts,
-                batch_size=batch_size,
-                convert_to_numpy=True,
-                show_progress_bar=False,
-                normalize_embeddings=True,
-            ).astype("float32")
+            vectors = self._encode_batch(batch_texts, batch_records=batch_records, batch_size=batch_size)
             points = []
             for record, vector in zip(batch_records, vectors):
                 payload = {
                     "record": _clean_payload(record),
                     "text": _clean_payload(record.get("rag_text", "")),
+                    **self._index_metadata(),
                     **_clean_payload(record.get("rag_metadata") or {}),
                 }
                 points.append(models.PointStruct(id=_point_id(record), vector=vector.tolist(), payload=payload))
@@ -183,12 +216,80 @@ class QdrantLegalVectorStore:
         self._build_lookup_maps()
         self._build_bm25()
 
+    def _encode_batch(self, texts: list[str], *, batch_records: list[dict[str, Any]], batch_size: int):
+        try:
+            return self.embedder.encode(
+                texts,
+                batch_size=batch_size,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+                normalize_embeddings=True,
+            ).astype("float32")
+        except IndexError as exc:
+            logger.warning(
+                "Embedding batch failed with IndexError; retrying one record at a time to isolate bad input: %s",
+                exc,
+            )
+            vectors = []
+            for text, record in zip(texts, batch_records):
+                try:
+                    vector = self.embedder.encode(
+                        [text],
+                        batch_size=1,
+                        convert_to_numpy=True,
+                        show_progress_bar=False,
+                        normalize_embeddings=True,
+                    ).astype("float32")[0]
+                    vectors.append(vector)
+                except IndexError as item_exc:
+                    ref = normalized_legal_reference(record)
+                    raise RuntimeError(
+                        "Embedding failed for record "
+                        f"{record.get('source_chunk_id') or record.get('id')} "
+                        f"at {ref.get('document')} Điều {ref.get('article')} "
+                        f"Khoản {ref.get('clause')} Điểm {ref.get('point')}. "
+                        "Check RAG_EMBEDDING_MAX_LENGTH and model tokenizer limits."
+                    ) from item_exc
+            import numpy as np
+
+            return np.vstack(vectors).astype("float32")
+
     def _collection_point_count(self) -> int:
         try:
             info = self.client.get_collection(self.config.qdrant_collection)
             return int(info.points_count or 0)
         except Exception:
             return 0
+
+    def _collection_vector_size(self) -> int:
+        try:
+            info = self.client.get_collection(self.config.qdrant_collection)
+            config = getattr(info, "config", None)
+            params = getattr(config, "params", None)
+            vectors = getattr(params, "vectors", None)
+            if isinstance(vectors, dict):
+                vectors = next(iter(vectors.values()), None)
+            if isinstance(vectors, dict):
+                return int(vectors.get("size") or 0)
+            return int(getattr(vectors, "size", 0) or 0)
+        except Exception:
+            return 0
+
+    def _collection_index_matches(self) -> bool:
+        try:
+            points, _next_offset = self.client.scroll(
+                collection_name=self.config.qdrant_collection,
+                limit=1,
+                with_payload=True,
+                with_vectors=False,
+            )
+        except Exception:
+            return False
+        if not points:
+            return True
+        payload = points[0].payload or {}
+        expected = self._index_metadata()
+        return all(payload.get(key) == value for key, value in expected.items())
 
     def _existing_point_ids(self) -> set[str]:
         ids: set[str] = set()
@@ -368,6 +469,13 @@ class QdrantLegalVectorStore:
         if exists and recreate:
             self.client.delete_collection(self.config.qdrant_collection)
             exists = False
+        if exists:
+            vector_size = self._collection_vector_size()
+            if vector_size and vector_size != self.dimension:
+                self.client.delete_collection(self.config.qdrant_collection)
+                exists = False
+            else:
+                return
         if exists:
             return
         self.client.create_collection(

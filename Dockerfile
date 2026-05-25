@@ -1,43 +1,61 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    TOKENIZERS_PARALLELISM=false \
+    RAG_VECTOR_BACKEND=qdrant \
+    RAG_GRAPH_BACKEND=local \
+    RAG_ENABLE_EMBEDDINGS=true \
+    RAG_ENABLE_RERANKER=true \
+    RAG_EMBEDDING_MODEL=bkai-foundation-models/vietnamese-bi-encoder \
+    RAG_EMBEDDING_BACKEND=openvino \
+    RAG_EMBEDDING_DIMENSION=768 \
+    RAG_EMBEDDING_MAX_LENGTH=256 \
+    RAG_OPENVINO_DEVICE=CPU \
+    RAG_OPENVINO_MODEL_DIR=data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
+    RAG_STRICT_VECTOR_BACKEND=true \
+    RAG_ENABLE_AI_PLANNER=true \
+    RAG_AI_PLANNER_ALWAYS=false \
+    RAG_AI_PLANNER_MIN_RULE_CONFIDENCE=0.72 \
+    RAG_AI_PLANNER_MAX_QUERIES=2 \
+    RAG_MAX_PLANNED_QUERIES=3 \
+    RAG_RETRIEVAL_MAX_ROUNDS=3 \
+    RAG_RETRIEVAL_MAX_SLOTS=18 \
+    RAG_VECTOR_SEARCH_MULTIPLIER=2 \
+    RAG_QDRANT_VECTOR_MULTIPLIER=4 \
+    RAG_QDRANT_ENABLE_LEXICAL=true \
+    RAG_RERANKER_MODEL=BAAI/bge-reranker-v2-m3 \
+    RAG_RERANKER_DEVICE=cpu \
+    OPENVINO_TELEMETRY_DISABLE=1 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    OMP_NUM_THREADS=4 \
+    MKL_NUM_THREADS=4 \
+    QDRANT_COLLECTION=legal_traffic_records_vi \
+    QDRANT_TIMEOUT=300
 
-# Set work directory
-WORKDIR /app
-
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libgl1-mesa-glx \
+    ghostscript \
+    poppler-utils \
+    libgl1 \
     libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
     curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
 COPY . .
 
-# Ensure entrypoint script is executable
 RUN chmod +x entrypoint.sh
 
-# Expose ports (HF Spaces uses 7860 by default for the main UI)
 EXPOSE 7860
-EXPOSE 8002
-
-# Set environment variables for the application
-# These can be overridden in HF Spaces settings
-ENV RAG_VECTOR_BACKEND=local
-ENV RAG_GRAPH_BACKEND=local
-ENV RAG_CANONICAL_BACKEND=local
-ENV RAG_OBJECT_BACKEND=local
-
-# Run the startup script
 ENTRYPOINT ["./entrypoint.sh"]

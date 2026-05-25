@@ -1,0 +1,491 @@
+[
+  {
+    "id": "35-tt-bgtvt-0001",
+    "source": {
+      "type": "handmade",
+      "file": "35-bgtvt.pdf",
+      "index": 2
+    },
+    "question": "Theo Thông tư 35/2024/TT-BGTVT, khái niệm 'Dữ liệu DAT' được định nghĩa như thế nào trong quy định chung về đào tạo, sát hạch lái xe?",
+    "gold_answer": "Dữ liệu DAT là tập hợp các thông tin về định danh và quá trình học thực hành lái xe trên đường của học viên, được truyền từ thiết bị DAT lắp trên xe ô tô tập lái để tập lái xe trên đường về máy chủ của cơ sở đào tạo lái xe.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "3",
+        "clause": "3",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 3 Điều 3 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": ["thong_tu_35_2024_tt_bgtvt_3_3_0_a1b2c3"],
+    "acceptable_chunks": ["thong_tu_35_2024_tt_bgtvt_3_3_0_a1b2c3"],
+    "reference_quote": "3. Dữ liệu DAT là tập hợp các thông tin về định danh và quá trình học thực hành lái xe trên đường của học viên, được truyền từ thiết bị DAT lắp trên xe ô tô tập lái để tập lái xe trên đường về máy chủ của cơ sở đào tạo lái xe.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Dữ liệu DAT là tập hợp thông tin định danh và quá trình học thực hành trên đường của học viên.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "3",
+            "clause": "3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3 Điều 3 Thông tư 35/2024/TT-BGTVT"
+          }
+        ],
+        "support_quote": "Dữ liệu DAT là tập hợp các thông tin về định danh và quá trình học thực hành lái xe trên đường của học viên"
+      },
+      {
+        "claim": "Được truyền từ thiết bị DAT trên xe tập lái về máy chủ của cơ sở đào tạo.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "3",
+            "clause": "3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3 Điều 3 Thông tư 35/2024/TT-BGTVT"
+          }
+        ],
+        "support_quote": "được truyền từ thiết bị DAT lắp trên xe ô tô tập lái để tập lái xe trên đường về máy chủ của cơ sở đào tạo lái xe"
+      }
+    ],
+    "required_citations": ["Khoản 3 Điều 3"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "thong_tu_35_2024_tt_bgtvt_3_3_0_a1b2c3",
+          "record_id": "Dinh_nghia_Du_lieu_DAT",
+          "score": 4.9,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "article": "3",
+            "clause": "3"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-tt-bgtvt-0002",
+    "source": {
+      "type": "handmade",
+      "file": "35-bgtvt.pdf",
+      "index": 2
+    },
+    "question": "Học viên A tham gia thi sát hạch lấy bằng lái xe ô tô hạng B. Trong quá trình thi, học viên A không đạt bài thi lý thuyết. Theo quy định, học viên A có được tiếp tục thi phần thi mô phỏng các tình huống giao thông và phần thực hành lái xe trong hình không?",
+    "gold_answer": "Học viên A được tiếp tục sát hạch nội dung mô phỏng các tình huống giao thông. Tuy nhiên, do không đạt nội dung sát hạch lý thuyết (và mô phỏng) thì học viên A sẽ không được thi nội dung thực hành lái xe trong hình.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "25",
+        "clause": "2",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 2 Điều 25 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": ["thong_tu_35_2024_tt_bgtvt_25_2_c_d4e5f6"],
+    "acceptable_chunks": ["thong_tu_35_2024_tt_bgtvt_25_2_c_d4e5f6"],
+    "reference_quote": "c) Thí sinh không đạt nội dung sát hạch lý thuyết thì được tiếp tục sát hạch nội dung sát hạch mô phỏng các tình huống giao thông; không đạt nội dung sát hạch lý thuyết và mô phỏng các tình huống giao thông thì không được sát hạch thực hành lái xe trong hình...",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Được tiếp tục thi mô phỏng các tình huống giao thông dù trượt lý thuyết.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "25",
+            "clause": "2",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 2 Điều 25"
+          }
+        ],
+        "support_quote": "Thí sinh không đạt nội dung sát hạch lý thuyết thì được tiếp tục sát hạch nội dung sát hạch mô phỏng các tình huống giao thông"
+      },
+      {
+        "claim": "Không được sát hạch thực hành lái xe trong hình nếu trượt lý thuyết và mô phỏng.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "25",
+            "clause": "2",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 2 Điều 25"
+          }
+        ],
+        "support_quote": "không đạt nội dung sát hạch lý thuyết và mô phỏng các tình huống giao thông thì không được sát hạch thực hành lái xe trong hình"
+      }
+    ],
+    "required_citations": ["Điểm c Khoản 2 Điều 25"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "thong_tu_35_2024_tt_bgtvt_25_2_c_d4e5f6",
+          "record_id": "Ket_qua_sat_hach_hangB",
+          "score": 4.8,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "article": "25",
+            "clause": "2",
+            "point": "c"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-tt-bgtvt-0003",
+    "source": {
+      "type": "handmade",
+      "file": "35-bgtvt.pdf",
+      "index": 2
+    },
+    "question": "Ông B có giấy phép lái xe hạng C nhưng do đi công tác nước ngoài dài ngày nên đã để giấy phép lái xe quá hạn 14 tháng. Khi về nước, ông B muốn cấp lại giấy phép lái xe thì phải thực hiện các thủ tục sát hạch nào?",
+    "gold_answer": "Do giấy phép lái xe hạng C của ông B đã quá hạn từ 01 năm trở lên (cụ thể là 14 tháng), ông B bắt buộc phải dự sát hạch lại cả lý thuyết, thực hành lái xe trong hình và thực hành lái xe trên đường để được cấp lại giấy phép lái xe.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "34",
+        "clause": "2",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 2 Điều 34 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": ["thong_tu_35_2024_tt_bgtvt_34_2_a_g7h8i9"],
+    "acceptable_chunks": ["thong_tu_35_2024_tt_bgtvt_34_2_a_g7h8i9"],
+    "reference_quote": "Quá hạn từ 01 năm trở lên kể từ ngày hết hạn phải sát hạch lý thuyết, thực hành lái xe trong hình và trên đường để cấp giấy phép lái xe theo quy định tại khoản 1, khoản 2 và khoản 3 Điều 17 Thông tư này.",
+    "expected_numbers": ["14", "01"],
+    "required_claims": [
+      {
+        "claim": "Giấy phép lái xe quá hạn từ 1 năm trở lên (14 tháng) phải thi lại toàn bộ.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "34",
+            "clause": "2",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 2 Điều 34"
+          }
+        ],
+        "support_quote": "Quá hạn từ 01 năm trở lên kể từ ngày hết hạn phải sát hạch lý thuyết, thực hành lái xe trong hình và trên đường để cấp giấy phép lái xe"
+      }
+    ],
+    "required_citations": ["Điểm a Khoản 2 Điều 34"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "thong_tu_35_2024_tt_bgtvt_34_2_a_g7h8i9",
+          "record_id": "GPLX_qua_han_01nam",
+          "score": 4.9,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "article": "34",
+            "clause": "2",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-tt-bgtvt-0004",
+    "source": {
+      "type": "handmade",
+      "file": "35-bgtvt.pdf",
+      "index": 2
+    },
+    "question": "Anh C là người nước ngoài đến Việt Nam làm việc và được cấp thẻ tạm trú thời hạn 6 tháng. Anh C hiện đang sở hữu một Giấy phép lái xe quốc tế và một Giấy phép lái xe quốc gia có tính chất tạm thời do nước sở tại cấp. Theo quy định, anh C có thể dùng một trong hai loại giấy phép này để làm thủ tục xin đổi sang Giấy phép lái xe Việt Nam được không?",
+    "gold_answer": "Anh C không thể đổi sang Giấy phép lái xe Việt Nam bằng hai loại giấy tờ trên. Theo quy định của Thông tư, Việt Nam không giải quyết đổi đối với giấy phép lái xe tạm thời của nước ngoài và cũng không đổi giấy phép lái xe quốc tế sang giấy phép lái xe do ngành Giao thông vận tải cấp.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "39",
+        "clause": "1",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 1 Điều 39 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": ["thong_tu_35_2024_tt_bgtvt_39_1_c_j0k1l2"],
+    "acceptable_chunks": ["thong_tu_35_2024_tt_bgtvt_39_1_c_j0k1l2"],
+    "reference_quote": "c) Không đổi giấy phép lái xe tạm thời của nước ngoài; giấy phép lái xe quốc tế; giấy phép lái xe của nước ngoài quá thời hạn sử dụng...",
+    "expected_numbers": ["6"],
+    "required_claims": [
+      {
+        "claim": "Không đổi giấy phép lái xe tạm thời của nước ngoài.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "39",
+            "clause": "1",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 1 Điều 39"
+          }
+        ],
+        "support_quote": "Không đổi giấy phép lái xe tạm thời của nước ngoài"
+      },
+      {
+        "claim": "Không đổi giấy phép lái xe quốc tế sang giấy phép lái xe Việt Nam.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "39",
+            "clause": "1",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 1 Điều 39"
+          }
+        ],
+        "support_quote": "giấy phép lái xe quốc tế"
+      }
+    ],
+    "required_citations": ["Điểm c Khoản 1 Điều 39"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "thong_tu_35_2024_tt_bgtvt_39_1_c_j0k1l2",
+          "record_id": "Khong_doi_GPLX_tam_thoi",
+          "score": 4.7,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "article": "39",
+            "clause": "1",
+            "point": "c"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-tt-bgtvt-0005",
+    "source": {
+      "type": "handmade",
+      "file": "35-bgtvt.pdf",
+      "index": 2
+    },
+    "question": "Một tài xế đang có giấy phép lái xe hạng B, muốn đăng ký học nâng hạng lên giấy phép lái xe hạng D1 hoặc D2 thì yêu cầu tối thiểu về thời gian lái xe an toàn đối với từng trường hợp là bao nhiêu năm?",
+    "gold_answer": "Theo Thông tư, để nâng hạng giấy phép lái xe từ hạng B lên D1 yêu cầu thời gian lái xe an toàn từ 02 năm trở lên. Trong khi đó, để nâng hạng từ hạng B lên D2 thì yêu cầu thời gian lái xe an toàn từ 03 năm trở lên.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "14",
+        "clause": "2",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 2 Điều 14 Thông tư 35/2024/TT-BGTVT"
+      },
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "14",
+        "clause": "2",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 2 Điều 14 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": [
+      "thong_tu_35_2024_tt_bgtvt_14_2_a_m3n4o5",
+      "thong_tu_35_2024_tt_bgtvt_14_2_b_p6q7r8"
+    ],
+    "acceptable_chunks": [
+      "thong_tu_35_2024_tt_bgtvt_14_2_a_m3n4o5",
+      "thong_tu_35_2024_tt_bgtvt_14_2_b_p6q7r8"
+    ],
+    "reference_quote": "a) Hạng B lên C1, B lên C, B lên D1... thời gian lái xe an toàn từ 02 năm trở lên; b) Hạng B lên D2, C lên CE, C lên D: thời gian lái xe an toàn từ 03 năm trở lên.",
+    "expected_numbers": ["02", "03"],
+    "required_claims": [
+      {
+        "claim": "Nâng hạng từ B lên D1 yêu cầu thời gian lái xe an toàn từ 02 năm trở lên.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "14",
+            "clause": "2",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 2 Điều 14"
+          }
+        ],
+        "support_quote": "Hạng B lên... B lên D1... thời gian lái xe an toàn từ 02 năm trở lên"
+      },
+      {
+        "claim": "Nâng hạng từ B lên D2 yêu cầu thời gian lái xe an toàn từ 03 năm trở lên.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "14",
+            "clause": "2",
+            "point": "b",
+            "section": "",
+            "raw": "Điểm b Khoản 2 Điều 14"
+          }
+        ],
+        "support_quote": "Hạng B lên D2... thời gian lái xe an toàn từ 03 năm trở lên"
+      }
+    ],
+    "required_citations": ["Điểm a, b Khoản 2 Điều 14"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "thong_tu_35_2024_tt_bgtvt_14_2_a_m3n4o5",
+          "record_id": "TGLX_an_toan_nang_hang",
+          "score": 5.0,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "article": "14",
+            "clause": "2",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-tt-bgtvt-0006",
+    "source": {
+      "type": "handmade",
+      "file": "35-bgtvt.pdf",
+      "index": 2
+    },
+    "question": "Trong tiêu chuẩn về hệ thống phòng học chuyên môn của cơ sở đào tạo lái xe mô tô, đối với phòng học lý thuyết, nếu các thiết bị công nghệ thông tin chưa mô tả được hệ thống báo hiệu đường bộ (biển báo giao thông) và sa hình thì cơ sở đào tạo phải làm gì để đáp ứng công cụ hỗ trợ giảng dạy?",
+    "gold_answer": "Trường hợp các thiết bị công nghệ thông tin chưa mô tả được hệ thống báo hiệu đường bộ và sa hình, thì quy định yêu cầu phòng học lý thuyết phải trang bị hệ thống tranh vẽ thay thế để làm công cụ hỗ trợ việc giảng dạy.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "9",
+        "clause": "1",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 1 Điều 9 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": ["thong_tu_35_2024_tt_bgtvt_9_1_a_s9t0u1"],
+    "acceptable_chunks": ["thong_tu_35_2024_tt_bgtvt_9_1_a_s9t0u1"],
+    "reference_quote": "a) Phòng học lý thuyết: có các trang thiết bị làm công cụ hỗ trợ việc giảng dạy về các nội dung: pháp luật giao thông đường bộ, trường hợp các thiết bị công nghệ thông tin chưa mô tả hệ thống báo hiệu đường bộ, sa hình, thì phải có hệ thống tranh vẽ;",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Phải trang bị hệ thống tranh vẽ nếu thiết bị công nghệ thông tin chưa mô tả được hệ thống báo hiệu đường bộ và sa hình.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "9",
+            "clause": "1",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 1 Điều 9"
+          }
+        ],
+        "support_quote": "trường hợp các thiết bị công nghệ thông tin chưa mô tả hệ thống báo hiệu đường bộ, sa hình, thì phải có hệ thống tranh vẽ"
+      }
+    ],
+    "required_citations": ["Điểm a Khoản 1 Điều 9"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "thong_tu_35_2024_tt_bgtvt_9_1_a_s9t0u1",
+          "record_id": "Tieu_chuan_phong_hoc_ly_thuyet",
+          "score": 4.6,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "article": "9",
+            "clause": "1",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  }
+]
