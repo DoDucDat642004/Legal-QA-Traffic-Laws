@@ -32,7 +32,8 @@ def verify_penalties(rule_dict: dict, source_text: str) -> list[str]:
     for m in MONEY_RE.findall(source_text):
         try:
             text_amounts.add(int(m.replace(".", "")))
-        except: continue
+        except ValueError:
+            continue
     
     p = rule_dict.get("penalties", {}) or {}
     main = p.get("main_penalty", {}) or {}
@@ -83,7 +84,8 @@ def save_to_standard_json(path: str, records: list):
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-        except: pass
+        except Exception as exc:
+            logger.warning("Could not load existing extraction JSON %s: %s", path, exc)
 
     def record_priority(record: dict) -> int:
         record_type = record.get("record_type")
@@ -439,7 +441,8 @@ async def stage_extract(pdf_path: str, doc_name: str, interim_dir: str) -> dict:
                 if manifest.get("extraction_cache_version") == EXTRACTION_CACHE_VERSION:
                     return PDFEngine()._strip_headers_footers(PDFEngine()._apply_text_filters(manifest.get("doc_map", {})))
                 logger.info(f" - Extraction manifest is stale; rebuilding page map for {doc_base}.")
-        except: pass
+        except Exception as exc:
+            logger.warning("Could not read extraction manifest %s: %s", manifest_path, exc)
 
     engine = PDFEngine()
     doc_map = await engine.convert_to_markdown_simple(pdf_path, doc_name=doc_name)

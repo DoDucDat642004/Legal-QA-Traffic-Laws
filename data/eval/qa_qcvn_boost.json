@@ -1,0 +1,419 @@
+[
+  {
+    "id": "qc-bbdb-0001",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 1
+    },
+    "question": "Khi tại một ngã tư đồng thời có người điều khiển giao thông ra hiệu lệnh dừng lại, nhưng tín hiệu đèn giao thông lại đang bật xanh, và có biển báo hiệu cho phép đi thẳng, người tham gia giao thông phải tuân thủ theo hiệu lệnh nào?",
+    "gold_answer": "Người tham gia giao thông phải chấp hành hiệu lệnh của người điều khiển giao thông do hiệu lệnh của người điều khiển giao thông có thứ tự hiệu lực cao nhất.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Quy chuẩn về báo hiệu đường bộ",
+        "article": "4",
+        "clause": "4.1",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 4.1 Điều 4 Quy chuẩn về báo hiệu đường bộ"
+      }
+    ],
+    "expected_chunks": ["quy_chuan_bbdb_4_4.1_0_abcd12"],
+    "acceptable_chunks": ["quy_chuan_bbdb_4_4.1_0_abcd12"],
+    "reference_quote": "4.1. Khi đồng thời có, bố trí các hình thức báo hiệu có ý nghĩa khác nhau cùng ở một khu vực, người tham gia giao thông đường bộ phải chấp hành báo hiệu đường bộ theo thứ tự ưu tiên từ trên xuống dưới như sau: 4.1.1. Hiệu lệnh của người điều khiển giao thông; 4.1.2. Tín hiệu đèn giao thông; 4.1.3. Biển báo hiệu đường bộ...",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Người tham gia giao thông phải chấp hành hiệu lệnh của người điều khiển giao thông.",
+        "support_refs": [
+          {
+            "doc": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "4",
+            "clause": "4.1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 4.1 Điều 4 Quy chuẩn về báo hiệu đường bộ"
+          }
+        ],
+        "support_quote": "phải chấp hành báo hiệu đường bộ theo thứ tự ưu tiên từ trên xuống dưới như sau: 4.1.1. Hiệu lệnh của người điều khiển giao thông"
+      }
+    ],
+    "required_citations": ["Khoản 4.1 Điều 4"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "quy_chuan_bbdb_4_4.1_0_abcd12",
+          "record_id": "Thu_tu_hieu_luc_001",
+          "score": 4.5,
+          "match_reason": "article,clause,quote_fuzzy",
+          "legal_reference": {
+            "document": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "4",
+            "clause": "4.1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "qc-bbdb-0002",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 2
+    },
+    "question": "Xe chữa cháy đang đi làm nhiệm vụ khẩn cấp có bật tín hiệu theo quy định, khi đi vào đường cao tốc có được phép đi ngược chiều không? Nếu có thì được đi ở phần/làn đường nào?",
+    "gold_answer": "Xe chữa cháy đi làm nhiệm vụ khẩn cấp được phép đi ngược chiều trên đường cao tốc, nhưng chỉ được đi ngược chiều trên làn dừng xe khẩn cấp và phải tuân theo hiệu lệnh của người điều khiển giao thông, biển báo hiệu tạm thời.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Quy chuẩn về báo hiệu đường bộ",
+        "article": "7",
+        "clause": "7.3",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 7.3 Điều 7 Quy chuẩn về báo hiệu đường bộ"
+      }
+    ],
+    "expected_chunks": ["quy_chuan_bbdb_7_7.3_0_efgh34"],
+    "acceptable_chunks": [
+      "quy_chuan_bbdb_7_7.3_0_efgh34",
+      "quy_chuan_bbdb_7_7.1_a_ijkl56"
+    ],
+    "reference_quote": "7.3. Xe ưu tiên quy định tại các điểm a, b, c và d khoản 7.1 Điều này không bị hạn chế tốc độ; được phép đi không phụ thuộc vào tín hiệu đèn giao thông, đi vào đường ngược chiều... riêng đối với đường cao tốc, chỉ được đi ngược chiều trên làn dừng xe khẩn cấp; phải tuân theo hiệu lệnh của người điều khiển giao thông, biển báo hiệu tạm thời.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Xe chữa cháy làm nhiệm vụ được phép đi ngược chiều trên cao tốc nhưng chỉ trên làn dừng xe khẩn cấp.",
+        "support_refs": [
+          {
+            "doc": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "7",
+            "clause": "7.3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 7.3 Điều 7 Quy chuẩn về báo hiệu đường bộ"
+          }
+        ],
+        "support_quote": "riêng đối với đường cao tốc, chỉ được đi ngược chiều trên làn dừng xe khẩn cấp"
+      }
+    ],
+    "required_citations": ["Khoản 7.3 Điều 7"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "quy_chuan_bbdb_7_7.3_0_efgh34",
+          "record_id": "Quyen_xe_uu_tien_002",
+          "score": 4.2,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "7",
+            "clause": "7.3"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "qc-bbdb-0003",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 3
+    },
+    "question": "Một người đang lái xe máy và gặp biển báo P.124c 'Cấm rẽ trái và quay đầu xe' tại một ngã tư. Xin hỏi người này có được phép đi thẳng không? Biển này có cấm xe máy không hay chỉ cấm ô tô?",
+    "gold_answer": "Tài xế xe máy được phép đi thẳng hoặc rẽ phải. Biển báo P.124c có hiệu lực cấm các loại xe (bao gồm cả xe máy và ô tô) rẽ trái đồng thời cấm quay đầu, không cấm đi thẳng.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Quy chuẩn về báo hiệu đường bộ",
+        "article": "",
+        "clause": "",
+        "point": "c",
+        "section": "Phụ lục B",
+        "raw": "Điểm c Mục B.24 Phụ lục B"
+      }
+    ],
+    "expected_chunks": ["quy_chuan_bbdb_phulucB_B.24_c_mnop78"],
+    "acceptable_chunks": ["quy_chuan_bbdb_phulucB_B.24_c_mnop78"],
+    "reference_quote": "c) Để báo cấm các loại xe rẽ trái đồng thời cấm quay đầu, đặt biển số P.124c “Cấm rẽ trái và quay đầu xe”.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Được phép đi thẳng vì biển P.124c chỉ cấm rẽ trái và cấm quay đầu đối với các loại xe nói chung.",
+        "support_refs": [
+          {
+            "doc": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "",
+            "clause": "",
+            "point": "c",
+            "section": "Phụ lục B",
+            "raw": "Điểm c Mục B.24 Phụ lục B"
+          }
+        ],
+        "support_quote": "báo cấm các loại xe rẽ trái đồng thời cấm quay đầu"
+      }
+    ],
+    "required_citations": ["Mục B.24 Phụ lục B"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "quy_chuan_bbdb_phulucB_B.24_c_mnop78",
+          "record_id": "Bien_cam_P124",
+          "score": 3.9,
+          "match_reason": "appendix,point",
+          "legal_reference": {
+            "document": "Quy chuẩn về báo hiệu đường bộ",
+            "appendix": "B",
+            "item": "B.24"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "qc-bbdb-0004",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 4
+    },
+    "question": "Nếu trên một đoạn đường đang sửa chữa, cơ quan quản lý đặt một biển báo hạn chế tốc độ tối đa là 40km/h (biển tạm thời). Cùng lúc đó trên cột báo cố định trước đó có cắm biển báo hạn chế tốc độ 60km/h. Người lái xe phải tuân thủ biển nào?",
+    "gold_answer": "Người lái xe phải tuân thủ biển báo hạn chế tốc độ 40km/h (biển tạm thời). Vì theo quy định, khi ở một vị trí đã có biển báo hiệu đặt cố định lại có biển báo hiệu khác đặt có tính chất tạm thời mà hai biển có ý nghĩa khác nhau thì phải chấp hành hiệu lệnh của biển báo hiệu tạm thời.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Quy chuẩn về báo hiệu đường bộ",
+        "article": "4",
+        "clause": "4.2",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 4.2 Điều 4 Quy chuẩn về báo hiệu đường bộ"
+      }
+    ],
+    "expected_chunks": ["quy_chuan_bbdb_4_4.2_0_qrst90"],
+    "acceptable_chunks": ["quy_chuan_bbdb_4_4.2_0_qrst90"],
+    "reference_quote": "4.2. Khi ở một vị trí đã có biển báo hiệu đặt cố định lại có biển báo hiệu khác đặt có tính chất tạm thời mà hai biển có ý nghĩa khác nhau thì người tham gia giao thông phải chấp hành hiệu lệnh của biển báo hiệu có tính chất tạm thời.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Người tham gia giao thông phải chấp hành hiệu lệnh của biển báo hiệu có tính chất tạm thời khi có mâu thuẫn với biển cố định.",
+        "support_refs": [
+          {
+            "doc": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "4",
+            "clause": "4.2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 4.2 Điều 4 Quy chuẩn về báo hiệu đường bộ"
+          }
+        ],
+        "support_quote": "phải chấp hành hiệu lệnh của biển báo hiệu có tính chất tạm thời"
+      }
+    ],
+    "required_citations": ["Khoản 4.2 Điều 4"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "quy_chuan_bbdb_4_4.2_0_qrst90",
+          "record_id": "Bien_tam_thoi_vs_co_dinh",
+          "score": 4.8,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "4",
+            "clause": "4.2"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "qc-bbdb-0005",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 5
+    },
+    "question": "Làn đường được bố trí biển R.412e 'Làn đường dành cho xe buýt'. Nếu vạch sơn phân làn có dạng nét đứt, thì xe ô tô con có được phép đi vào làn đường này không? Quy định cụ thể như thế nào?",
+    "gold_answer": "Nếu vạch sơn phân làn dành cho xe buýt có dạng nét đứt, ô tô con và các xe khác có thể đi vào làn xe này nhưng bắt buộc phải ưu tiên cho xe buýt (phải nhường đường, chuyển sang làn khác để không ảnh hưởng đến việc vận hành của xe buýt). Nếu vạch sơn là nét liền, tuyệt đối không được đi vào.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Quy chuẩn về báo hiệu đường bộ",
+        "article": "",
+        "clause": "",
+        "point": "e",
+        "section": "Phụ lục D",
+        "raw": "Điểm e Mục D.14 Phụ lục D"
+      }
+    ],
+    "expected_chunks": ["quy_chuan_bbdb_phulucD_D.14_e_uvwx12"],
+    "acceptable_chunks": ["quy_chuan_bbdb_phulucD_D.14_e_uvwx12"],
+    "reference_quote": "Riêng biển số R.412e “Làn đường dành cho xe buýt”, nếu vạch sơn phân làn dành cho xe buýt có dạng nét đứt, các xe khác có thể đi vào làn xe này nhưng phải ưu tiên cho xe buýt (phải nhường đường, chuyển sang làn khác để không ảnh hưởng đến việc vận hành của xe buýt); trường hợp vạch sơn phân làn dành cho xe buýt là nét liền, các phương tiện khác không được đi vào làn đường dành cho xe buýt.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Các xe khác được đi vào nếu vạch sơn là nét đứt nhưng phải ưu tiên, nhường đường cho xe buýt.",
+        "support_refs": [
+          {
+            "doc": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "",
+            "clause": "",
+            "point": "e",
+            "section": "Phụ lục D",
+            "raw": "Mục D.14 Phụ lục D"
+          }
+        ],
+        "support_quote": "nếu vạch sơn phân làn dành cho xe buýt có dạng nét đứt, các xe khác có thể đi vào làn xe này nhưng phải ưu tiên cho xe buýt"
+      }
+    ],
+    "required_citations": ["Mục D.14 Phụ lục D"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "quy_chuan_bbdb_phulucD_D.14_e_uvwx12",
+          "record_id": "Lan_xe_buyt_R412e",
+          "score": 4.1,
+          "match_reason": "appendix,point",
+          "legal_reference": {
+            "document": "Quy chuẩn về báo hiệu đường bộ",
+            "appendix": "D",
+            "item": "D.14"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "qc-bbdb-0006",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 6
+    },
+    "question": "Theo quy chuẩn về báo hiệu đường bộ, 'Lối vào' được định nghĩa như thế nào?",
+    "gold_answer": "Lối vào là nơi các phương tiện tham gia giao thông nhập vào dòng giao thông trên đường chính.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Quy chuẩn về báo hiệu đường bộ",
+        "article": "3",
+        "clause": "3.29",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 3.29 Điều 3 Quy chuẩn về báo hiệu đường bộ"
+      }
+    ],
+    "expected_chunks": ["quy_chuan_bbdb_3_3.29_0_yzab34"],
+    "acceptable_chunks": ["quy_chuan_bbdb_3_3.29_0_yzab34"],
+    "reference_quote": "3.29. Lối vào là nơi các phương tiện tham gia giao thông nhập vào dòng giao thông trên đường chính.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Lối vào là nơi các phương tiện nhập vào dòng giao thông trên đường chính.",
+        "support_refs": [
+          {
+            "doc": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "3",
+            "clause": "3.29",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3.29 Điều 3 Quy chuẩn về báo hiệu đường bộ"
+          }
+        ],
+        "support_quote": "Lối vào là nơi các phương tiện tham gia giao thông nhập vào dòng giao thông trên đường chính."
+      }
+    ],
+    "required_citations": ["Khoản 3.29 Điều 3"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "quy_chuan_bbdb_3_3.29_0_yzab34",
+          "record_id": "Dinh_nghia_loi_vao",
+          "score": 5.0,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Quy chuẩn về báo hiệu đường bộ",
+            "article": "3",
+            "clause": "3.29"
+          }
+        }
+      ]
+    }
+  }
+]

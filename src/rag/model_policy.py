@@ -1,5 +1,3 @@
-"""Central model allowlist and fallback helpers for Google GenAI calls."""
-
 from __future__ import annotations
 
 import os

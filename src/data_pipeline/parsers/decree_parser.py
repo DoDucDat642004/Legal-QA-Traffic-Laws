@@ -12,8 +12,8 @@ logger = logging.getLogger("DecreeParser")
 
 class DecreeParser(BaseParser):
     """
-    Bulletproof State-machine Parser with Spatial Table Linking.
-    Handles multi-page tracking, robust legal regex, and deterministic ID generation.
+    State-machine parser with spatial table linking.
+    Handles multi-page tracking, anchored legal regex, and deterministic ID generation.
     """
     # Conservative limit to avoid Gemini context saturation
     MAX_WORDS = 800 
@@ -79,7 +79,7 @@ JSON Structure:
         try:
             return self.extract_with_llm(chunk, schema_class, system_prompt)
         except Exception as e:
-            logger.error(f"Error in optimized extraction: {e}")
+            logger.error(f"Error in LLM extraction: {e}")
             return None
 
     def parse(self, md_text: str, doc_name: str, doc_map: dict = None) -> list[dict]:
@@ -91,7 +91,7 @@ JSON Structure:
         return self._parse_with_regex(md_text, doc_name, doc_map)
 
     def _parse_with_layout(self, doc_map: dict, doc_name: str) -> list[dict]:
-        """Uses bbox and span information for high-fidelity legal parsing and spatial table linking."""
+        """Uses bbox and span information for layout-aware legal parsing and spatial table linking."""
         chunks = []
         state = {
             "chapter_num": "", "chapter_title": "", "article_num": "", "article_title": "",
@@ -191,8 +191,10 @@ JSON Structure:
                 l_path = os.path.join(project_root, page_data["layout_path"])
                 if os.path.exists(l_path):
                     try:
-                        with open(l_path, "r", encoding="utf-8") as f: layout = json.load(f)
-                    except: pass
+                        with open(l_path, "r", encoding="utf-8") as f:
+                            layout = json.load(f)
+                    except Exception as exc:
+                        logger.debug("Could not load layout file %s: %s", l_path, exc)
 
             if not layout: 
                 lines = page_data.get("corrected", "").split("\n")
@@ -262,7 +264,7 @@ JSON Structure:
         return False
 
     def _process_line(self, line_text, bbox, p_idx, state, flush_func, chapter_re, article_re, clause_re, point_re):
-        """Line-by-line state machine processing with robust legal-grade checks."""
+        """Line-by-line state machine processing with anchored legal checks."""
         match_text = line_text.strip()
         
         # HEADER STITCHING: If line is just "Điều" or "Khoản" without a number, wait for next line

@@ -1,0 +1,577 @@
+[
+  {
+    "id": "35-2024-qh15-0001",
+    "source": {
+      "type": "handmade",
+      "file": "35-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Khái niệm 'Đất dành cho kết cấu hạ tầng đường bộ' được Luật Đường bộ 2024 quy định bao gồm những phần đất nào?",
+    "gold_answer": "Đất dành cho kết cấu hạ tầng đường bộ bao gồm 3 phần chính: Đất của đường bộ (gồm phần đất để xây dựng và bảo vệ, bảo trì đường bộ); Đất để xây dựng bến xe, bãi đỗ xe, điểm dừng xe, trạm dừng nghỉ, các công trình phụ trợ; và Hành lang an toàn đường bộ.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "13",
+        "clause": "1",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 1 Điều 13 Luật Đường bộ"
+      }
+    ],
+    "expected_chunks": ["luat_duong_bo_35_2024_13_1_0_abcd01"],
+    "acceptable_chunks": ["luat_duong_bo_35_2024_13_1_0_abcd01"],
+    "reference_quote": "1. Đất dành cho kết cấu hạ tầng đường bộ bao gồm: a) Đất của đường bộ gồm phần đất để xây dựng công trình đường bộ và phần đất để bảo vệ, bảo trì đường bộ; b) Đất để xây dựng bến xe; bãi đỗ xe; điểm dừng xe, đỗ xe; trạm dừng nghỉ; các công trình phụ trợ phục vụ cho hoạt động đường bộ; c) Hành lang an toàn đường bộ.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Bao gồm Đất của đường bộ (đất xây dựng và đất bảo vệ, bảo trì).",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "13",
+            "clause": "1",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 1 Điều 13"
+          }
+        ],
+        "support_quote": "Đất của đường bộ gồm phần đất để xây dựng công trình đường bộ và phần đất để bảo vệ, bảo trì đường bộ"
+      },
+      {
+        "claim": "Bao gồm Đất để xây dựng bến bãi, trạm dừng, công trình phụ trợ.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "13",
+            "clause": "1",
+            "point": "b",
+            "section": "",
+            "raw": "Điểm b Khoản 1 Điều 13"
+          }
+        ],
+        "support_quote": "Đất để xây dựng bến xe; bãi đỗ xe; điểm dừng xe, đỗ xe; trạm dừng nghỉ; các công trình phụ trợ phục vụ cho hoạt động đường bộ"
+      },
+      {
+        "claim": "Bao gồm Hành lang an toàn đường bộ.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "13",
+            "clause": "1",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 1 Điều 13"
+          }
+        ],
+        "support_quote": "Hành lang an toàn đường bộ"
+      }
+    ],
+    "required_citations": ["Khoản 1 Điều 13"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_duong_bo_35_2024_13_1_0_abcd01",
+          "record_id": "Dat_ha_tang_duong_bo",
+          "score": 5.0,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Luật Đường bộ số 35/2024/QH15",
+            "article": "13",
+            "clause": "1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-2024-qh15-0002",
+    "source": {
+      "type": "handmade",
+      "file": "35-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Một đơn vị điện lực đang thi công kéo đường dây tải điện đi phía trên một tuyến quốc lộ có bố trí cột đèn chiếu sáng công cộng. Đơn vị này cần đảm bảo khoảng cách theo phương thẳng đứng từ điểm thấp nhất của đường dây tải điện đến mặt đường bộ và đến cột đèn chiếu sáng như thế nào để đúng quy định pháp luật?",
+    "gold_answer": "Theo Luật Đường bộ, khoảng cách từ điểm thấp nhất của đường dây điện tới mặt đường bộ không được nhỏ hơn chiều cao tĩnh không của đường bộ cộng với khoảng cách an toàn phóng điện. Đồng thời, khoảng cách từ điểm thấp nhất của đường dây tới điểm cao nhất của cột đèn chiếu sáng phải không nhỏ hơn 02 mét cộng với khoảng cách an toàn phóng điện.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "17",
+        "clause": "5",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 5 Điều 17 Luật Đường bộ"
+      },
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "17",
+        "clause": "5",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 5 Điều 17 Luật Đường bộ"
+      }
+    ],
+    "expected_chunks": [
+      "luat_duong_bo_35_2024_17_5_a_bcde02",
+      "luat_duong_bo_35_2024_17_5_c_cdef03"
+    ],
+    "acceptable_chunks": [
+      "luat_duong_bo_35_2024_17_5_a_bcde02",
+      "luat_duong_bo_35_2024_17_5_c_cdef03"
+    ],
+    "reference_quote": "5. Giới hạn theo phương thẳng đứng của đường dây tải điện, dây dẫn điện đi phía trên đường bộ được quy định như sau: a) Trường hợp đường dây tải điện, dây dẫn điện đi phía trên đường bộ thì khoảng cách theo phương thẳng đứng tính từ điểm cao nhất của mặt đường bộ tới điểm thấp nhất của đường dây tải điện... không nhỏ hơn chiều cao tĩnh không của đường bộ cộng với khoảng cách an toàn phóng điện... c) Đường dây tải điện... đi phía trên cột đèn chiếu sáng của đường bộ phải bảo đảm khoảng cách theo phương thẳng đứng tính từ điểm cao nhất của cột đèn chiếu sáng tới điểm thấp nhất của đường dây... không nhỏ hơn 02 mét cộng với khoảng cách an toàn phóng điện",
+    "expected_numbers": ["02"],
+    "required_claims": [
+      {
+        "claim": "Khoảng cách tới mặt đường không nhỏ hơn chiều cao tĩnh không đường bộ cộng khoảng cách an toàn phóng điện.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "17",
+            "clause": "5",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 5 Điều 17"
+          }
+        ],
+        "support_quote": "khoảng cách theo phương thẳng đứng tính từ điểm cao nhất của mặt đường bộ tới điểm thấp nhất của đường dây tải điện... không nhỏ hơn chiều cao tĩnh không của đường bộ cộng với khoảng cách an toàn phóng điện"
+      },
+      {
+        "claim": "Khoảng cách tới điểm cao nhất của cột đèn chiếu sáng không nhỏ hơn 02 mét cộng khoảng cách an toàn phóng điện.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "17",
+            "clause": "5",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 5 Điều 17"
+          }
+        ],
+        "support_quote": "khoảng cách theo phương thẳng đứng tính từ điểm cao nhất của cột đèn chiếu sáng tới điểm thấp nhất của đường dây... không nhỏ hơn 02 mét cộng với khoảng cách an toàn phóng điện"
+      }
+    ],
+    "required_citations": ["Điểm a, c Khoản 5 Điều 17"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_duong_bo_35_2024_17_5_a_bcde02",
+          "record_id": "Khoang_cach_dien_mat_duong",
+          "score": 4.8,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Đường bộ số 35/2024/QH15",
+            "article": "17",
+            "clause": "5",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-2024-qh15-0003",
+    "source": {
+      "type": "handmade",
+      "file": "35-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Một công ty quảng cáo muốn lắp đặt một bảng quảng cáo ngoài trời cỡ lớn tại vị trí phạm vi đất giữa một nút giao thông (đường giao nhau). Theo Luật Đường bộ 2024, công ty này chỉ được phép lắp đặt biển quảng cáo tại vị trí đó khi đáp ứng các điều kiện cụ thể nào về đường kính nút giao và khoảng cách đặt biển?",
+    "gold_answer": "Công ty quảng cáo chỉ được phép xây dựng, lắp đặt biển quảng cáo trong phạm vi đất giữa nút giao khi nút giao đó có đường kính lớn hơn 02 lần chiều rộng hành lang an toàn đường bộ. Đồng thời, khoảng cách từ biển quảng cáo đến mép ngoài mặt đường theo các hướng phải không nhỏ hơn chiều rộng hành lang an toàn đường bộ.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "18",
+        "clause": "1",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 1 Điều 18 Luật Đường bộ"
+      }
+    ],
+    "expected_chunks": ["luat_duong_bo_35_2024_18_1_b_defg04"],
+    "acceptable_chunks": ["luat_duong_bo_35_2024_18_1_b_defg04"],
+    "reference_quote": "1. Biển quảng cáo... được xây dựng, lắp đặt tại các vị trí sau đây: ... b) Trường hợp nút giao có đường kính lớn hơn 02 lần chiều rộng hành lang an toàn đường bộ, thì được xây dựng, lắp đặt biển quảng cáo trong phạm vi đất giữa nút giao nhưng phải bảo đảm khoảng cách từ biển quảng cáo đến mép ngoài mặt đường theo các hướng không nhỏ hơn chiều rộng hành lang an toàn đường bộ.",
+    "expected_numbers": ["02"],
+    "required_claims": [
+      {
+        "claim": "Đường kính nút giao phải lớn hơn 02 lần chiều rộng hành lang an toàn đường bộ.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "18",
+            "clause": "1",
+            "point": "b",
+            "section": "",
+            "raw": "Điểm b Khoản 1 Điều 18"
+          }
+        ],
+        "support_quote": "Trường hợp nút giao có đường kính lớn hơn 02 lần chiều rộng hành lang an toàn đường bộ, thì được xây dựng, lắp đặt biển quảng cáo trong phạm vi đất giữa nút giao"
+      },
+      {
+        "claim": "Khoảng cách từ biển quảng cáo đến mép ngoài mặt đường không được nhỏ hơn chiều rộng hành lang an toàn đường bộ.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "18",
+            "clause": "1",
+            "point": "b",
+            "section": "",
+            "raw": "Điểm b Khoản 1 Điều 18"
+          }
+        ],
+        "support_quote": "phải bảo đảm khoảng cách từ biển quảng cáo đến mép ngoài mặt đường theo các hướng không nhỏ hơn chiều rộng hành lang an toàn đường bộ"
+      }
+    ],
+    "required_citations": ["Điểm b Khoản 1 Điều 18"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_duong_bo_35_2024_18_1_b_defg04",
+          "record_id": "Bien_quang_cao_nut_giao",
+          "score": 4.9,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Đường bộ số 35/2024/QH15",
+            "article": "18",
+            "clause": "1",
+            "point": "b"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-2024-qh15-0004",
+    "source": {
+      "type": "handmade",
+      "file": "35-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Khi thi công lắp đặt hệ thống báo hiệu tại một ngã tư, nhà thầu bố trí đèn tín hiệu theo chiều ngang với thứ tự xanh, vàng, đỏ (từ trái sang phải) và đặt một biển báo phụ đứng độc lập bên trái đường để cảnh báo. Việc lắp đặt này có vi phạm nguyên tắc theo Luật Đường bộ không? Nếu có, hãy nêu nguyên tắc đúng.",
+    "gold_answer": "Việc lắp đặt của nhà thầu là vi phạm nguyên tắc lắp đặt đèn tín hiệu và biển báo hiệu đường bộ. Thứ nhất, đối với đèn tín hiệu lắp theo chiều ngang, thứ tự đúng phải là đèn đỏ ở phía bên trái, đèn vàng ở giữa và đèn xanh ở phía bên phải. Thứ hai, biển phụ không được đặt độc lập mà phải được sử dụng kết hợp để thuyết minh bổ sung cho các loại biển báo cấm, biển báo nguy hiểm, biển hiệu lệnh hoặc biển chỉ dẫn.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "23",
+        "clause": "2",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 2 Điều 23 Luật Đường bộ"
+      },
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "23",
+        "clause": "3",
+        "point": "d",
+        "section": "",
+        "raw": "Điểm d Khoản 3 Điều 23 Luật Đường bộ"
+      }
+    ],
+    "expected_chunks": [
+      "luat_duong_bo_35_2024_23_2_c_efgh05",
+      "luat_duong_bo_35_2024_23_3_d_fghi06"
+    ],
+    "acceptable_chunks": [
+      "luat_duong_bo_35_2024_23_2_c_efgh05",
+      "luat_duong_bo_35_2024_23_3_d_fghi06"
+    ],
+    "reference_quote": "2. Nguyên tắc lắp đặt đèn tín hiệu giao thông được quy định như sau: ... c) Thứ tự lắp đặt đèn tín hiệu giao thông theo chiều ngang: đèn đỏ ở phía bên trái, đèn vàng ở giữa và đèn xanh ở phía bên phải theo chiều đi; \n3. Nguyên tắc lắp đặt biển báo hiệu đường bộ được quy định như sau: ... d) Biển phụ được sử dụng kết hợp để thuyết minh bổ sung các loại biển báo cấm, biển báo nguy hiểm, biển hiệu lệnh và biển chỉ dẫn.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Việc sắp xếp đèn ngang theo thứ tự xanh, vàng, đỏ từ trái qua phải là sai.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "23",
+            "clause": "2",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 2 Điều 23"
+          }
+        ],
+        "support_quote": "Thứ tự lắp đặt đèn tín hiệu giao thông theo chiều ngang: đèn đỏ ở phía bên trái, đèn vàng ở giữa và đèn xanh ở phía bên phải"
+      },
+      {
+        "claim": "Biển phụ không được đứng độc lập mà phải đặt kết hợp với biển báo chính.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "23",
+            "clause": "3",
+            "point": "d",
+            "section": "",
+            "raw": "Điểm d Khoản 3 Điều 23"
+          }
+        ],
+        "support_quote": "Biển phụ được sử dụng kết hợp để thuyết minh bổ sung các loại biển báo cấm, biển báo nguy hiểm, biển hiệu lệnh và biển chỉ dẫn"
+      }
+    ],
+    "required_citations": ["Điểm c Khoản 2 Điều 23", "Điểm d Khoản 3 Điều 23"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_duong_bo_35_2024_23_2_c_efgh05",
+          "record_id": "Nguyen_tac_den_giao_thong",
+          "score": 4.9,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Đường bộ số 35/2024/QH15",
+            "article": "23",
+            "clause": "2",
+            "point": "c"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-2024-qh15-0005",
+    "source": {
+      "type": "handmade",
+      "file": "35-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Khi xảy ra một vụ tai nạn giao thông liên hoàn đặc biệt nghiêm trọng trên đường cao tốc, gây nguy cơ mất an toàn cho toàn tuyến. Người quản lý, sử dụng đường cao tốc có quyền quyết định gì đối với việc lưu thông trên tuyến và có trách nhiệm thông báo cho cơ quan có thẩm quyền trong thời gian tối đa bao lâu kể từ thời điểm đưa ra quyết định?",
+    "gold_answer": "Khi xảy ra tai nạn đặc biệt nghiêm trọng gây nguy cơ mất an toàn, người quản lý, sử dụng đường cao tốc có trách nhiệm kịp thời ra quyết định tạm dừng khai thác (dừng sử dụng) đường cao tốc. Trong thời hạn không quá 60 phút kể từ thời điểm dừng, người quản lý phải thông báo cho người có thẩm quyền về nguyên nhân phải tạm dừng.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "51",
+        "clause": "2",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 2 Điều 51 Luật Đường bộ"
+      },
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "51",
+        "clause": "3",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 3 Điều 51 Luật Đường bộ"
+      }
+    ],
+    "expected_chunks": ["luat_duong_bo_35_2024_51_3_a_ghik07"],
+    "acceptable_chunks": ["luat_duong_bo_35_2024_51_3_a_ghik07"],
+    "reference_quote": "2. Các trường hợp đường cao tốc phải tạm dừng khai thác bao gồm: ... b) Khi xảy ra sự cố cháy, nổ, tai nạn giao thông đặc biệt nghiêm trọng buộc phải tạm dừng khai thác để phục vụ cứu nạn, cứu hộ và bảo đảm an toàn giao thông đường bộ; 3. Khi phát hiện nguy cơ mất an toàn... người quản lý, sử dụng đường cao tốc có trách nhiệm sau đây: a) Kịp thời dừng sử dụng đường cao tốc, trong thời hạn không quá 60 phút kể từ thời điểm dừng phải thông báo cho người có thẩm quyền về nguyên nhân phải tạm dừng",
+    "expected_numbers": ["60"],
+    "required_claims": [
+      {
+        "claim": "Người quản lý có trách nhiệm kịp thời dừng sử dụng đường cao tốc khi có tai nạn đặc biệt nghiêm trọng.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "51",
+            "clause": "3",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 3 Điều 51"
+          }
+        ],
+        "support_quote": "Kịp thời dừng sử dụng đường cao tốc"
+      },
+      {
+        "claim": "Phải thông báo cho người có thẩm quyền trong thời hạn không quá 60 phút kể từ thời điểm dừng.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "51",
+            "clause": "3",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 3 Điều 51"
+          }
+        ],
+        "support_quote": "trong thời hạn không quá 60 phút kể từ thời điểm dừng phải thông báo cho người có thẩm quyền về nguyên nhân phải tạm dừng"
+      }
+    ],
+    "required_citations": ["Điểm a Khoản 3 Điều 51", "Điểm b Khoản 2 Điều 51"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_duong_bo_35_2024_51_3_a_ghik07",
+          "record_id": "Tam_dung_cao_toc_bao_cao",
+          "score": 4.7,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Đường bộ số 35/2024/QH15",
+            "article": "51",
+            "clause": "3",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-2024-qh15-0006",
+    "source": {
+      "type": "handmade",
+      "file": "35-2024-qh15.pdf",
+      "index": 1
+    },
+    "question": "Hành khách A gửi một thùng hải sản tươi sống bắt đầu có mùi hôi thối lên xe khách giường nằm dưới hình thức hàng hoá ký gửi. Nhà xe đã chấp nhận vận chuyển. Trên đường, xe bị lực lượng chức năng giữ lại kiểm tra 2 ngày khiến toàn bộ số hải sản bị hỏng. Việc nhà xe nhận thùng hàng này có vi phạm luật không? Nhà xe có phải bồi thường thiệt hại cho hành khách A trong tình huống này không?",
+    "gold_answer": "Việc nhà xe nhận vận chuyển thùng hải sản có mùi hôi thối là vi phạm quy định của pháp luật, vì Luật Đường bộ cấm nhận vận tải hàng hóa có mùi hôi thối làm ảnh hưởng đến hành khách và môi trường. Tuy nhiên, về mặt bồi thường thiệt hại hàng hóa, nhà xe được miễn bồi thường do thiệt hại xảy ra xuất phát từ việc bắt giữ của cơ quan nhà nước có thẩm quyền và do khuyết tật vốn có, đặc tính tự nhiên của hàng hoá ký gửi.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "68",
+        "clause": "2",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 2 Điều 68 Luật Đường bộ"
+      },
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "68",
+        "clause": "7",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 7 Điều 68 Luật Đường bộ"
+      },
+      {
+        "doc": "Luật Đường bộ số 35/2024/QH15",
+        "article": "68",
+        "clause": "7",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 7 Điều 68 Luật Đường bộ"
+      }
+    ],
+    "expected_chunks": [
+      "luat_duong_bo_35_2024_68_2_0_hikl08",
+      "luat_duong_bo_35_2024_68_7_b_iklm09"
+    ],
+    "acceptable_chunks": [
+      "luat_duong_bo_35_2024_68_2_0_hikl08",
+      "luat_duong_bo_35_2024_68_7_b_iklm09"
+    ],
+    "reference_quote": "2. Chỉ được nhận vận tải hàng hóa có kích thước, trọng lượng phù hợp... và không thuộc hàng hóa cấm lưu thông... hàng có mùi hôi thối, động vật, hàng hóa khác có ảnh hưởng đến sức khỏe của hành khách, môi trường. \n7. Đơn vị kinh doanh vận tải được miễn bồi thường thiệt hại hàng hoá ký gửi trong các trường hợp sau đây: a) Do đặc tính tự nhiên hoặc khuyết tật vốn có của hàng hoá ký gửi... b) Do việc bắt giữ hoặc cưỡng chế của cơ quan nhà nước có thẩm quyền đối với hàng hoá ký gửi;",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Nhà xe vi phạm vì đã nhận vận chuyển hàng có mùi hôi thối.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "68",
+            "clause": "2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 2 Điều 68"
+          }
+        ],
+        "support_quote": "không thuộc hàng hóa cấm lưu thông... hàng có mùi hôi thối"
+      },
+      {
+        "claim": "Nhà xe được miễn trách nhiệm bồi thường do hàng hoá bị hỏng bởi việc bắt giữ của cơ quan chức năng và đặc tính tự nhiên của hàng hoá.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ số 35/2024/QH15",
+            "article": "68",
+            "clause": "7",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a, b Khoản 7 Điều 68"
+          }
+        ],
+        "support_quote": "miễn bồi thường thiệt hại... Do đặc tính tự nhiên... Do việc bắt giữ hoặc cưỡng chế của cơ quan nhà nước có thẩm quyền"
+      }
+    ],
+    "required_citations": ["Khoản 2 Điều 68", "Điểm a, b Khoản 7 Điều 68"],
+    "retrieval_expectation": {
+      "top_k": 5,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "luat_duong_bo_35_2024_68_7_b_iklm09",
+          "record_id": "Mien_boi_thuong_hang_ky_gui",
+          "score": 4.6,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Luật Đường bộ số 35/2024/QH15",
+            "article": "68",
+            "clause": "7",
+            "point": "b"
+          }
+        }
+      ]
+    }
+  }
+]

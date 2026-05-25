@@ -11,14 +11,15 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from src.rag.embedding_backends import make_embedder
+from src.rag.rag_store_config import DEFAULT_EMBEDDING_BACKEND, DEFAULT_EMBEDDING_MODEL
 from src.rag.record_expander import load_expanded_records
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark embedding backend throughput on local CPU/OpenVINO.")
     parser.add_argument("--processed-dir", default="data/processed")
-    parser.add_argument("--model", default=os.getenv("RAG_EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"))
-    parser.add_argument("--backend", default=os.getenv("RAG_EMBEDDING_BACKEND", "sentence_transformers"))
+    parser.add_argument("--model", default=os.getenv("RAG_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL))
+    parser.add_argument("--backend", default=os.getenv("RAG_EMBEDDING_BACKEND", DEFAULT_EMBEDDING_BACKEND))
     parser.add_argument("--batch-size", type=int, default=int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "64")))
     parser.add_argument("--limit", type=int, default=512)
     parser.add_argument("--out", default="")

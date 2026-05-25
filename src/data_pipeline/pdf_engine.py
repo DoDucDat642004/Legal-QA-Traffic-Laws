@@ -253,7 +253,8 @@ class PDFEngine:
                             try:
                                 self._crop_table_image(pdf_path, page_idx, bbox, img_path_abs)
                                 img_path_rel = os.path.join("data/processed/table_imgs", doc_base_name, f"{table_id}.png")
-                            except: pass
+                            except Exception as exc:
+                                logger.debug("Could not crop table image %s page=%s table=%s: %s", pdf_path, page_idx, table_idx, exc)
                             
                         table_id = f"p{page_idx}_t{table_idx}"
                         tables.append(self._build_table_payload(
@@ -289,7 +290,8 @@ class PDFEngine:
                             layout=layout,
                             note="Extracted via Camelot Lattice",
                         ))
-            except: pass
+            except Exception as exc:
+                logger.warning("Camelot fallback failed for %s pages=%s: %s", pdf_path, pages_needing_camelot[:50], exc)
         fitz_doc.close()
         return page_tables
 
@@ -382,7 +384,8 @@ class PDFEngine:
             try:
                 with open(cache_path, "r", encoding="utf-8") as f:
                     return self._strip_headers_footers(self._apply_text_filters(json.load(f)))
-            except: pass
+            except Exception as exc:
+                logger.warning("Could not read PDF engine cache %s: %s", cache_path, exc)
 
         full_doc_map = {}
         if parser:

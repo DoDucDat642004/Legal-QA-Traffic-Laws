@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 from src.rag.legal_utils import (
+    ascii_lower,
     normalize_sign_code,
     penalty_summary,
     sign_group_from_code,
@@ -17,6 +18,14 @@ CROSS_REF_RE = re.compile(
     re.IGNORECASE,
 )
 NORMALIZED_SIGN_CODE_RE = re.compile(r"^(?:DP|IE|[PWRISE])\d{2,3}[A-ZĐ]?$", re.IGNORECASE)
+DOCUMENT_ALIASES = [
+    ("Nghị định 168/2024/NĐ-CP", ["nghi dinh 168", "nd 168", "168/2024", "168-2024"]),
+    ("Nghị định 336/2025/NĐ-CP", ["nghi dinh 336", "nd 336", "336/2025", "336-2025"]),
+    ("Luật Đường bộ 2024", ["luat duong bo", "35/2024/qh15", "35-2024-qh15"]),
+    ("Luật Trật tự ATGT 2024", ["luat trat tu", "trat tu an toan giao thong", "36/2024/qh15", "36-2024-qh15"]),
+    ("QCVN 41:2024 (Thông tư 51/2024)", ["qcvn 41", "thong tu 51", "51/2024", "51-2024"]),
+    ("Thông tư 35/2024/TT-BGTVT", ["thong tu 35", "35/2024/tt-bgtvt", "35-2024-tt-bgtvt"]),
+]
 
 
 def _load_json(path: Path):
@@ -47,6 +56,23 @@ def _record_ref_key(record: dict) -> str:
         str(ref.get("clause") or ""),
         str(ref.get("point") or ""),
     )
+
+
+def _target_documents_for_cross_ref(text: str, match_start: int, default_doc: str) -> list[str]:
+    """Infers target document for a local Điều/Khoản/Điểm reference.
+
+    The default is the current document, but references often appear as
+    "điểm ... khoản ... Điều ... Nghị định 168/2024/NĐ-CP". Capturing that
+    doc context at export time gives runtime graph traversal true cross-doc
+    edges instead of only same-doc CITES edges.
+    """
+    window = ascii_lower(text[max(0, match_start - 120): match_start + 260])
+    docs = [
+        document
+        for document, aliases in DOCUMENT_ALIASES
+        if any(alias in window for alias in aliases)
+    ]
+    return list(dict.fromkeys(docs or [default_doc]))
 
 
 def _safe_id(value: str) -> str:
@@ -234,16 +260,20 @@ def export_graph(processed_files: list[Path], out_path: Path) -> dict:
     nodes = {}
     edges = []
     ref_index = {}
+    all_records = []
 
     for file_path in processed_files:
-        records = _load_json(file_path)
-        for record in records:
+        for record in _load_json(file_path):
             rid = _node_id(record)
             if not rid:
                 continue
-            ref = record.get("legal_reference") or {}
             ref_key = _record_ref_key(record)
             ref_index.setdefault(ref_key, rid)
+            all_records.append(record)
+
+    for record in all_records:
+            rid = _node_id(record)
+            ref = record.get("legal_reference") or {}
             nodes[rid] = {
                 "id": rid,
                 "type": "legal_chunk",
@@ -310,14 +340,15 @@ def export_graph(processed_files: list[Path], out_path: Path) -> dict:
                 point = match.group(2) or ""
                 clause = match.group(4) or ""
                 article = match.group(5) or ""
-                target_ref = _ref_key(doc_name, article, clause, point)
-                edges.append({
-                    "source": rid,
-                    "target_ref": target_ref,
-                    "target": ref_index.get(target_ref),
-                    "type": "CITES",
-                    "raw": match.group(0),
-                })
+                for target_doc in _target_documents_for_cross_ref(source_text, match.start(), doc_name):
+                    target_ref = _ref_key(target_doc, article, clause, point)
+                    edges.append({
+                        "source": rid,
+                        "target_ref": target_ref,
+                        "target": ref_index.get(target_ref),
+                        "type": "CITES",
+                        "raw": match.group(0),
+                    })
 
     graph = {"nodes": list(nodes.values()), "edges": edges}
     out_path.parent.mkdir(parents=True, exist_ok=True)

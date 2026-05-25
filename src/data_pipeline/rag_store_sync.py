@@ -15,7 +15,8 @@ project_root = os.path.abspath(os.path.join(current_dir, "../../"))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-load_dotenv(os.path.join(project_root, ".env"), override=True)
+dotenv_override = os.getenv("DOTENV_OVERRIDE", "0").lower() in {"1", "true", "yes", "on"}
+load_dotenv(os.path.join(project_root, ".env"), override=dotenv_override)
 
 from src.rag.legal_utils import normalized_legal_reference, source_text
 from src.rag.rag_store_config import RAGStoreConfig
@@ -328,6 +329,11 @@ class Neo4jGraphRepository:
             graph = json.load(f)
         nodes = graph.get("nodes", [])
         edges = graph.get("edges", [])
+        node_by_ref = {}
+        for node in nodes:
+            ref_key = self._ref_key(node)
+            if ref_key:
+                node_by_ref.setdefault(ref_key, node.get("id"))
         with self.driver.session(database=self.config.neo4j_database) as session:
             session.run("CREATE CONSTRAINT legal_node_id IF NOT EXISTS FOR (n:LegalNode) REQUIRE n.id IS UNIQUE")
             for node in nodes:
@@ -345,7 +351,7 @@ class Neo4jGraphRepository:
                 )
             for edge_index, edge in enumerate(edges):
                 source = edge.get("source")
-                target = edge.get("target")
+                target = edge.get("target") or node_by_ref.get(edge.get("target_ref"))
                 if not source or not target:
                     continue
                 rel_type = _safe_rel_type(edge.get("type") or "RELATED")
