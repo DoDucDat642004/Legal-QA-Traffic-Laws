@@ -28,6 +28,8 @@ data/models
 !data/models/openvino/
 !data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/
 !data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**
+!data/models/openvino/BAAI_bge-reranker-v2-m3/
+!data/models/openvino/BAAI_bge-reranker-v2-m3/**
 db
 chroma_db
 

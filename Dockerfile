@@ -52,6 +52,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender1 \
     curl \
+    git \
+    git-lfs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -59,6 +61,25 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+RUN set -eux; \
+    needs_models=0; \
+    for model_file in \
+      data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/openvino_model.bin \
+      data/models/openvino/BAAI_bge-reranker-v2-m3/openvino_model.bin; do \
+      if [ ! -s "$model_file" ] || head -c 64 "$model_file" | grep -q "version https://git-lfs.github.com/spec/v1"; then \
+        needs_models=1; \
+      fi; \
+    done; \
+    if [ "$needs_models" = "1" ]; then \
+      git lfs install --skip-repo; \
+      tmp_dir="$(mktemp -d)"; \
+      GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/DoDucDat642004/Legal-QA-Traffic-Laws.git "$tmp_dir"; \
+      git -C "$tmp_dir" lfs pull --include="data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**,data/models/openvino/BAAI_bge-reranker-v2-m3/**" --exclude=""; \
+      mkdir -p data/models/openvino; \
+      cp -a "$tmp_dir/data/models/openvino/." data/models/openvino/; \
+      rm -rf "$tmp_dir"; \
+    fi
 
 RUN chmod +x entrypoint.sh
 
