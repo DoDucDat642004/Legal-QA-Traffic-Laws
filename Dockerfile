@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RAG_VECTOR_BACKEND=qdrant \
     RAG_GRAPH_BACKEND=local \
     RAG_ENABLE_EMBEDDINGS=true \
-    RAG_ALLOW_MODEL_DOWNLOAD=true \
+    RAG_ALLOW_MODEL_DOWNLOAD=false \
     RAG_OPENVINO_FALLBACK_TO_SENTENCE_TRANSFORMERS=true \
     RAG_ENABLE_RERANKER=false \
     RAG_RERANKER_BACKEND=openvino \
@@ -21,6 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RAG_EMBEDDING_MAX_LENGTH=256 \
     RAG_OPENVINO_DEVICE=CPU \
     RAG_OPENVINO_MODEL_DIR=data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
+    RAG_SENTENCE_TRANSFORMER_MODEL_DIR=data/models/sentence-transformers/bkai-foundation-models_vietnamese-bi-encoder \
     RAG_STRICT_VECTOR_BACKEND=true \
     RAG_ENABLE_AI_PLANNER=true \
     RAG_AI_PLANNER_ALWAYS=false \
@@ -36,8 +37,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RAG_MODEL_RERANK_LIMIT=32 \
     RAG_RERANKER_DEVICE=cpu \
     OPENVINO_TELEMETRY_DISABLE=1 \
-    HF_HUB_OFFLINE=0 \
-    TRANSFORMERS_OFFLINE=0 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
     OMP_NUM_THREADS=4 \
     MKL_NUM_THREADS=4 \
     QDRANT_COLLECTION=legal_traffic_records_vi \
@@ -61,6 +62,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY scripts/download_sentence_transformer.py scripts/download_sentence_transformer.py
+RUN HF_HUB_OFFLINE=0 TRANSFORMERS_OFFLINE=0 \
+    python scripts/download_sentence_transformer.py \
+      bkai-foundation-models/vietnamese-bi-encoder \
+      --output-dir data/models/sentence-transformers/bkai-foundation-models_vietnamese-bi-encoder
 
 COPY . .
 

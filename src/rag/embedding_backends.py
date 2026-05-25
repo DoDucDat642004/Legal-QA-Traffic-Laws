@@ -51,6 +51,16 @@ def _model_cache_dir(model_name: str) -> Path:
     return model_dir
 
 
+def _sentence_transformer_model_dir(model_name: str) -> Path:
+    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", model_name).strip("_")
+    model_dir = Path(
+        os.getenv("RAG_SENTENCE_TRANSFORMER_MODEL_DIR", f"data/models/sentence-transformers/{slug}")
+    ).expanduser()
+    if not model_dir.is_absolute():
+        model_dir = Path(__file__).resolve().parents[2] / model_dir
+    return model_dir
+
+
 def _looks_like_lfs_pointer(path: Path) -> bool:
     try:
         if not path.is_file() or path.stat().st_size > 2048:
@@ -113,15 +123,22 @@ class SentenceTransformerEmbedder:
             os.environ.setdefault("HF_HUB_OFFLINE", "1")
             os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
-        local_model_path = Path(model_name).expanduser()
-        kwargs: dict[str, Any] = {"local_files_only": not allow_model_download}
+        packaged_model_path = _sentence_transformer_model_dir(model_name)
+        explicit_model_path = Path(model_name).expanduser()
+        if packaged_model_path.exists():
+            source = packaged_model_path
+        elif explicit_model_path.exists():
+            source = explicit_model_path
+        else:
+            source = model_name
+        kwargs: dict[str, Any] = {"local_files_only": isinstance(source, Path) or not allow_model_download}
         
         device = os.getenv("RAG_EMBEDDING_DEVICE")
         if device:
             kwargs["device"] = device
 
         self.model = SentenceTransformer(
-            str(local_model_path) if local_model_path.exists() else model_name,
+            str(source),
             **kwargs,
         )
 
