@@ -42,6 +42,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     QDRANT_COLLECTION=legal_traffic_records_vi \
     QDRANT_TIMEOUT=300
 
+WORKDIR /app
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ghostscript \
@@ -81,7 +83,5 @@ RUN set -eux; \
       rm -rf "$tmp_dir"; \
     fi
 
-RUN chmod +x entrypoint.sh
-
 EXPOSE 7860
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["bash", "entrypoint.sh"]
