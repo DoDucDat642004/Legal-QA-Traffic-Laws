@@ -1,11 +1,11 @@
-<!--
+---
 title: LuatGiaoThongDuongBoAI
 emoji: "🚦"
 colorFrom: green
 colorTo: blue
 sdk: docker
 pinned: false
--->
+---
 
 # Luật giao thông đường bộ (RAG + Gemini-3.1-flash-lite + Gemma-4-31b-it)
 
