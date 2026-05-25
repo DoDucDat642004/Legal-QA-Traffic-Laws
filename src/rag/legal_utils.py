@@ -1,10 +1,3 @@
-"""
-Legal Utilities and Shared Helpers for Vietnamese Traffic Law RAG.
-
-This module provides common string normalization, reference formatting, 
-and heuristic checks used throughout the system.
-"""
-
 import re
 import unicodedata
 import hashlib
@@ -12,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 
 # --- Regex Patterns ---
 SIGN_CODE_RE = re.compile(r"\b(?:DP|IE|P|W|R|I|S|E)\s*\.?\s*\d{2,3}[a-zđ]?\b", re.IGNORECASE)
+SIGN_CODE_WITH_PREFIX_RE = re.compile(r"\b(?:DP|IE|P|W|R|I|S|E)\s*\.?\s*\d{2,3}[a-zđ]?\b", re.IGNORECASE)
 LEGAL_REF_RE = re.compile(
     r"(?:(?:điểm)\s+(?P<point>[a-zđ])\s+)?"
     r"(?:(?:khoản)\s+(?P<clause>\d+)\s+)?"
@@ -20,7 +14,7 @@ LEGAL_REF_RE = re.compile(
 )
 
 def ascii_lower(value: str) -> str:
-    """Standardizes strings for robust search by removing diacritics and normalizing whitespace."""
+    """Standardizes strings for consistent search by removing diacritics and normalizing whitespace."""
     if not value: return ""
     normalized = unicodedata.normalize("NFD", value)
     without_marks = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
@@ -151,7 +145,7 @@ def merge_record_assets(base: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[
 def looks_like_sign_query(query: str) -> bool:
     """Heuristic check for sign-related queries."""
     q = query.lower()
-    return any(k in q for k in ["biển báo", "biển cấm", "hình dạng"]) or SIGN_CODE_RE.search(query)
+    return any(k in q for k in ["biển báo", "biển cấm", "hình dạng"]) or bool(SIGN_CODE_WITH_PREFIX_RE.search(query))
 
 def looks_like_table_query(query: str) -> bool:
     """Heuristic check for technical table-related queries."""

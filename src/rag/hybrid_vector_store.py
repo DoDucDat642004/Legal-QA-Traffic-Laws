@@ -6,9 +6,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rank_bm25 import BM25Okapi
 
-from src.rag.legal_utils import tokenize
+from src.rag.legal_utils import normalized_legal_reference, tokenize
 from src.rag.record_expander import expand_record, load_processed_records
 from src.rag.embedding_backends import make_embedder
+from src.rag.rag_store_config import DEFAULT_EMBEDDING_MODEL
 
 
 logger = logging.getLogger("HybridLegalVectorStore")
@@ -27,7 +28,7 @@ class HybridLegalVectorStore:
         self,
         processed_path: Union[str, Path] = "data/processed",
         index_dir: Union[str, Path] = "data/vector_db/legal_graph_rag",
-        embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        embedding_model: str = DEFAULT_EMBEDDING_MODEL,
         force_reindex: bool = False,
     ):
         """
@@ -50,7 +51,7 @@ class HybridLegalVectorStore:
         self.records: List[Dict[str, Any]] = []
         self.documents: List[str] = []
         self.record_by_source_chunk: Dict[str, List[Dict[str, Any]]] = {}
-        self.record_by_ref: Dict[Tuple[str, str, str, str], List[Dict[Dict, Any]]] = {}
+        self.record_by_ref: Dict[Tuple[str, str, str, str], List[Dict[str, Any]]] = {}
         self.index: Any = None
         self.bm25: Optional[BM25Okapi] = None
 
@@ -193,7 +194,7 @@ class HybridLegalVectorStore:
                 self.record_by_source_chunk.setdefault(source_id, []).append(record)
             
             # Legal reference based lookup (Doc, Article, Clause, Point)
-            ref = record.get("legal_reference") or {}
+            ref = normalized_legal_reference(record)
             key = (
                 ref.get("document") or record.get("doc_name") or "",
                 str(ref.get("article") or ""),
@@ -367,4 +368,37 @@ class HybridLegalVectorStore:
         records = []
         for key in keys:
             records.extend(dict(record) for record in self.record_by_ref.get(key, []))
+        return records
+
+    def by_ref_prefix(
+        self,
+        document: str,
+        article: str = "",
+        clause: str = "",
+        point: str = "",
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieves all records under a legal coordinate prefix.
+
+        `by_ref(document, "7")` intentionally returns the direct Article 7
+        chunk. For retrieval, a question often needs every clause/point under
+        Article 7, so this method performs a prefix scan over the lookup map.
+        """
+        records: List[Dict[str, Any]] = []
+        seen = set()
+        for (doc, art, cl, pt), values in self.record_by_ref.items():
+            if document and doc != document:
+                continue
+            if article and art != str(article):
+                continue
+            if clause and cl != str(clause):
+                continue
+            if point and pt.lower() != str(point).lower():
+                continue
+            for record in values:
+                rid = record.get("source_chunk_id") or record.get("id") or id(record)
+                if rid in seen:
+                    continue
+                seen.add(rid)
+                records.append(dict(record))
         return records

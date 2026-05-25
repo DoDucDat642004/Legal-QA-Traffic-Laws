@@ -1,11 +1,3 @@
-"""
-Adaptive Query Analyzer for Vietnamese Traffic Law.
-
-This module analyzes user queries to determine their legal intent, complexity, 
-and required retrieval budget. It decomposes complex questions into 
-independent 'evidence slots' for multi-stage retrieval.
-"""
-
 import logging
 import re
 from dataclasses import dataclass, field
@@ -133,6 +125,29 @@ class AdaptiveQuestionAnalyzer:
             score += 2
             reasons.append("Cần truy vấn tuần tự nhiều câu hỏi con")
 
+        vehicle_terms = [
+            "o to",
+            "xe hoi",
+            "xe con",
+            "xe tai",
+            "xe khach",
+            "xe may",
+            "mo to",
+            "gan may",
+            "may chuyen dung",
+            "xe dap",
+            "tho so",
+        ]
+        has_vehicle_scope = any(term in qa for term in vehicle_terms)
+        penalty_like = "penalty" in facets or any(term in qa for term in ["phat", "xu phat", "muc phat", "vi pham", "bi gi", "xu ly"])
+        if penalty_like and not has_vehicle_scope and any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"]):
+            score += 4
+            reasons.append("Câu hỏi xử phạt chưa nêu loại phương tiện nên phải bao phủ nhiều nhóm xe")
+
+        if any(term in qa for term in ["toc do", "qua toc", "p127", "p.127"]) and not re.search(r"\d+(?:[.,]\d+)?\s*km/?h", qa):
+            score += 2
+            reasons.append("Câu hỏi tốc độ chưa nêu ngưỡng km/h cụ thể")
+
         if SIGN_CODE_RE.search(q):
             score += 2
             reasons.append("Chứa mã hiệu biển báo")
@@ -156,12 +171,24 @@ class AdaptiveQuestionAnalyzer:
         if "scenario" in facets:
             score += 2
             reasons.append("Có tình huống thực tế cần bóc tách theo diễn biến")
+        if "aggregation" in facets:
+            score += 3
+            reasons.append("Cần thống kê/tổng hợp trên nhiều bản ghi thay vì trả lời một đoạn luật")
+        if "out_of_scope" in facets:
+            score = max(score, 1)
+            reasons.append("Câu hỏi nằm ngoài phạm vi luật giao thông đường bộ")
         if "priority" in facets:
             score += 2
             reasons.append("Có yếu tố quyền ưu tiên/nhường đường")
         if "source_image" in facets:
             score += 1
             reasons.append("Cần truy xuất ảnh căn cứ từ văn bản gốc")
+        if "document_overview" in facets:
+            score += 2
+            reasons.append("Cần thống kê cấu trúc văn bản thay vì tìm kiếm ngữ nghĩa thông thường")
+        if "legal_detail" in facets:
+            score += 4
+            reasons.append("Cần gom đầy đủ toàn bộ cấu trúc điều/khoản/điểm")
 
         difficulty_hint = str(getattr(plan, "difficulty_hint", "") or "").lower()
         if difficulty_hint == "hard":
@@ -176,7 +203,7 @@ class AdaptiveQuestionAnalyzer:
     def _determine_budget(self, score: int) -> Tuple[str, str, int, Dict[str, int]]:
         """Maps complexity score to retrieval resource allocation."""
         if score >= 5:
-            return "hard", "Khó", 90, {"top_k": 40, "expand_depth": 4, "evidence_slot_top_k": 10, "max_contexts": 45, "max_images": 30}
+            return "hard", "Khó", 90, {"top_k": 64, "expand_depth": 5, "evidence_slot_top_k": 14, "max_contexts": 90, "max_images": 40}
         if score >= 3:
             return "medium", "Trung bình", 55, {"top_k": 24, "expand_depth": 3, "evidence_slot_top_k": 7, "max_contexts": 28, "max_images": 18}
         return "easy", "Dễ", 30, {"top_k": 14, "expand_depth": 2, "evidence_slot_top_k": 5, "max_contexts": 16, "max_images": 10}
@@ -192,6 +219,42 @@ class AdaptiveQuestionAnalyzer:
         """Rules-based decomposition into evidence slots."""
         slots: List[Dict[str, Any]] = []
 
+        if not SIGN_CODE_RE.search(q or "") and self._looks_like_out_of_scope(qa):
+            return [{
+                "facet": "out_of_scope",
+                "query": f"Câu hỏi ngoài phạm vi luật giao thông đường bộ: {q}",
+                "priority": 1,
+                "reason": "Cần từ chối đúng phạm vi thay vì truy xuất nhầm nguồn.",
+                "must_answer": True,
+            }]
+
+        if self._looks_like_document_overview(qa):
+            slots.append({
+                "facet": "document_overview",
+                "query": f"Tra cứu cấu trúc văn bản, số điều, danh sách điều/chương và tiêu đề điều trong câu hỏi: {q}",
+                "priority": 1,
+                "reason": "Cần trả lời bằng thống kê cấu trúc văn bản, không chỉ tìm đoạn ngữ nghĩa.",
+                "must_answer": True,
+            })
+
+        if self._looks_like_aggregation(qa):
+            slots.append({
+                "facet": "aggregation",
+                "query": f"Thống kê/tổng hợp dữ liệu pháp lý liên quan đến câu hỏi: {q}",
+                "priority": 1,
+                "reason": "Cần tính toán trên nhiều bản ghi có cấu trúc, không ước lượng bằng ngôn ngữ.",
+                "must_answer": True,
+            })
+
+        if self._looks_like_legal_detail(qa):
+            slots.append({
+                "facet": "legal_detail",
+                "query": f"Gom đầy đủ nội dung điều/khoản/điểm được hỏi, bao gồm tiêu đề, khoản, điểm, mức tiền, ngưỡng và hình thức bổ sung nếu có trong câu hỏi: {q}",
+                "priority": 1,
+                "reason": "Cần lấy toàn bộ cấu trúc điều luật thay vì vài đoạn rời.",
+                "must_answer": True,
+            })
+
         if "bien" in qa and any(k in qa for k in ["hinh", "mau", "nhu the nao", "y nghia", "qcvn"]):
             slots.append({
                 "facet": "sign",
@@ -200,7 +263,7 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Yêu cầu mô tả hình ảnh biển báo"
             })
 
-        if "bang" in qa or any(k in qa for k in ["kich thuoc", "toc do", "hang gplx", "hang giay phep"]):
+        if self._looks_like_table_query(qa):
             slots.append({
                 "facet": "table",
                 "query": f"Tra cứu bảng/phụ lục/thông số kỹ thuật liên quan đến câu hỏi: {q}",
@@ -249,7 +312,7 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Yêu cầu tra cứu mức xử phạt",
             }])
 
-        if any(k in qa for k in ["thu tuc", "ho so", "cap doi", "cap lai", "sat hach", "thoi han"]):
+        if self._looks_like_procedure_query(qa):
             slots.append({
                 "facet": "procedure",
                 "query": f"Tra cứu thủ tục, hồ sơ, thời hạn và cơ quan xử lý liên quan đến câu hỏi: {q}",
@@ -265,7 +328,22 @@ class AdaptiveQuestionAnalyzer:
     def _sanitize_slots(self, value: Any, *, fallback_query: str) -> List[Dict[str, Any]]:
         if not isinstance(value, list):
             return []
-        allowed_facets = {"general", "rule", "penalty", "procedure", "sign", "table", "definition", "priority", "scenario", "source_image"}
+        allowed_facets = {
+            "general",
+            "rule",
+            "penalty",
+            "procedure",
+            "sign",
+            "table",
+            "definition",
+            "priority",
+            "scenario",
+            "source_image",
+            "document_overview",
+            "legal_detail",
+            "aggregation",
+            "out_of_scope",
+        }
         slots: List[Dict[str, Any]] = []
         for idx, item in enumerate(value):
             if not isinstance(item, dict):
@@ -283,7 +361,7 @@ class AdaptiveQuestionAnalyzer:
                 "reason": str(item.get("reason") or "Nhánh truy vấn").strip()[:300],
                 "must_answer": bool(item.get("must_answer", True)),
             })
-        return sorted(slots, key=lambda item: int(item.get("priority") or 1))[:10]
+        return sorted(slots, key=lambda item: int(item.get("priority") or 1))[:12]
 
     def _compound_penalty_slots(self, q: str, qa: str, *, start_priority: int) -> List[Dict[str, Any]]:
         if not any(marker in qa for marker in [" dong thoi ", " cung luc ", " vua ", " va "]):
@@ -324,15 +402,213 @@ class AdaptiveQuestionAnalyzer:
             return True
         return bool(re.search(r"\b(?:di|vuot|dung|do|re|quay|chay|uong)\b", qa))
 
+    def _looks_like_table_query(self, qa: str) -> bool:
+        if any(term in qa for term in ["bang", "phu luc", "bieu mau", "v85", "he so", "kich thuoc", "tong so gio", "tong thoi gian dao tao"]):
+            return True
+        if "toc do toi da" in qa and any(term in qa for term in ["cao toc", "ngoai khu dong dan cu", "trong khu dong dan cu", "bang"]):
+            return True
+        if any(term in qa for term in ["hang gplx", "hang giay phep", "hang xe"]) and any(
+            term in qa for term in ["bang", "phu luc", "tong so gio", "chuong trinh", "so sanh", "danh sach"]
+        ):
+            return True
+        return False
+
+    def _looks_like_procedure_query(self, qa: str) -> bool:
+        return any(
+            term in qa
+            for term in [
+                "thu tuc",
+                "ho so",
+                "cap doi",
+                "cap lai",
+                "sat hach",
+                "thoi han",
+                "nang hang",
+                "dao tao",
+                "hoc vien",
+                "du sat hach",
+                "lai xe an toan",
+                "bao cao",
+                "luu tru",
+                "cap chung chi",
+                "giay phep lai xe qua han",
+                "gplx qua han",
+            ]
+        )
+
     def _facets_from_slots(self, slots: List[Dict[str, Any]]) -> List[str]:
         facets = [str(slot.get("facet") or "general") for slot in slots]
         return list(dict.fromkeys(facets)) or ["general"]
 
     def _intent_from_facets(self, facets: List[str]) -> str:
-        for facet in ["penalty", "priority", "scenario", "procedure", "sign", "table", "definition"]:
+        for facet in ["out_of_scope", "document_overview", "legal_detail", "aggregation", "penalty", "priority", "scenario", "procedure", "sign", "table", "definition"]:
             if facet in facets:
                 return facet
         return "general"
+
+    def _looks_like_aggregation(self, qa: str) -> bool:
+        if bool(re.search(r"\btop\s*[-_ ]?\s*k\b", qa)) or any(
+            term in qa
+            for term in ["truy xuat", "he thong chi co top", "chi co top", "top k nho", "top-k nho"]
+        ):
+            return False
+        ranking_terms = [
+            "cao nhat",
+            "thap nhat",
+            "nang nhat",
+            "nhe nhat",
+            "lon nhat",
+            "nho nhat",
+            "toi da",
+            "toi thieu",
+            "top",
+            "xep hang",
+            "thong ke",
+            "tong hop",
+            "nhieu nhat",
+            "it nhat",
+            "hay vi pham",
+            "pho bien nhat",
+            "thuong gap",
+        ]
+        target_terms = [
+            "muc phat",
+            "phat tien",
+            "tru diem",
+            "tuoc",
+            "dieu luat",
+            "dieu nao",
+            "hanh vi",
+            "vi pham",
+            "bien bao",
+        ]
+        return any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+
+    def _looks_like_out_of_scope(self, qa: str) -> bool:
+        traffic_terms = [
+            "giao thong",
+            "duong bo",
+            "xe",
+            "o to",
+            "mo to",
+            "xe may",
+            "bien bao",
+            "den do",
+            "toc do",
+            "gplx",
+            "giay phep lai xe",
+            "nong do con",
+            "tai nan",
+            "nghi dinh 168",
+            "nghi dinh 336",
+            "qcvn",
+            "luat trat tu",
+            "luat duong bo",
+            "thong tu 35",
+            "thong tu 51",
+        ]
+        if any(term in qa for term in traffic_terms):
+            return False
+        unrelated_terms = [
+            "nau an",
+            "nau pho",
+            "mon an",
+            "thoi tiet",
+            "gia vang",
+            "chung khoan",
+            "lap trinh",
+            "python",
+            "javascript",
+            "bong da",
+            "lich thi dau",
+            "du lich",
+            "khach san",
+            "y te",
+            "thuoc",
+            "benh",
+            "hon nhan",
+            "ly hon",
+            "dat dai",
+            "hop dong lao dong",
+        ]
+        if any(term in qa for term in unrelated_terms):
+            return True
+        legalish_terms = ["phat", "xu phat", "vi pham", "quy dinh", "thu tuc", "ho so", "dieu luat"]
+        if any(term in qa for term in legalish_terms):
+            return False
+        if len(qa.split()) <= 3:
+            return False
+        return not any(term in qa for term in ["luat", "nghi dinh", "thong tu", "quy chuan", "can cu"])
+
+    def _looks_like_document_overview(self, qa: str) -> bool:
+        has_document = any(
+            term in qa
+            for term in [
+                "nghi dinh",
+                "nd ",
+                "luat",
+                "thong tu",
+                "qcvn",
+                "168/2024",
+                "168-2024",
+                "336/2025",
+                "336-2025",
+                "35/2024",
+                "36/2024",
+                "51/2024",
+            ]
+        )
+        has_overview = any(
+            term in qa
+            for term in [
+                "bao nhieu dieu",
+                "may dieu",
+                "so dieu",
+                "tong so dieu",
+                "danh sach dieu",
+                "co nhung dieu",
+                "gom nhung dieu",
+                "bao nhieu chuong",
+                "may chuong",
+                "cau truc van ban",
+            ]
+        )
+        return has_document and has_overview
+
+    def _looks_like_legal_detail(self, qa: str) -> bool:
+        if not re.search(r"\bdieu\s+\d+[a-z]?\b", qa):
+            return False
+        has_document = any(
+            term in qa
+            for term in [
+                "nghi dinh",
+                "nd ",
+                "luat",
+                "thong tu",
+                "qcvn",
+                "168/2024",
+                "168-2024",
+                "336/2025",
+                "336-2025",
+                "35/2024",
+                "36/2024",
+                "51/2024",
+            ]
+        )
+        has_detail_word = any(
+            term in qa
+            for term in [
+                "chi tiet",
+                "toan van",
+                "day du",
+                "noi dung",
+                "quy dinh gi",
+                "noi gi",
+                "phan tich dieu",
+                "tom tat dieu",
+            ]
+        )
+        return has_document and (has_detail_word or len(qa.split()) <= 12)
 
     def _safe_int(self, value: Any, default: int) -> int:
         try:

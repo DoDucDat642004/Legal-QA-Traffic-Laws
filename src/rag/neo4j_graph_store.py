@@ -100,7 +100,7 @@ class Neo4jLegalGraphStore:
             "HAS_POINT",
             "HAS_CHUNK",
         }
-        safe_depth = max(0, min(int(depth), 4))
+        safe_depth = max(0, min(int(depth), 5))
         query = f"""
         MATCH p=(n:LegalNode)-[*0..{safe_depth}]-(m:LegalNode)
         WHERE n.id IN $ids
@@ -121,9 +121,66 @@ class Neo4jLegalGraphStore:
             for row in rows:
                 node = json.loads(row["data_json"] or "{}")
                 node["graph_distance"] = row["dist"]
+                node["graph_cost"] = float(row["dist"] or 0)
                 node["graph_via"] = "neo4j"
                 out.append(node)
             return out
+
+    def same_ref_context(
+        self,
+        seed_node_ids: list[str],
+        *,
+        max_nodes: int = 120,
+        per_seed: int = 32,
+    ) -> list[dict[str, Any]]:
+        if not seed_node_ids:
+            return []
+        with self.driver.session(database=self.config.neo4j_database) as session:
+            seed_rows = session.run(
+                """
+                MATCH (n:LegalNode)
+                WHERE n.id IN $ids AND n.ref_key <> ''
+                RETURN DISTINCT n.ref_key AS ref_key
+                """,
+                ids=list(dict.fromkeys(seed_node_ids)),
+            )
+            prefixes = []
+            for row in seed_rows:
+                prefixes.extend(self._same_ref_prefixes(row["ref_key"]))
+            prefixes = list(dict.fromkeys(prefixes))[:max(1, per_seed)]
+            if not prefixes:
+                return []
+            rows = session.run(
+                """
+                MATCH (m:LegalNode {type: 'legal_chunk'})
+                WHERE any(prefix IN $prefixes WHERE m.ref_key STARTS WITH prefix)
+                RETURN DISTINCT m.data_json AS data_json
+                LIMIT $limit
+                """,
+                prefixes=prefixes,
+                limit=max_nodes,
+            )
+            out = []
+            for row in rows:
+                node = json.loads(row["data_json"] or "{}")
+                node["graph_distance"] = 1
+                node["graph_cost"] = 0.35
+                node["graph_via"] = "same_ref_context"
+                out.append(node)
+            return out
+
+    def _same_ref_prefixes(self, ref_key: str) -> list[str]:
+        parts = [part for part in str(ref_key or "").split("|") if part]
+        if len(parts) < 2:
+            return []
+        document = parts[0]
+        article = next((part for part in parts[1:] if part.startswith("D")), "")
+        clause = next((part for part in parts[1:] if part.startswith("K")), "")
+        if article and clause:
+            return [f"{document}|{article}|{clause}"]
+        if article:
+            return [f"{document}|{article}"]
+        return []
 
     def related_asset_nodes(self, seed_node_ids: list[str]) -> list[dict[str, Any]]:
         query = """

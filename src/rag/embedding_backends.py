@@ -8,6 +8,9 @@ import numpy as np
 
 logger = logging.getLogger("EmbeddingBackends")
 
+DEFAULT_EMBEDDING_MODEL = "bkai-foundation-models/vietnamese-bi-encoder"
+DEFAULT_EMBEDDING_BACKEND = "openvino"
+
 
 class Embedder(Protocol):
     """Protocol defining the interface for all embedding backends."""
@@ -83,9 +86,54 @@ class SentenceTransformerEmbedder:
             **kwargs,
         )
 
-        max_length = os.getenv("RAG_EMBEDDING_MAX_LENGTH")
-        if max_length:
-            self.model.max_seq_length = int(max_length)
+        self.model.max_seq_length = self._safe_max_seq_length(os.getenv("RAG_EMBEDDING_MAX_LENGTH"))
+
+    def _safe_max_seq_length(self, requested_value: str | None) -> int:
+        current = int(getattr(self.model, "max_seq_length", 512) or 512)
+        requested = current
+        if requested_value:
+            try:
+                requested = int(requested_value)
+            except Exception:
+                requested = current
+
+        hard_limits: list[int] = []
+        try:
+            tokenizer = getattr(self.model, "tokenizer", None)
+            tokenizer_limit = int(getattr(tokenizer, "model_max_length", 0) or 0)
+            # Hugging Face uses huge sentinel values when a tokenizer has no
+            # real maximum. Ignore those; they are not model position limits.
+            if 0 < tokenizer_limit < 100_000:
+                hard_limits.append(tokenizer_limit)
+        except Exception:
+            pass
+
+        try:
+            first_module = self.model[0]
+            auto_model = getattr(first_module, "auto_model", None)
+            config = getattr(auto_model, "config", None)
+            position_limit = int(getattr(config, "max_position_embeddings", 0) or 0)
+            tokenizer = getattr(first_module, "tokenizer", None) or getattr(self.model, "tokenizer", None)
+            special_tokens = 2
+            if tokenizer is not None:
+                try:
+                    special_tokens = int(tokenizer.num_special_tokens_to_add(pair=False))
+                except Exception:
+                    special_tokens = 2
+            if position_limit > special_tokens:
+                hard_limits.append(position_limit - special_tokens)
+        except Exception:
+            pass
+
+        safe_limit = min(hard_limits) if hard_limits else requested
+        max_seq_length = max(8, min(requested, safe_limit))
+        if requested_value and requested > max_seq_length:
+            logger.warning(
+                "Clamped RAG_EMBEDDING_MAX_LENGTH from %s to %s for model position limit.",
+                requested,
+                max_seq_length,
+            )
+        return max_seq_length
 
     def get_embedding_dimension(self) -> int:
         """Returns the size of the embedding vector."""
@@ -126,7 +174,7 @@ class SentenceTransformerEmbedder:
 
 class OpenVINOEmbedder:
     """
-    High-performance embedding backend optimized for Intel CPUs using OpenVINO.
+    OpenVINO embedding backend for CPU-friendly local inference.
     Uses mean-pooling on token embeddings for feature extraction.
     """
 
@@ -157,7 +205,7 @@ class OpenVINOEmbedder:
         if not self.model_dir.exists() and not export_model:
             raise RuntimeError(
                 f"OpenVINO model not found at {self.model_dir}. "
-                "Run with RAG_OPENVINO_EXPORT=true or use sentence_transformers backend."
+                "Provide the exported vietnamese-bi-encoder OpenVINO directory or run with RAG_OPENVINO_EXPORT=true."
             )
 
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -179,8 +227,42 @@ class OpenVINOEmbedder:
             self.tokenizer.save_pretrained(self.model_dir)
             logger.info("Successfully exported OpenVINO model to %s", self.model_dir)
 
-        self.max_length = int(os.getenv("RAG_EMBEDDING_MAX_LENGTH", "512"))
+        self.max_length = self._safe_max_length(os.getenv("RAG_EMBEDDING_MAX_LENGTH"))
         self.dimension = self._infer_dimension()
+
+    def _safe_max_length(self, requested_value: str | None) -> int:
+        requested = 256
+        if requested_value:
+            try:
+                requested = int(requested_value)
+            except Exception:
+                requested = 256
+
+        hard_limits: list[int] = []
+        try:
+            position_limit = int(getattr(getattr(self.model, "config", None), "max_position_embeddings", 0) or 0)
+            special_tokens = int(self.tokenizer.num_special_tokens_to_add(pair=False))
+            if position_limit > special_tokens:
+                hard_limits.append(position_limit - special_tokens)
+        except Exception:
+            pass
+
+        try:
+            tokenizer_limit = int(getattr(self.tokenizer, "model_max_length", 0) or 0)
+            if 0 < tokenizer_limit < 100_000:
+                hard_limits.append(tokenizer_limit)
+        except Exception:
+            pass
+
+        safe_limit = min(hard_limits) if hard_limits else requested
+        max_length = max(8, min(requested, safe_limit))
+        if requested_value and requested > max_length:
+            logger.warning(
+                "Clamped RAG_EMBEDDING_MAX_LENGTH from %s to %s for OpenVINO model position limit.",
+                requested,
+                max_length,
+            )
+        return max_length
 
     def _infer_dimension(self) -> int:
         """Determines the embedding dimension by running a dummy inference."""
@@ -264,14 +346,14 @@ def make_embedder(model_name: str) -> Embedder:
     Returns:
         An instance of an object implementing the Embedder protocol.
     """
-    backend = os.getenv("RAG_EMBEDDING_BACKEND", "sentence_transformers").strip().lower()
+    backend = os.getenv("RAG_EMBEDDING_BACKEND", DEFAULT_EMBEDDING_BACKEND).strip().lower()
 
     if backend in {"openvino", "ov"}:
         return OpenVINOEmbedder(model_name)
 
     if backend == "auto":
         model_dir = _model_cache_dir(model_name)
-        # Check if optimized model already exists locally
+        # Prefer the exported OpenVINO model when it already exists locally.
         if model_dir.exists():
             try:
                 return OpenVINOEmbedder(model_name)
