@@ -1437,7 +1437,7 @@ class CustomLegalRetriever:
         add_ref(["hang hoa ky gui", "mui hoi thoi"], "Luật Đường bộ 2024", "68", clause="2", reason="topic_consigned_goods_forbidden", boost=36.0)
         add_ref(["hang hoa ky gui", "boi thuong"], "Luật Đường bộ 2024", "68", clause="7", reason="topic_consigned_goods_compensation", boost=36.0)
         add_ref(["dich vu ho tro van tai duong bo"], "Luật Đường bộ 2024", "71", reason="topic_transport_support_services")
-        add_ref(["nguy co mat an toan", "cao toc", "bao cao"], "Luật Đường bộ 2024", "51", clause="3", point="a", reason="topic_expressway_safety_risk_report")
+        add_ref(["nguy co mat an toan", "cao toc", "thong bao"], "Luật Đường bộ 2024", "51", clause="3", point="a", reason="topic_expressway_safety_risk_report")
         add_ref(["trung tam quan ly", "dieu hanh giao thong", "cao toc"], "Luật Đường bộ 2024", "53", clause="1", reason="topic_expressway_traffic_center")
         add_ref(["duong day tai dien", "diem thap nhat", "mat duong bo"], "Luật Đường bộ 2024", "17", clause="5", point="a", reason="topic_powerline_vertical_clearance", boost=42.0)
         add_ref(["duong day tai dien", "cot den chieu sang"], "Luật Đường bộ 2024", "17", clause="5", point="c", reason="topic_powerline_lighting_clearance", boost=42.0)
