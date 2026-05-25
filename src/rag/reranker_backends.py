@@ -8,7 +8,7 @@ import numpy as np
 
 logger = logging.getLogger("RerankerBackends")
 
-DEFAULT_RERANKER_MODEL = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
+DEFAULT_RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
 
 
 def _bool_env(name: str, default: bool = False) -> bool:

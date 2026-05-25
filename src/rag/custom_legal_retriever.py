@@ -103,7 +103,7 @@ class CustomLegalRetriever:
         self.reranker = None
         
         if use_reranker:
-            reranker_model = reranker_model or os.getenv("RAG_RERANKER_MODEL", "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1")
+            reranker_model = reranker_model or os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
             try:
                 self.reranker = make_reranker(reranker_model)
                 logger.info("Reranker enabled: %s", type(self.reranker).__name__)
