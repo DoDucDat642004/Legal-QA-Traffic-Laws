@@ -782,7 +782,7 @@ class LegalQueryPlanner:
         return bool(re.search(r"\b(?:di|vuot|dung|do|re|quay|chay|uong)\b", qa))
 
     def _primary_intent(self, facets: List[str]) -> QueryIntent:
-        for facet in ["out_of_scope", "document_overview", "legal_detail", "aggregation", "penalty", "priority", "scenario", "procedure", "sign", "table", "definition"]:
+        for facet in ["out_of_scope", "document_overview", "legal_detail", "aggregation", "penalty", "priority", "scenario", "definition", "procedure", "sign", "table"]:
             if facet in facets:
                 return QueryIntent(facet)
         return QueryIntent.GENERAL

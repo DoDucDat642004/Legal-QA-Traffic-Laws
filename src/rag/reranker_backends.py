@@ -52,7 +52,7 @@ class OpenVINOReranker:
     def __init__(self, model_name: str = DEFAULT_RERANKER_MODEL):
         try:
             from optimum.intel.openvino import OVModelForSequenceClassification
-            from transformers import AutoTokenizer
+            from transformers import AutoConfig, AutoTokenizer
         except ImportError as exc:
             raise RuntimeError("OpenVINO reranker requires optimum-intel[openvino] and transformers.") from exc
 
@@ -69,15 +69,31 @@ class OpenVINOReranker:
         if self.model_dir.exists():
             _validate_model_dir(self.model_dir)
 
-        local_files_only = (isinstance(source, Path) and source.exists()) or not allow_download
-        self.tokenizer = AutoTokenizer.from_pretrained(str(source), local_files_only=local_files_only)
-        self.model = OVModelForSequenceClassification.from_pretrained(
+        source_is_local = isinstance(source, Path) and source.exists()
+        local_files_only = not source_is_local and not allow_download
+        self.tokenizer = AutoTokenizer.from_pretrained(
             str(source),
-            export=bool(not self.model_dir.exists() and export_model),
-            device=os.getenv("RAG_RERANKER_DEVICE", "CPU"),
-            compile=True,
-            local_files_only=local_files_only,
+            local_files_only=source_is_local or local_files_only,
         )
+        device = os.getenv("RAG_RERANKER_DEVICE", "CPU")
+        if source_is_local:
+            config = AutoConfig.from_pretrained(str(source), local_files_only=True)
+            # Optimum's public loader probes the Hugging Face cache in offline mode, even for local IR dirs.
+            self.model = OVModelForSequenceClassification._from_pretrained(
+                str(source),
+                config=config,
+                device=device,
+                compile=True,
+                local_files_only=True,
+            )
+        else:
+            self.model = OVModelForSequenceClassification.from_pretrained(
+                str(source),
+                export=bool(not self.model_dir.exists() and export_model),
+                device=device,
+                compile=True,
+                local_files_only=local_files_only,
+            )
 
         if export_model and not self.model_dir.exists():
             self.model_dir.mkdir(parents=True, exist_ok=True)

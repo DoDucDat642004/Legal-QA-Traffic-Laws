@@ -223,7 +223,7 @@ class OpenVINOEmbedder:
         """
         try:
             from optimum.intel.openvino import OVModelForFeatureExtraction
-            from transformers import AutoTokenizer
+            from transformers import AutoConfig, AutoTokenizer
         except ImportError as exc:
             raise RuntimeError(
                 "OpenVINO backend requires 'openvino' and 'optimum-intel[openvino]'."
@@ -247,20 +247,32 @@ class OpenVINOEmbedder:
             _validate_local_model_dir(self.model_dir)
 
         source_is_local = isinstance(source, Path) and source.exists()
-        local_files_only = source_is_local or not allow_model_download
+        local_files_only = not source_is_local and not allow_model_download
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             str(source),
-            local_files_only=local_files_only,
+            local_files_only=source_is_local or local_files_only,
         )
 
-        self.model = OVModelForFeatureExtraction.from_pretrained(
-            str(source),
-            export=bool(not self.model_dir.exists() and export_model),
-            device=os.getenv("RAG_OPENVINO_DEVICE", "CPU"),
-            compile=True,
-            local_files_only=local_files_only,
-        )
+        device = os.getenv("RAG_OPENVINO_DEVICE", "CPU")
+        if source_is_local:
+            config = AutoConfig.from_pretrained(str(source), local_files_only=True)
+            # Optimum's public loader probes the Hugging Face cache in offline mode, even for local IR dirs.
+            self.model = OVModelForFeatureExtraction._from_pretrained(
+                str(source),
+                config=config,
+                device=device,
+                compile=True,
+                local_files_only=True,
+            )
+        else:
+            self.model = OVModelForFeatureExtraction.from_pretrained(
+                str(source),
+                export=bool(not self.model_dir.exists() and export_model),
+                device=device,
+                compile=True,
+                local_files_only=local_files_only,
+            )
 
         if export_model and not self.model_dir.exists():
             self.model_dir.mkdir(parents=True, exist_ok=True)
