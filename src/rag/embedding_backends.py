@@ -105,7 +105,10 @@ class SentenceTransformerEmbedder:
         from sentence_transformers import SentenceTransformer
 
         allow_model_download = _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False)
-        if not allow_model_download:
+        if allow_model_download:
+            os.environ.pop("HF_HUB_OFFLINE", None)
+            os.environ.pop("TRANSFORMERS_OFFLINE", None)
+        else:
             # Enforce offline mode if downloads are restricted
             os.environ.setdefault("HF_HUB_OFFLINE", "1")
             os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
@@ -230,7 +233,10 @@ class OpenVINOEmbedder:
             ) from exc
 
         allow_model_download = _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False)
-        if not allow_model_download:
+        if allow_model_download:
+            os.environ.pop("HF_HUB_OFFLINE", None)
+            os.environ.pop("TRANSFORMERS_OFFLINE", None)
+        else:
             os.environ.setdefault("HF_HUB_OFFLINE", "1")
             os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
@@ -390,7 +396,20 @@ def make_embedder(model_name: str) -> Embedder:
     backend = os.getenv("RAG_EMBEDDING_BACKEND", DEFAULT_EMBEDDING_BACKEND).strip().lower()
 
     if backend in {"openvino", "ov"}:
-        return OpenVINOEmbedder(model_name)
+        try:
+            return OpenVINOEmbedder(model_name)
+        except Exception as exc:
+            fallback_enabled = _bool_env(
+                "RAG_OPENVINO_FALLBACK_TO_SENTENCE_TRANSFORMERS",
+                _bool_env("RAG_ALLOW_MODEL_DOWNLOAD", False),
+            )
+            if not fallback_enabled:
+                raise
+            logger.warning(
+                "OpenVINO embedding backend unavailable; falling back to SentenceTransformers: %s",
+                exc,
+            )
+            return SentenceTransformerEmbedder(model_name)
 
     if backend == "auto":
         model_dir = _model_cache_dir(model_name)

@@ -9,8 +9,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RAG_VECTOR_BACKEND=qdrant \
     RAG_GRAPH_BACKEND=local \
     RAG_ENABLE_EMBEDDINGS=true \
-    RAG_ALLOW_MODEL_DOWNLOAD=false \
-    RAG_ENABLE_RERANKER=true \
+    RAG_ALLOW_MODEL_DOWNLOAD=true \
+    RAG_OPENVINO_FALLBACK_TO_SENTENCE_TRANSFORMERS=true \
+    RAG_ENABLE_RERANKER=false \
     RAG_RERANKER_BACKEND=openvino \
     RAG_ALLOW_RERANKER_DOWNLOAD=false \
     RAG_OPENVINO_RERANKER_MODEL_DIR=data/models/openvino/BAAI_bge-reranker-v2-m3 \
@@ -35,8 +36,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RAG_MODEL_RERANK_LIMIT=32 \
     RAG_RERANKER_DEVICE=cpu \
     OPENVINO_TELEMETRY_DISABLE=1 \
-    HF_HUB_OFFLINE=1 \
-    TRANSFORMERS_OFFLINE=1 \
+    HF_HUB_OFFLINE=0 \
+    TRANSFORMERS_OFFLINE=0 \
     OMP_NUM_THREADS=4 \
     MKL_NUM_THREADS=4 \
     QDRANT_COLLECTION=legal_traffic_records_vi \
@@ -55,7 +56,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender1 \
     curl \
     git \
-    git-lfs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -63,41 +63,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
-
-RUN set -eux; \
-    needs_models=0; \
-    for model_file in \
-      data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/openvino_model.bin \
-      data/models/openvino/BAAI_bge-reranker-v2-m3/openvino_model.bin; do \
-      if [ ! -s "$model_file" ] || head -c 64 "$model_file" | grep -q "version https://git-lfs.github.com/spec/v1"; then \
-        needs_models=1; \
-      fi; \
-    done; \
-    if [ "$needs_models" = "1" ]; then \
-      echo "OpenVINO models missing or unresolved; fetching model artifacts from GitHub LFS"; \
-      git lfs install --skip-repo; \
-      tmp_dir="$(mktemp -d)"; \
-      GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 --filter=blob:none --sparse https://github.com/DoDucDat642004/Legal-QA-Traffic-Laws.git "$tmp_dir"; \
-      git -C "$tmp_dir" sparse-checkout set \
-        data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
-        data/models/openvino/BAAI_bge-reranker-v2-m3; \
-      (while sleep 20; do echo "Still downloading OpenVINO model artifacts from Git LFS..."; done) & \
-      progress_pid="$!"; \
-      GIT_LFS_PROGRESS=/dev/stderr git -C "$tmp_dir" lfs pull --include="data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**,data/models/openvino/BAAI_bge-reranker-v2-m3/**" --exclude=""; \
-      kill "$progress_pid" 2>/dev/null || true; \
-      wait "$progress_pid" 2>/dev/null || true; \
-      mkdir -p data/models/openvino; \
-      cp -a "$tmp_dir/data/models/openvino/." data/models/openvino/; \
-      rm -rf "$tmp_dir"; \
-    fi; \
-    for model_file in \
-      data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/openvino_model.bin \
-      data/models/openvino/BAAI_bge-reranker-v2-m3/openvino_model.bin; do \
-      if [ ! -s "$model_file" ] || head -c 64 "$model_file" | grep -q "version https://git-lfs.github.com/spec/v1"; then \
-        echo "OpenVINO model hydration failed: $model_file" >&2; \
-        exit 1; \
-      fi; \
-    done
 
 EXPOSE 7860
 ENTRYPOINT ["bash", "entrypoint.sh"]
