@@ -105,7 +105,7 @@ class CustomLegalRetriever:
         if use_reranker:
             reranker_model = reranker_model or os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
             model_path = Path(reranker_model).expanduser()
-            allow_download = os.getenv("RAG_ALLOW_MODEL_DOWNLOAD", "").lower() in {"1", "true", "yes", "on"}
+            allow_download = os.getenv("RAG_ALLOW_RERANKER_DOWNLOAD", "false").lower() in {"1", "true", "yes", "on"}
             if model_path.exists() or allow_download:
                 try:
                     from sentence_transformers import CrossEncoder
