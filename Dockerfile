@@ -65,27 +65,44 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 RUN set -eux; \
-    needs_models=0; \
-    for model_file in \
+    needs_lfs=0; \
+    for required_file in \
+      data/graph/legal_graph.json \
       data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/openvino_model.bin \
       data/models/openvino/BAAI_bge-reranker-v2-m3/openvino_model.bin; do \
-      if [ ! -s "$model_file" ] || head -c 64 "$model_file" | grep -q "version https://git-lfs.github.com/spec/v1"; then \
-        needs_models=1; \
+      if [ ! -s "$required_file" ] || head -c 64 "$required_file" | grep -q "version https://git-lfs.github.com/spec/v1"; then \
+        needs_lfs=1; \
       fi; \
     done; \
-    if [ "$needs_models" = "1" ]; then \
-      echo "OpenVINO models missing or unresolved; fetching model artifacts from GitHub LFS"; \
+    processed_count="$(find data/processed -maxdepth 1 -type f -name '*.extracted.json' | wc -l)"; \
+    if [ "$processed_count" -eq 0 ]; then \
+      needs_lfs=1; \
+    else \
+      for data_file in data/processed/*.extracted.json; do \
+        [ -e "$data_file" ] || continue; \
+        if [ ! -s "$data_file" ] || head -c 64 "$data_file" | grep -q "version https://git-lfs.github.com/spec/v1"; then \
+          needs_lfs=1; \
+        fi; \
+      done; \
+    fi; \
+    if [ "$needs_lfs" = "1" ]; then \
+      echo "Required LFS data missing or unresolved; fetching data, graph, and OpenVINO model artifacts from GitHub LFS"; \
       git lfs install --skip-repo; \
       tmp_dir="$(mktemp -d)"; \
       GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 --filter=blob:none --sparse https://github.com/DoDucDat642004/Legal-QA-Traffic-Laws.git "$tmp_dir"; \
       git -C "$tmp_dir" sparse-checkout set \
+        data/processed \
+        data/graph \
         data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
         data/models/openvino/BAAI_bge-reranker-v2-m3; \
-      (while sleep 20; do echo "Still downloading OpenVINO model artifacts from Git LFS..."; done) & \
+      (while sleep 20; do echo "Still downloading required LFS artifacts..."; done) & \
       progress_pid="$!"; \
-      GIT_LFS_PROGRESS=/dev/stderr git -C "$tmp_dir" lfs pull --include="data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**,data/models/openvino/BAAI_bge-reranker-v2-m3/**" --exclude=""; \
+      GIT_LFS_PROGRESS=/dev/stderr git -C "$tmp_dir" lfs pull --include="data/processed/**,data/graph/**,data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**,data/models/openvino/BAAI_bge-reranker-v2-m3/**" --exclude=""; \
       kill "$progress_pid" 2>/dev/null || true; \
       wait "$progress_pid" 2>/dev/null || true; \
+      mkdir -p data/processed data/graph; \
+      cp -a "$tmp_dir/data/processed/." data/processed/; \
+      cp -a "$tmp_dir/data/graph/." data/graph/; \
       mkdir -p data/models/openvino; \
       cp -a "$tmp_dir/data/models/openvino/." data/models/openvino/; \
       rm -rf "$tmp_dir"; \
@@ -97,7 +114,8 @@ RUN set -eux; \
         echo "OpenVINO model hydration failed: $model_file" >&2; \
         exit 1; \
       fi; \
-    done
+    done; \
+    python -c "from src.rag.record_expander import load_processed_records; records = load_processed_records('data/processed'); assert records, 'No legal records found at data/processed'; print(f'Loaded {len(records)} processed legal records')"
 
 EXPOSE 7860
 ENTRYPOINT ["bash", "entrypoint.sh"]
