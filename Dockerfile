@@ -11,21 +11,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MPLCONFIGDIR=/tmp/.cache/matplotlib \
     HF_HUB_DISABLE_TELEMETRY=1 \
     TOKENIZERS_PARALLELISM=false \
-    RAG_VECTOR_BACKEND=qdrant \
+    RAG_DEPLOY_FORCE_LOCAL_MODE=true \
+    RAG_VECTOR_BACKEND=local \
     RAG_GRAPH_BACKEND=local \
-    RAG_ENABLE_EMBEDDINGS=true \
+    RAG_ENABLE_EMBEDDINGS=false \
     RAG_ALLOW_MODEL_DOWNLOAD=false \
     RAG_ENABLE_RERANKER=true \
     RAG_RERANKER_BACKEND=openvino \
     RAG_ALLOW_RERANKER_DOWNLOAD=false \
     RAG_OPENVINO_RERANKER_MODEL_DIR=data/models/openvino/BAAI_bge-reranker-v2-m3 \
-    RAG_EMBEDDING_MODEL=bkai-foundation-models/vietnamese-bi-encoder \
+    RAG_EMBEDDING_MODEL=data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
     RAG_EMBEDDING_BACKEND=openvino \
     RAG_EMBEDDING_DIMENSION=768 \
     RAG_EMBEDDING_MAX_LENGTH=256 \
     RAG_OPENVINO_DEVICE=CPU \
     RAG_OPENVINO_MODEL_DIR=data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
-    RAG_STRICT_VECTOR_BACKEND=true \
+    RAG_STRICT_VECTOR_BACKEND=false \
     RAG_ENABLE_AI_PLANNER=true \
     RAG_AI_PLANNER_ALWAYS=false \
     RAG_AI_PLANNER_MIN_RULE_CONFIDENCE=0.72 \
@@ -128,7 +129,8 @@ RUN set -eux; \
         exit 1; \
       fi; \
     done; \
-    python -c "from src.rag.record_expander import load_processed_records; records = load_processed_records('data/processed'); assert records, 'No legal records found at data/processed'; print(f'Loaded {len(records)} processed legal records')"
+    python -c "from src.rag.record_expander import load_processed_records; records = load_processed_records('data/processed'); assert records, 'No legal records found at data/processed'; print(f'Loaded {len(records)} processed legal records')"; \
+    python scripts/hf_deploy_smoke.py
 
 EXPOSE 7860
 ENTRYPOINT ["bash", "entrypoint.sh"]
