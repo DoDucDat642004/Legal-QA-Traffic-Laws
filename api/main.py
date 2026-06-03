@@ -35,6 +35,7 @@ from src.rag.legal_utils import (
     source_text,
 )
 from src.rag.model_policy import generate_content_with_fallback
+from src.rag.query_preprocessor import PreparedQuery, prepare_chat_query
 
 # --- Configuration & Initialization ---
 load_dotenv(override=False)
@@ -272,6 +273,28 @@ def _timeout_fallback_result(rag: LegalGraphRAG, query: str) -> Dict[str, Any]:
             "reason": "full_query_exceeded_deadline",
         },
     }
+
+
+def _prepare_query_for_chat(client: Any, query: str, chat_history: List[Dict[str, Any]]) -> PreparedQuery:
+    return prepare_chat_query(client, query, chat_history)
+
+
+def _attach_query_preprocessing(analysis: Dict[str, Any], prepared: PreparedQuery) -> Dict[str, Any]:
+    payload = prepared.public_payload()
+    analysis = dict(analysis or {})
+    analysis["query_preprocessing"] = payload
+    if prepared.missing_data_hints:
+        existing = analysis.get("missing_data_hints") or []
+        hints = []
+        seen = set()
+        for item in [*existing, *prepared.missing_data_hints]:
+            text = str(item or "").strip()
+            key = ascii_lower(text)
+            if text and key not in seen:
+                seen.add(key)
+                hints.append(text)
+        analysis["missing_data_hints"] = hints
+    return analysis
 
 def _snippet(text: str, limit: int = 800) -> str:
     compact = re.sub(r"\s+", " ", text or "").strip()
@@ -899,15 +922,15 @@ async def chat_analyze(query: str = Form(...), history: str = Form("[]")):
             chat_history = json.loads(history)
         except Exception:
             chat_history = []
-            
-        search_query = query
-        if chat_history and rag.client is not None:
-            search_query = _condense_query(rag.client, query, chat_history)
-            
+
+        prepared = _prepare_query_for_chat(rag.client, query, chat_history)
+        search_query = prepared.effective_query
         analysis = rag.analyze_query(search_query)
+        analysis = _attach_query_preprocessing(analysis, prepared)
         return {
             "query": query,
             "condensed_query": search_query if search_query != query else None,
+            "query_preprocessing": prepared.public_payload(),
             "analysis": analysis
         }
     except Exception as e:
@@ -922,11 +945,11 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
             chat_history = json.loads(history)
         except Exception:
             chat_history = []
-            
-        search_query = query
-        if chat_history and rag.client is not None:
-            search_query = _condense_query(rag.client, query, chat_history)
-            logger.info("Search Query: %s", search_query)
+
+        prepared = _prepare_query_for_chat(rag.client, query, chat_history)
+        search_query = prepared.effective_query
+        if prepared.was_preprocessed:
+            logger.info("Prepared Search Query: %s", search_query)
 
         deadline = _env_int("RAG_CHAT_TEXT_DEADLINE_SECONDS", 120, minimum=20, maximum=300)
         try:
@@ -936,7 +959,9 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
             result = await asyncio.to_thread(_timeout_fallback_result, rag, search_query)
         ans, docs = result["answer"], result["contexts"]
         analysis = result.get("query_analysis") or rag.analyze_query(search_query)
+        analysis = _attach_query_preprocessing(analysis, prepared)
         extra = result.get("metadata") or {}
+        extra["query_preprocessing"] = prepared.public_payload()
 
         images = _context_images(docs, limit=_api_image_limit())
         verification = _auto_claim_verification(ans, docs)
@@ -950,6 +975,7 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
         return {
             "answer": ans,
             "condensed_query": search_query if search_query != query else None,
+            "query_preprocessing": prepared.public_payload(),
             "query_analysis": analysis,
             "images": images,
             "reference_images": images,

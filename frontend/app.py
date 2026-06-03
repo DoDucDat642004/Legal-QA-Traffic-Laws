@@ -763,7 +763,11 @@ def render_answer_trace(trace: dict[str, Any] | None) -> None:
 def query_gaps(question: str, analysis: dict[str, Any] | None = None) -> list[str]:
     qa = ascii_lower(question)
     facets = set((analysis or {}).get("facets") or [])
-    gaps: list[str] = []
+    gaps: list[str] = [
+        str(item).strip()
+        for item in ((analysis or {}).get("missing_data_hints") or [])
+        if str(item or "").strip()
+    ]
     vehicle_terms = ["o to", "xe hoi", "xe con", "xe tai", "xe khach", "xe may", "mo to", "gan may", "may chuyen dung", "xe dap", "tho so"]
     if "out_of_scope" in facets:
         gaps.append("Câu hỏi hiện ngoài phạm vi dữ liệu luật giao thông đường bộ; hãy hỏi lại về quy tắc, xử phạt, biển báo, thủ tục hoặc điều luật giao thông.")
@@ -783,7 +787,14 @@ def query_gaps(question: str, analysis: dict[str, Any] | None = None) -> list[st
         gaps.append("Hậu quả tai nạn: thương tích, thiệt hại tài sản, có rời hiện trường hay cứu giúp người bị nạn không.")
     if ("sign" in facets or "bien" in qa) and not re.search(r"\b(?:dp|ie|p|w|r|i|s|e)\s*\\.?\s*\d{2,3}", qa):
         gaps.append("Mã biển báo hoặc ảnh biển báo rõ phần hình dạng, màu sắc, ký hiệu/chữ số.")
-    return gaps
+    deduped: list[str] = []
+    seen = set()
+    for gap in gaps:
+        key = ascii_lower(gap)
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(gap)
+    return deduped
 
 
 def render_gap_list(gaps: list[str]) -> None:
