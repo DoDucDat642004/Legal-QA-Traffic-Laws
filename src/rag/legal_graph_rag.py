@@ -127,6 +127,8 @@ class LegalGraphRAG:
         plan, profile = self._build_query_profile(query)
         if "out_of_scope" in set(profile.facets or []) or profile.intent == "out_of_scope":
             return self._out_of_scope_result(query, plan, profile)
+        if not self._should_use_sequential(profile):
+            return self.query_direct(query, plan=plan, profile=profile)
         return self.query_sequential(query, plan=plan, profile=profile)
 
     def _build_query_profile(self, query: str):
@@ -163,7 +165,55 @@ class LegalGraphRAG:
         }
 
     def _should_use_sequential(self, profile: Any) -> bool:
-        return True
+        if self._env_bool("RAG_FORCE_SEQUENTIAL", False):
+            return True
+        slots = getattr(profile, "evidence_slots", None) or []
+        difficulty = str(getattr(profile, "difficulty", "") or "").lower()
+        facets = {str(facet) for facet in (getattr(profile, "facets", None) or [])}
+
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            return (
+                difficulty == "hard"
+                and len(slots) >= 4
+                and bool(facets & {"scenario", "aggregation", "legal_detail", "document_overview"})
+            )
+        return difficulty in {"medium", "hard"} or len(slots) >= 2
+
+    def query_direct(
+        self,
+        query: str,
+        *,
+        plan: Any = None,
+        profile: Any = None,
+    ) -> Dict[str, Any]:
+        """Runs a bounded direct retrieval flow for interactive chat."""
+        if plan is None or profile is None:
+            plan, profile = self._build_query_profile(query)
+        contexts = self._retrieve_direct(query, plan, profile)
+        max_contexts = int((profile.retrieval_budget or {}).get("max_contexts") or 18)
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            max_contexts = min(max_contexts, self._env_int("RAG_FAST_MAX_CONTEXTS", 18, minimum=4, maximum=48))
+        contexts = contexts[:max_contexts]
+        images = self._context_images(
+            contexts,
+            limit=self._env_int("RAG_FAST_MAX_IMAGES", 12, minimum=0, maximum=40),
+        )
+        return {
+            "answer": self.generate_answer(query, contexts),
+            "contexts": contexts,
+            "references": self.format_references(contexts),
+            "images": images,
+            "sequential_results": [],
+            "slots": getattr(profile, "evidence_slots", None) or [],
+            "query_analysis": self._analysis_payload(plan, profile),
+            "metadata": {
+                "sequential": False,
+                "route": "direct",
+                "plan_source": getattr(plan, "plan_source", ""),
+                "retrieval_budget": profile.retrieval_budget or {},
+                "images": images,
+            },
+        }
 
     def query_sequential(
         self,
@@ -220,6 +270,9 @@ class LegalGraphRAG:
         budget = profile.retrieval_budget or {}
         top_k = int(budget.get("top_k") or 10)
         expand_depth = int(budget.get("expand_depth") or 1)
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            top_k = min(top_k, self._env_int("RAG_FAST_TOP_K", 18, minimum=4, maximum=64))
+            expand_depth = min(expand_depth, self._env_int("RAG_FAST_EXPAND_DEPTH", 1, minimum=0, maximum=3))
         facets = set(profile.facets or [])
         if "sign" in facets:
             return self.retrieve_sign(query, top_k=top_k, expand_depth=expand_depth)
@@ -240,6 +293,8 @@ class LegalGraphRAG:
         deterministic = self._deterministic_structured_answer(query, contexts)
         if deterministic:
             return deterministic
+        if self._env_bool("RAG_EXTRACTIVE_ANSWER_ONLY", False):
+            return self._extractive_answer(query, contexts)
         if self.client is None:
             return self._extractive_answer(query, contexts)
 
@@ -263,9 +318,15 @@ class LegalGraphRAG:
                 contents.append(coverage)
 
         max_prompt_images = int(os.getenv("RAG_MAX_PROMPT_IMAGES", "8"))
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            max_prompt_images = min(max_prompt_images, self._env_int("RAG_FAST_MAX_PROMPT_IMAGES", 0, minimum=0, maximum=4))
         loaded_prompt_images = 0
-        prompt_context_limit = self._env_int("RAG_PROMPT_CONTEXT_TEXT_LIMIT", 50000, minimum=4000, maximum=200000)
-        structured_context_limit = self._env_int("RAG_PROMPT_STRUCTURED_TEXT_LIMIT", 120000, minimum=10000, maximum=300000)
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            prompt_context_limit = self._env_int("RAG_PROMPT_CONTEXT_TEXT_LIMIT", 8000, minimum=1200, maximum=40000)
+            structured_context_limit = self._env_int("RAG_PROMPT_STRUCTURED_TEXT_LIMIT", 16000, minimum=2000, maximum=60000)
+        else:
+            prompt_context_limit = self._env_int("RAG_PROMPT_CONTEXT_TEXT_LIMIT", 50000, minimum=4000, maximum=200000)
+            structured_context_limit = self._env_int("RAG_PROMPT_STRUCTURED_TEXT_LIMIT", 120000, minimum=10000, maximum=300000)
         for idx, ctx in enumerate(contexts, start=1):
             ref = format_reference(ctx)
             text_limit = structured_context_limit if ctx.get("rag_modality") in {"legal_article_detail", "document_overview"} else prompt_context_limit
@@ -446,10 +507,18 @@ class LegalGraphRAG:
         return " [" + "; ".join(str(bit) for bit in bits) + "]"
 
     def _answer_max_output_tokens(self) -> int:
-        return self._env_int("RAG_ANSWER_MAX_OUTPUT_TOKENS", 32768, minimum=4096, maximum=65536)
+        default = 4096 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 32768
+        return self._env_int("RAG_ANSWER_MAX_OUTPUT_TOKENS", default, minimum=1024, maximum=65536)
 
     def _max_continuations(self) -> int:
-        return self._env_int("RAG_ANSWER_MAX_CONTINUATIONS", 2, minimum=0, maximum=6)
+        default = 0 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 2
+        return self._env_int("RAG_ANSWER_MAX_CONTINUATIONS", default, minimum=0, maximum=6)
+
+    def _env_bool(self, name: str, default: bool = False) -> bool:
+        value = os.getenv(name)
+        if value is None:
+            return default
+        return value.strip().lower() in {"1", "true", "yes", "on"}
 
     def _env_int(self, name: str, default: int, *, minimum: int, maximum: int) -> int:
         try:
@@ -1017,21 +1086,34 @@ class LegalGraphRAG:
         return self._clean_one_line(str(value or "")).replace("|", "\\|")
 
     def _extractive_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
-        parts = ["Căn cứ trích xuất trực tiếp:"]
+        del query
+        parts = [
+            "Tôi tìm thấy các căn cứ liên quan dưới đây. Bạn có thể dùng phần căn cứ pháp lý kèm theo để đối chiếu chi tiết."
+        ]
         try:
-            max_contexts = int(os.getenv("RAG_EXTRACTIVE_MAX_CONTEXTS", "80"))
+            default_contexts = "8" if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else "80"
+            max_contexts = int(os.getenv("RAG_EXTRACTIVE_MAX_CONTEXTS", default_contexts))
         except Exception:
-            max_contexts = 80
+            max_contexts = 8 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 80
         try:
-            text_limit = int(os.getenv("RAG_EXTRACTIVE_TEXT_LIMIT", "12000"))
+            default_limit = "1200" if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else "12000"
+            text_limit = int(os.getenv("RAG_EXTRACTIVE_TEXT_LIMIT", default_limit))
         except Exception:
-            text_limit = 12000
+            text_limit = 1200 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 12000
         for idx, ctx in enumerate(contexts[:max_contexts], start=1):
-            image = public_asset_path(ctx.get("image_path")) if ctx.get("image_path") else ""
-            image_text = f"\nẢnh/căn cứ trực quan: {image}" if image else ""
-            slot = ctx.get("retrieval_slot_facet") or "general"
-            limit = max(text_limit, 60000) if ctx.get("rag_modality") in {"legal_article_detail", "document_overview"} else text_limit
-            parts.append(f"{idx}. [{slot}] {format_reference(ctx)}:{image_text}\n{source_text(ctx)[:limit]}")
+            text = re.sub(r"\s+", " ", source_text(ctx) or "").strip()
+            if len(text) > text_limit:
+                text = text[: max(0, text_limit - 1)].rstrip() + "…"
+            penalty = penalty_summary(ctx)
+            penalty_bits = []
+            if penalty.get("fine_min_vnd") or penalty.get("fine_max_vnd"):
+                penalty_bits.append(f"phạt tiền {penalty.get('fine_min_vnd') or '?'} - {penalty.get('fine_max_vnd') or '?'} đồng")
+            if penalty.get("point_deduction"):
+                penalty_bits.append(f"trừ điểm: {penalty.get('point_deduction')}")
+            if penalty.get("license_suspension"):
+                penalty_bits.append(f"tước GPLX: {penalty.get('license_suspension')}")
+            penalty_text = f"\nMức áp dụng: {', '.join(str(bit) for bit in penalty_bits)}" if penalty_bits else ""
+            parts.append(f"### {idx}. {format_reference(ctx)}{penalty_text}\n{text}")
         return "\n\n".join(parts)
 
     def _load_image(self, path: Optional[str]):

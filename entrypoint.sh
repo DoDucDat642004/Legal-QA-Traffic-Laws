@@ -14,6 +14,7 @@ is_truthy() {
 }
 
 if is_truthy "${RAG_DEPLOY_FORCE_LOCAL_MODE:-false}"; then
+  export RAG_DEPLOY_FAST_MODE="${RAG_DEPLOY_FAST_MODE:-true}"
   export RAG_VECTOR_BACKEND=local
   export RAG_STRICT_VECTOR_BACKEND=false
   export RAG_GRAPH_BACKEND=local
@@ -23,12 +24,32 @@ if is_truthy "${RAG_DEPLOY_FORCE_LOCAL_MODE:-false}"; then
   export RAG_OPENVINO_MODEL_DIR=data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder
   export RAG_OPENVINO_EXPORT=false
   export RAG_ALLOW_MODEL_DOWNLOAD=false
-  export RAG_ENABLE_RERANKER=true
+  export RAG_ENABLE_RERANKER="${RAG_ENABLE_RERANKER:-false}"
   export RAG_RERANKER_BACKEND=openvino
   export RAG_RERANKER_MODEL=BAAI/bge-reranker-v2-m3
   export RAG_OPENVINO_RERANKER_MODEL_DIR=data/models/openvino/BAAI_bge-reranker-v2-m3
   export RAG_OPENVINO_RERANKER_EXPORT=false
   export RAG_ALLOW_RERANKER_DOWNLOAD=false
+  export RAG_ENABLE_AI_PLANNER="${RAG_ENABLE_AI_PLANNER:-false}"
+  export RAG_RETRIEVAL_MAX_ROUNDS="${RAG_RETRIEVAL_MAX_ROUNDS:-1}"
+  export RAG_RETRIEVAL_MAX_SLOTS="${RAG_RETRIEVAL_MAX_SLOTS:-8}"
+  export RAG_FAST_MAX_CONTEXTS="${RAG_FAST_MAX_CONTEXTS:-18}"
+  export RAG_FAST_TOP_K="${RAG_FAST_TOP_K:-18}"
+  export RAG_FAST_EXPAND_DEPTH="${RAG_FAST_EXPAND_DEPTH:-1}"
+  export RAG_FAST_MAX_IMAGES="${RAG_FAST_MAX_IMAGES:-12}"
+  export RAG_FAST_MAX_PROMPT_IMAGES="${RAG_FAST_MAX_PROMPT_IMAGES:-0}"
+  export RAG_API_IMAGE_LIMIT="${RAG_API_IMAGE_LIMIT:-12}"
+  export RAG_INCLUDE_GRAPH_TRACE="${RAG_INCLUDE_GRAPH_TRACE:-false}"
+  export RAG_CHAT_TEXT_DEADLINE_SECONDS="${RAG_CHAT_TEXT_DEADLINE_SECONDS:-120}"
+  export RAG_EXTRACTIVE_ANSWER_ONLY="${RAG_EXTRACTIVE_ANSWER_ONLY:-true}"
+  export RAG_ENABLE_SIGN_AI_PROBE="${RAG_ENABLE_SIGN_AI_PROBE:-false}"
+  export WARMUP_RAG_ON_START="${WARMUP_RAG_ON_START:-true}"
+  export RAG_PROMPT_CONTEXT_TEXT_LIMIT="${RAG_PROMPT_CONTEXT_TEXT_LIMIT:-8000}"
+  export RAG_PROMPT_STRUCTURED_TEXT_LIMIT="${RAG_PROMPT_STRUCTURED_TEXT_LIMIT:-16000}"
+  export RAG_ANSWER_MAX_OUTPUT_TOKENS="${RAG_ANSWER_MAX_OUTPUT_TOKENS:-4096}"
+  export RAG_ANSWER_MAX_CONTINUATIONS="${RAG_ANSWER_MAX_CONTINUATIONS:-0}"
+  export RAG_EXTRACTIVE_MAX_CONTEXTS="${RAG_EXTRACTIVE_MAX_CONTEXTS:-8}"
+  export RAG_EXTRACTIVE_TEXT_LIMIT="${RAG_EXTRACTIVE_TEXT_LIMIT:-1200}"
   export HF_HUB_OFFLINE=1
   export TRANSFORMERS_OFFLINE=1
 fi
@@ -42,7 +63,7 @@ mkdir -p \
   "${XDG_CACHE_HOME:-/tmp/.cache}/fontconfig" \
   2>/dev/null || true
 
-echo "Runtime RAG config: vector=${RAG_VECTOR_BACKEND:-unset}, embeddings=${RAG_ENABLE_EMBEDDINGS:-unset}, reranker=${RAG_ENABLE_RERANKER:-unset}/${RAG_RERANKER_BACKEND:-unset}"
+echo "Runtime RAG config: vector=${RAG_VECTOR_BACKEND:-unset}, embeddings=${RAG_ENABLE_EMBEDDINGS:-unset}, reranker=${RAG_ENABLE_RERANKER:-unset}/${RAG_RERANKER_BACKEND:-unset}, fast=${RAG_DEPLOY_FAST_MODE:-unset}"
 echo "Runtime model dirs: embedding=${RAG_OPENVINO_MODEL_DIR:-unset}, reranker=${RAG_OPENVINO_RERANKER_MODEL_DIR:-unset}"
 
 cleanup() {
@@ -67,6 +88,13 @@ for _ in $(seq 1 30); do
   fi
   sleep 1
 done
+
+if is_truthy "${WARMUP_RAG_ON_START:-false}"; then
+  echo "Warming up RAG backend"
+  if ! curl -fsS --max-time "${RAG_WARMUP_TIMEOUT_SECONDS:-180}" "http://127.0.0.1:${API_PORT}/system/status" >/dev/null; then
+    echo "RAG warmup did not complete before timeout; continuing startup" >&2
+  fi
+fi
 
 echo "Starting Streamlit frontend on ${STREAMLIT_HOST}:${STREAMLIT_PORT}"
 exec streamlit run frontend/app.py \

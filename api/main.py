@@ -5,6 +5,7 @@ This module provides a FastAPI-based web server for legal traffic law Q&A.
 It supports text-based queries, traffic sign identification, and image-based sign recognition.
 """
 
+import asyncio
 import io
 import json
 import logging
@@ -42,6 +43,21 @@ logger = logging.getLogger("traffic_law_api")
 # Initialize Gemini Client
 api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GENAI_API_KEY")
 client = genai.Client(api_key=api_key) if api_key else None
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int, *, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except Exception:
+        value = default
+    return max(minimum, min(value, maximum))
 
 # --- FastAPI App Setup ---
 app = FastAPI(
@@ -220,6 +236,37 @@ def _context_images(docs: List[Dict[str, Any]], *, limit: int = 80) -> List[str]
                 seen.add(public)
                 ranked.append((priority, public))
     return [path for _priority, path in sorted(ranked, key=lambda item: item[0])[:limit]]
+
+
+def _api_image_limit() -> int:
+    return _env_int("RAG_API_IMAGE_LIMIT", 16, minimum=0, maximum=80)
+
+
+def _maybe_graph_trace(rag: LegalGraphRAG, docs: List[Dict[str, Any]], *, depth: int = 3, max_nodes: int = 70) -> Dict[str, Any] | None:
+    if not _env_bool("RAG_INCLUDE_GRAPH_TRACE", False):
+        return None
+    return _graph_trace(rag, docs, depth=depth, max_nodes=max_nodes)
+
+
+def _timeout_fallback_result(rag: LegalGraphRAG, query: str) -> Dict[str, Any]:
+    plan, profile = rag._build_query_profile(query)
+    docs = rag._retrieve_direct(query, plan, profile)
+    docs = docs[: _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 12, minimum=4, maximum=32)]
+    deterministic = rag._deterministic_structured_answer(query, docs)
+    answer = deterministic or rag._extractive_answer(query, docs)
+    images = rag._context_images(docs, limit=_api_image_limit())
+    return {
+        "answer": answer,
+        "contexts": docs,
+        "references": rag.format_references(docs),
+        "images": images,
+        "query_analysis": rag._analysis_payload(plan, profile),
+        "metadata": {
+            "route": "timeout_fallback",
+            "sequential": False,
+            "reason": "full_query_exceeded_deadline",
+        },
+    }
 
 def _snippet(text: str, limit: int = 800) -> str:
     compact = re.sub(r"\s+", " ", text or "").strip()
@@ -753,12 +800,17 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
             search_query = _condense_query(rag.client, query, chat_history)
             logger.info("Search Query: %s", search_query)
 
-        result = rag.query_adaptive(search_query)
+        deadline = _env_int("RAG_CHAT_TEXT_DEADLINE_SECONDS", 120, minimum=20, maximum=300)
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(rag.query_adaptive, search_query), timeout=deadline)
+        except asyncio.TimeoutError:
+            logger.warning("/chat/text exceeded %ss; returning direct extractive fallback", deadline)
+            result = await asyncio.to_thread(_timeout_fallback_result, rag, search_query)
         ans, docs = result["answer"], result["contexts"]
         analysis = result.get("query_analysis") or rag.analyze_query(search_query)
         extra = result.get("metadata") or {}
 
-        images = _context_images(docs)
+        images = _context_images(docs, limit=_api_image_limit())
         return {
             "answer": ans,
             "condensed_query": search_query if search_query != query else None,
@@ -766,7 +818,7 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
             "images": images,
             "reference_images": images,
             "references": _references(docs),
-            "graph_trace": _graph_trace(rag, docs),
+            "graph_trace": _maybe_graph_trace(rag, docs),
             "metadata": extra
         }
     except Exception as e:
@@ -802,12 +854,12 @@ async def chat_sign(query: str = Form(...)):
         rag = get_rag()
         docs = rag.retrieve_sign(query, top_k=8)
         ans = rag.generate_answer(query, docs)
-        images = _context_images(docs)
+        images = _context_images(docs, limit=_api_image_limit())
         return {
             "answer": ans,
             "reference_images": images,
             "references": _references(docs),
-            "graph_trace": _graph_trace(rag, docs),
+            "graph_trace": _maybe_graph_trace(rag, docs),
         }
     except Exception as e:
         logger.exception("Error in /chat/sign")
@@ -819,12 +871,12 @@ async def chat_table(query: str = Form(...)):
         rag = get_rag()
         docs = rag.retrieve_table(query, top_k=8)
         ans = rag.generate_answer(query, docs)
-        images = _context_images(docs)
+        images = _context_images(docs, limit=_api_image_limit())
         return {
             "answer": ans,
             "table_images": images,
             "references": _references(docs),
-            "graph_trace": _graph_trace(rag, docs),
+            "graph_trace": _maybe_graph_trace(rag, docs),
         }
     except Exception as e:
         logger.exception("Error in /chat/table")
@@ -891,7 +943,7 @@ async def chat_image(image: UploadFile = File(...), query: str = Form("")):
             ans = rag.generate_answer(final_query, docs)
         else:
             ans = result["answer"]
-        images = _context_images(docs)
+        images = _context_images(docs, limit=_api_image_limit())
         return {
             "answer": ans,
             "vision": {**vision, "trusted_codes": trusted_codes},
@@ -899,7 +951,7 @@ async def chat_image(image: UploadFile = File(...), query: str = Form("")):
             "metadata": result.get("metadata"),
             "reference_images": images,
             "references": _references(docs),
-            "graph_trace": _graph_trace(rag, docs),
+            "graph_trace": _maybe_graph_trace(rag, docs),
         }
     except Exception as e:
         logger.exception("Error in /chat/image")
