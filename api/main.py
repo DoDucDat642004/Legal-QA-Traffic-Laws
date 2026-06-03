@@ -250,6 +250,11 @@ def _maybe_graph_trace(rag: LegalGraphRAG, docs: List[Dict[str, Any]], *, depth:
 
 def _timeout_fallback_result(rag: LegalGraphRAG, query: str) -> Dict[str, Any]:
     plan, profile = rag._build_query_profile(query)
+    budget = dict(getattr(profile, "retrieval_budget", None) or {})
+    budget["top_k"] = min(int(budget.get("top_k") or 16), _env_int("RAG_TIMEOUT_FALLBACK_TOP_K", 16, minimum=6, maximum=40))
+    budget["expand_depth"] = min(int(budget.get("expand_depth") or 1), _env_int("RAG_TIMEOUT_FALLBACK_EXPAND_DEPTH", 1, minimum=0, maximum=2))
+    budget["max_contexts"] = min(int(budget.get("max_contexts") or 12), _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 12, minimum=4, maximum=32))
+    profile.retrieval_budget = budget
     docs = rag._retrieve_direct(query, plan, profile)
     docs = docs[: _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 12, minimum=4, maximum=32)]
     deterministic = rag._deterministic_structured_answer(query, docs)
@@ -559,8 +564,8 @@ def _extract_claims(answer: str, *, limit: int = 24) -> List[str]:
             break
     return list(dict.fromkeys(claims))[:limit]
 
-def _verify_claims(answer: str, records: List[Dict[str, Any]]) -> Dict[str, Any]:
-    claims = _extract_claims(answer)
+def _verify_claims(answer: str, records: List[Dict[str, Any]], *, claim_limit: int = 24) -> Dict[str, Any]:
+    claims = _extract_claims(answer, limit=claim_limit)
     prepared = [(record, _claim_tokens(source_text(record))) for record in records]
     out = []
     for claim in claims:
@@ -594,6 +599,129 @@ def _verify_claims(answer: str, records: List[Dict[str, Any]]) -> Dict[str, Any]
         "weak_count": sum(1 for item in out if item["status"] == "weak"),
         "needs_review_count": sum(1 for item in out if item["status"] == "needs_review"),
         "claims": out,
+    }
+
+def _auto_claim_verification(answer: str, records: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+    if not _env_bool("RAG_AUTO_VERIFY_CLAIMS", True):
+        return None
+    if not answer or not records:
+        return None
+    claim_limit = _env_int("RAG_AUTO_VERIFY_MAX_CLAIMS", 18, minimum=4, maximum=40)
+    try:
+        return _verify_claims(answer, records, claim_limit=claim_limit)
+    except Exception as exc:
+        logger.warning("Automatic claim verification failed: %s", exc)
+        return None
+
+def _answer_trace(
+    *,
+    query: str,
+    result: Dict[str, Any],
+    analysis: Dict[str, Any] | None,
+    records: List[Dict[str, Any]],
+    verification: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not _env_bool("RAG_INCLUDE_ANSWER_TRACE", True):
+        return None
+
+    analysis = analysis or {}
+    metadata = result.get("metadata") or {}
+    slot_results = metadata.get("slot_results") or result.get("sequential_results") or []
+    slots = result.get("slots") or metadata.get("slots") or analysis.get("evidence_slots") or (analysis.get("plan") or {}).get("subquestions") or []
+    facets = analysis.get("facets") or []
+
+    coverage: List[Dict[str, Any]] = []
+    if slot_results:
+        for item in slot_results[:18]:
+            slot = item.get("slot") or {}
+            coverage.append({
+                "slot_id": slot.get("id") or "",
+                "facet": slot.get("facet") or "general",
+                "query": slot.get("query") or "",
+                "reason": slot.get("reason") or "",
+                "status": item.get("status") or "unknown",
+                "record_count": int(item.get("record_count") or 0),
+                "image_count": len(item.get("images") or []),
+                "error": item.get("error") or "",
+            })
+    else:
+        by_facet = Counter(str(record.get("retrieval_slot_facet") or record.get("rag_modality") or "general") for record in records)
+        for idx, slot in enumerate(slots[:18], start=1):
+            facet = str(slot.get("facet") or "general")
+            count = int(by_facet.get(facet, 0))
+            if count:
+                status = "hit"
+            elif records:
+                count = len(records)
+                status = "retrieved_direct"
+            else:
+                status = "not_traced"
+            coverage.append({
+                "slot_id": slot.get("id") or f"slot_{idx}",
+                "facet": facet,
+                "query": slot.get("query") or "",
+                "reason": slot.get("reason") or "",
+                "status": status,
+                "record_count": count,
+                "image_count": 0,
+                "error": "",
+            })
+
+    references = [format_reference(record) for record in records[:30]]
+    references = list(dict.fromkeys(ref for ref in references if ref))
+    image_count = len(_context_images(records, limit=_api_image_limit()))
+    verification_summary = None
+    if verification:
+        verification_summary = {
+            "claim_count": verification.get("claim_count", 0),
+            "supported_count": verification.get("supported_count", 0),
+            "weak_count": verification.get("weak_count", 0),
+            "needs_review_count": verification.get("needs_review_count", 0),
+        }
+
+    miss_count = sum(1 for item in coverage if item.get("status") in {"miss", "error", "not_traced"})
+    steps = [
+        {
+            "name": "Phân tích câu hỏi",
+            "summary": (
+                f"Nhận diện {len(facets) or 1} nhóm vấn đề: {', '.join(facets) if facets else analysis.get('intent', 'general')}."
+            ),
+        },
+        {
+            "name": "Tách nhánh truy vấn",
+            "summary": f"Tạo {len(slots) or len(coverage) or 1} câu hỏi con bắt buộc/ưu tiên để truy xuất riêng.",
+        },
+        {
+            "name": "Truy xuất căn cứ",
+            "summary": f"Thu được {len(records)} nguồn, {len(references)} căn cứ pháp lý duy nhất và {image_count} ảnh nguồn.",
+        },
+        {
+            "name": "Tổng hợp và kiểm chứng",
+            "summary": (
+                f"Kiểm chứng lexical {verification_summary['claim_count']} kết luận; "
+                f"{verification_summary['supported_count']} mạnh, {verification_summary['weak_count']} yếu, "
+                f"{verification_summary['needs_review_count']} cần rà soát."
+                if verification_summary else "Đã tổng hợp câu trả lời từ các nguồn đã retrieve."
+            ),
+        },
+    ]
+    return {
+        "query": query,
+        "route": metadata.get("route") or ("sequential" if metadata.get("sequential") else "direct"),
+        "sequential": bool(metadata.get("sequential")),
+        "plan_source": metadata.get("plan_source") or (analysis.get("plan") or {}).get("plan_source") or analysis.get("decomposition_source"),
+        "difficulty": analysis.get("difficulty"),
+        "difficulty_label": analysis.get("difficulty_label"),
+        "facets": facets,
+        "slot_count": len(slots) or len(coverage),
+        "retrieved_context_count": len(records),
+        "reference_count": len(references),
+        "image_count": image_count,
+        "coverage": coverage,
+        "missing_or_weak_branch_count": miss_count,
+        "verification": verification_summary,
+        "verification_details": (verification or {}).get("claims", [])[:8] if verification else [],
+        "steps": steps,
     }
 
 # --- API Endpoints ---
@@ -811,6 +939,14 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
         extra = result.get("metadata") or {}
 
         images = _context_images(docs, limit=_api_image_limit())
+        verification = _auto_claim_verification(ans, docs)
+        answer_trace = _answer_trace(
+            query=search_query,
+            result=result,
+            analysis=analysis,
+            records=docs,
+            verification=verification,
+        )
         return {
             "answer": ans,
             "condensed_query": search_query if search_query != query else None,
@@ -818,6 +954,8 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
             "images": images,
             "reference_images": images,
             "references": _references(docs),
+            "answer_trace": answer_trace,
+            "claim_verification": verification,
             "graph_trace": _maybe_graph_trace(rag, docs),
             "metadata": extra
         }
@@ -855,10 +993,19 @@ async def chat_sign(query: str = Form(...)):
         docs = rag.retrieve_sign(query, top_k=8)
         ans = rag.generate_answer(query, docs)
         images = _context_images(docs, limit=_api_image_limit())
+        analysis = rag.analyze_query(query)
+        result = {
+            "slots": (analysis.get("evidence_slots") or []),
+            "metadata": {"route": "sign", "sequential": False, "plan_source": (analysis.get("plan") or {}).get("plan_source")},
+        }
+        verification = _auto_claim_verification(ans, docs)
         return {
             "answer": ans,
+            "query_analysis": analysis,
             "reference_images": images,
             "references": _references(docs),
+            "answer_trace": _answer_trace(query=query, result=result, analysis=analysis, records=docs, verification=verification),
+            "claim_verification": verification,
             "graph_trace": _maybe_graph_trace(rag, docs),
         }
     except Exception as e:
@@ -872,10 +1019,19 @@ async def chat_table(query: str = Form(...)):
         docs = rag.retrieve_table(query, top_k=8)
         ans = rag.generate_answer(query, docs)
         images = _context_images(docs, limit=_api_image_limit())
+        analysis = rag.analyze_query(query)
+        result = {
+            "slots": (analysis.get("evidence_slots") or []),
+            "metadata": {"route": "table", "sequential": False, "plan_source": (analysis.get("plan") or {}).get("plan_source")},
+        }
+        verification = _auto_claim_verification(ans, docs)
         return {
             "answer": ans,
+            "query_analysis": analysis,
             "table_images": images,
             "references": _references(docs),
+            "answer_trace": _answer_trace(query=query, result=result, analysis=analysis, records=docs, verification=verification),
+            "claim_verification": verification,
             "graph_trace": _maybe_graph_trace(rag, docs),
         }
     except Exception as e:
@@ -944,13 +1100,17 @@ async def chat_image(image: UploadFile = File(...), query: str = Form("")):
         else:
             ans = result["answer"]
         images = _context_images(docs, limit=_api_image_limit())
+        analysis = result.get("query_analysis") or {}
+        verification = _auto_claim_verification(ans, docs)
         return {
             "answer": ans,
             "vision": {**vision, "trusted_codes": trusted_codes},
-            "query_analysis": result.get("query_analysis"),
+            "query_analysis": analysis,
             "metadata": result.get("metadata"),
             "reference_images": images,
             "references": _references(docs),
+            "answer_trace": _answer_trace(query=final_query, result=result, analysis=analysis, records=docs, verification=verification),
+            "claim_verification": verification,
             "graph_trace": _maybe_graph_trace(rag, docs),
         }
     except Exception as e:

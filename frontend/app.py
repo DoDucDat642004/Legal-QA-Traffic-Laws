@@ -685,6 +685,81 @@ def render_metadata(metadata: dict[str, Any] | None) -> None:
             )
 
 
+def render_answer_trace(trace: dict[str, Any] | None) -> None:
+    if not trace:
+        return
+    verification = trace.get("verification") or {}
+    supported = verification.get("supported_count", 0)
+    weak = verification.get("weak_count", 0)
+    review = verification.get("needs_review_count", 0)
+    claim_count = verification.get("claim_count", 0)
+    summary = (
+        f"{trace.get('slot_count') or 0} nhánh · "
+        f"{trace.get('retrieved_context_count') or 0} nguồn · "
+        f"{trace.get('reference_count') or 0} căn cứ · "
+        f"{claim_count} kết luận đã kiểm chứng"
+    )
+    render_html(
+        f"""
+        <div class="action-band">
+            <div class="source-title">Truy vết trả lời</div>
+            <div class="small-note">{html_escape(summary)}</div>
+        </div>
+        """
+    )
+    with st.expander("Chi tiết phân tích, truy xuất và kiểm chứng", expanded=False):
+        cols = st.columns(5)
+        cols[0].metric("Nhánh", trace.get("slot_count", 0))
+        cols[1].metric("Nguồn", trace.get("retrieved_context_count", 0))
+        cols[2].metric("Căn cứ", trace.get("reference_count", 0))
+        cols[3].metric("Mạnh/yếu", f"{supported}/{weak}")
+        cols[4].metric("Cần rà", review)
+
+        for step in trace.get("steps") or []:
+            render_html(
+                f"""
+                <div class="source-card">
+                    <div class="source-title">{html_escape(step.get("name") or "")}</div>
+                    <div class="small-note">{html_escape(step.get("summary") or "")}</div>
+                </div>
+                """
+            )
+
+        coverage = trace.get("coverage") or []
+        if coverage:
+            st.caption("Bao phủ từng nhánh truy vấn")
+            for item in coverage[:16]:
+                status = item.get("status") or "unknown"
+                record_count = item.get("record_count", 0)
+                image_count = item.get("image_count", 0)
+                render_html(
+                    f"""
+                    <div class="source-card">
+                        <div class="source-title">{html_escape(item.get("slot_id") or "")} · {html_escape(item.get("facet") or "general")} · {html_escape(status)}</div>
+                        <div class="source-meta">{record_count} nguồn · {image_count} ảnh</div>
+                        <div class="small-note">{html_escape(item.get("reason") or item.get("query") or "")}</div>
+                    </div>
+                    """
+                )
+
+        details = trace.get("verification_details") or []
+        if details:
+            st.caption("Một số kết luận đã đối chiếu nguồn")
+            for idx, item in enumerate(details[:8], start=1):
+                label, cls = status_badge(item.get("status") or "")
+                render_html(
+                    f"""
+                    <div class="source-card">
+                        <div class="source-title">{idx}. {html_escape(item.get("claim") or "")}</div>
+                        <div class="source-meta">
+                            <span class="status-pill {cls}">{html_escape(label)}</span>
+                            score={html_escape(item.get("score"))}
+                        </div>
+                    </div>
+                    """
+                )
+
+
 def query_gaps(question: str, analysis: dict[str, Any] | None = None) -> list[str]:
     qa = ascii_lower(question)
     facets = set((analysis or {}).get("facets") or [])
@@ -994,6 +1069,7 @@ def render_message_extras(message: dict[str, Any], *, compact_analysis: bool = T
             render_graph_trace(message.get("graph_trace"))
     if SHOW_RETRIEVAL_DETAILS:
         render_claim_verifier(message)
+    render_answer_trace(message.get("answer_trace"))
     render_reference_gallery(message.get("reference_images") or [])
     render_references(message.get("references") or [])
 
@@ -1195,6 +1271,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
         reference_images = res_json.get("reference_images") or res_json.get("images") or []
         references = res_json.get("references") or []
         graph_trace = res_json.get("graph_trace")
+        answer_trace = res_json.get("answer_trace")
         metadata = res_json.get("metadata") or {}
         vision = res_json.get("vision")
 
@@ -1212,6 +1289,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
                     "reference_images": reference_images,
                     "references": references,
                     "graph_trace": graph_trace,
+                    "answer_trace": answer_trace,
                     "vision": vision,
                 },
                 compact_analysis=True,
@@ -1224,6 +1302,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
                 "reference_images": reference_images,
                 "references": references,
                 "graph_trace": graph_trace,
+                "answer_trace": answer_trace,
                 "query_analysis": query_analysis,
                 "metadata": metadata,
                 "vision": vision,

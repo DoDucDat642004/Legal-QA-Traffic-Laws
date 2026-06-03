@@ -17,6 +17,7 @@ from src.rag.legal_utils import (
     SIGN_CODE_RE,
     ascii_lower,
     format_reference,
+    normalize_sign_code,
     normalized_legal_reference,
     penalty_summary,
     public_asset_path,
@@ -134,7 +135,19 @@ class LegalGraphRAG:
     def _build_query_profile(self, query: str):
         plan = self.retriever.query_planner.plan(query, client=self.client)
         profile = self.retriever.adaptive_analyzer.analyze(query, plan)
+        self._annotate_plan_with_profile(plan, profile)
         return plan, profile
+
+    def _annotate_plan_with_profile(self, plan: Any, profile: Any) -> None:
+        try:
+            filters = getattr(plan, "filters", None)
+            if not isinstance(filters, dict):
+                return
+            filters["_adaptive_difficulty"] = str(getattr(profile, "difficulty", "") or "")
+            filters["_adaptive_difficulty_score"] = int(getattr(profile, "difficulty_score", 0) or 0)
+            filters["_adaptive_facets"] = list(getattr(profile, "facets", None) or [])
+        except Exception:
+            return
 
     def _analysis_payload(self, plan: Any, profile: Any) -> Dict[str, Any]:
         summary = profile.public_summary()
@@ -177,6 +190,12 @@ class LegalGraphRAG:
                 and len(slots) >= 4
                 and bool(facets & {"scenario", "aggregation", "legal_detail", "document_overview"})
             )
+        if self._runtime_profile() not in {"deep", "accurate", "accuracy"}:
+            if difficulty == "hard":
+                return True
+            if len(slots) >= 3:
+                return True
+            return bool(facets & {"scenario", "aggregation", "legal_detail", "document_overview", "table", "source_image"})
         return difficulty in {"medium", "hard"} or len(slots) >= 2
 
     def query_direct(
@@ -275,10 +294,22 @@ class LegalGraphRAG:
             expand_depth = min(expand_depth, self._env_int("RAG_FAST_EXPAND_DEPTH", 1, minimum=0, maximum=3))
         facets = set(profile.facets or [])
         if "sign" in facets:
-            return self.retrieve_sign(query, top_k=top_k, expand_depth=expand_depth)
+            return self.retriever.retrieve_sign(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if "table" in facets:
-            return self.retrieve_table(query, top_k=top_k, expand_depth=expand_depth)
-        return self.retrieve(query, top_k=top_k, expand_depth=expand_depth)
+            return self.retriever.retrieve_table(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "penalty" in facets:
+            return self.retriever.retrieve_penalty(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "procedure" in facets:
+            return self.retriever.retrieve_procedure(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "definition" in facets:
+            return self.retriever.retrieve_definition(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "priority" in facets:
+            return self.retriever.retrieve_priority(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "scenario" in facets:
+            return self.retriever.retrieve_scenario(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "source_image" in facets:
+            return self.retriever.retrieve_source_image(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        return self.retriever.retrieve_general(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
 
     def generate_answer(
         self, 
@@ -317,16 +348,21 @@ class LegalGraphRAG:
             if coverage:
                 contents.append(coverage)
 
-        max_prompt_images = int(os.getenv("RAG_MAX_PROMPT_IMAGES", "8"))
+        profile = self._runtime_profile()
+        default_prompt_images = 8 if profile in {"deep", "accurate", "accuracy"} else 2
+        max_prompt_images = self._env_int("RAG_MAX_PROMPT_IMAGES", default_prompt_images, minimum=0, maximum=16)
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
             max_prompt_images = min(max_prompt_images, self._env_int("RAG_FAST_MAX_PROMPT_IMAGES", 0, minimum=0, maximum=4))
         loaded_prompt_images = 0
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
             prompt_context_limit = self._env_int("RAG_PROMPT_CONTEXT_TEXT_LIMIT", 8000, minimum=1200, maximum=40000)
             structured_context_limit = self._env_int("RAG_PROMPT_STRUCTURED_TEXT_LIMIT", 16000, minimum=2000, maximum=60000)
-        else:
+        elif profile in {"deep", "accurate", "accuracy"}:
             prompt_context_limit = self._env_int("RAG_PROMPT_CONTEXT_TEXT_LIMIT", 50000, minimum=4000, maximum=200000)
             structured_context_limit = self._env_int("RAG_PROMPT_STRUCTURED_TEXT_LIMIT", 120000, minimum=10000, maximum=300000)
+        else:
+            prompt_context_limit = self._env_int("RAG_PROMPT_CONTEXT_TEXT_LIMIT", 16000, minimum=4000, maximum=80000)
+            structured_context_limit = self._env_int("RAG_PROMPT_STRUCTURED_TEXT_LIMIT", 45000, minimum=10000, maximum=160000)
         for idx, ctx in enumerate(contexts, start=1):
             ref = format_reference(ctx)
             text_limit = structured_context_limit if ctx.get("rag_modality") in {"legal_article_detail", "document_overview"} else prompt_context_limit
@@ -380,7 +416,7 @@ class LegalGraphRAG:
                 first_response=res,
                 max_output_tokens=max_output_tokens,
             )
-            return answer
+            return self._replace_weak_answer_if_needed(query, contexts, answer)
         except Exception as exc:
             logger.warning("Answer generation failed with max_output_tokens=%s: %s", max_output_tokens, exc)
             if max_output_tokens > 8192:
@@ -394,7 +430,7 @@ class LegalGraphRAG:
                         logger=logger,
                         label="Answer generation fallback",
                     )
-                    return res.text or self._extractive_answer(query, contexts)
+                    return self._replace_weak_answer_if_needed(query, contexts, res.text or self._extractive_answer(query, contexts))
                 except Exception:
                     pass
 
@@ -433,7 +469,9 @@ class LegalGraphRAG:
             "Hãy tổng hợp câu trả lời đầy đủ, chính xác, mạch lạc và tự nhiên. "
             "Áp dụng zero-shot legal reasoning và few-shot pattern matching nội bộ, "
             "nhưng KHÔNG trình bày chain-of-thought. Chỉ nêu kết luận, căn cứ, điều kiện áp dụng, "
-            "và các bước kiểm chứng ngắn gọn khi cần. Chỉ kết luận khi có căn cứ trong nguồn được cung cấp."
+            "và các bước kiểm chứng ngắn gọn khi cần. Tự chia câu hỏi thành các vấn đề nhỏ, "
+            "trả lời từng vấn đề bằng căn cứ tương ứng, rồi tổng hợp kết luận cuối. "
+            "Chỉ kết luận khi có căn cứ trong nguồn được cung cấp."
         )
 
     def _answer_requirements(self) -> str:
@@ -459,9 +497,51 @@ class LegalGraphRAG:
             "18. Trước khi kết luận, tự đối chiếu [BẢNG KIỂM BAO PHỦ CĂN CỨ THEO NHÁNH]; nhánh nào có record thì phải xuất hiện trong câu trả lời, nhánh nào miss thì ghi 'chưa tìm thấy căn cứ trong nguồn được cung cấp'.\n"
             "19. Với câu hỏi thống kê cao nhất/thấp nhất/top, chỉ kết luận theo dữ liệu đã trích xuất; nếu hỏi tần suất vi phạm ngoài thực tế mà không có dataset vụ việc thì phải nói rõ không có dữ liệu thực tế.\n"
             "20. Với câu hỏi ngoài phạm vi luật giao thông đường bộ, từ chối ngắn gọn và hướng người dùng hỏi lại trong phạm vi hệ thống.\n"
+            "21. Cấu trúc mặc định: Trả lời ngắn gọn -> Phân tích từng vấn đề/hành vi -> Căn cứ áp dụng -> Lưu ý/thiếu dữ kiện nếu có.\n"
+            "22. Không bắt người dùng tự ghép nguồn: mỗi kết luận quan trọng phải đi kèm căn cứ ngay trong cùng dòng hoặc cùng đoạn.\n"
+            "23. Không xuất quá trình suy luận nội bộ; chỉ xuất kết quả phân tích pháp lý đã kiểm chứng từ nguồn.\n"
             "Few-shot format nội bộ: 'Biển + hành vi' => ý nghĩa biển trước, hành vi sau, xử phạt cuối; "
             "'Bảng/phụ lục' => nêu dòng/cột; 'Tình huống nhiều bước' => kết luận từng bước."
         )
+
+    def _replace_weak_answer_if_needed(self, query: str, contexts: List[Dict[str, Any]], answer: str) -> str:
+        answer = (answer or "").strip()
+        if not answer:
+            return self._extractive_answer(query, contexts)
+
+        answer_norm = ascii_lower(answer)
+        source_has_money = any(self._record_has_money(record) for record in contexts)
+        penalty_query = self._looks_like_penalty_query_text(query)
+        vague_patterns = [
+            "phat tien theo quy dinh",
+            "muc phat tien tham chieu",
+            "muc phat tham chieu",
+            "can doi chieu",
+            "doi chieu bang tien phat",
+            "chua ro so tien",
+            "khong co mot muc phat chung",
+            "vui long cung cap loai phuong tien",
+        ]
+        if penalty_query and source_has_money:
+            missing_amount = "dong" not in answer_norm and "vnd" not in answer_norm
+            if missing_amount or any(pattern in answer_norm for pattern in vague_patterns):
+                extractive = self._extractive_answer(query, contexts)
+                if "đồng" in extractive or "VND" in extractive:
+                    return extractive
+
+        has_reference = any(token in answer_norm for token in ["dieu ", "khoan ", "diem ", "nghi dinh", "luat ", "qcvn", "thong tu"])
+        if not has_reference and len(contexts) >= 2 and len(answer) < 600:
+            extractive = self._extractive_answer(query, contexts)
+            if extractive and extractive != answer:
+                return extractive
+        return answer
+
+    def _record_has_money(self, record: Dict[str, Any]) -> bool:
+        summary = penalty_summary(record)
+        if summary.get("fine_min_vnd") or summary.get("fine_max_vnd"):
+            return True
+        text = source_text(record)
+        return bool(re.search(r"\d{1,3}(?:[.,]\d{3})+\s*(?:đồng|dong)|\d+(?:[.,]\d+)?\s*(?:triệu|trieu)", text, flags=re.IGNORECASE))
 
     def _sequential_coverage_prompt(self, sequential_results: List[Any]) -> str:
         lines = ["\n[BẢNG KIỂM BAO PHỦ CĂN CỨ THEO NHÁNH]"]
@@ -507,12 +587,25 @@ class LegalGraphRAG:
         return " [" + "; ".join(str(bit) for bit in bits) + "]"
 
     def _answer_max_output_tokens(self) -> int:
-        default = 4096 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 32768
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            default = 4096
+        elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
+            default = 32768
+        else:
+            default = 8192
         return self._env_int("RAG_ANSWER_MAX_OUTPUT_TOKENS", default, minimum=1024, maximum=65536)
 
     def _max_continuations(self) -> int:
-        default = 0 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 2
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            default = 0
+        elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
+            default = 2
+        else:
+            default = 1
         return self._env_int("RAG_ANSWER_MAX_CONTINUATIONS", default, minimum=0, maximum=6)
+
+    def _runtime_profile(self) -> str:
+        return os.getenv("RAG_PROFILE", "balanced").strip().lower()
 
     def _env_bool(self, name: str, default: bool = False) -> bool:
         value = os.getenv(name)
@@ -591,6 +684,12 @@ class LegalGraphRAG:
         vague_answer = self._deterministic_vague_penalty_answer(query, contexts)
         if vague_answer:
             return vague_answer
+        red_light_penalty_answer = self._deterministic_red_light_penalty_answer(query, contexts)
+        if red_light_penalty_answer:
+            return red_light_penalty_answer
+        signal_answer = self._deterministic_signal_light_answer(query, contexts)
+        if signal_answer:
+            return signal_answer
         table_answer = self._deterministic_table_answer(query, contexts)
         if table_answer:
             return table_answer
@@ -727,6 +826,98 @@ class LegalGraphRAG:
             if ref_text not in refs:
                 refs.append(ref_text)
         return out
+
+    def _deterministic_red_light_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        asks_penalty = any(term in qa for term in ["phat", "xu phat", "muc phat", "bao nhieu", "bi gi", "xu ly", "tru diem"])
+        red_light = any(term in qa for term in ["vuot den do", "den do", "khong chap hanh den", "khong chap hanh hieu lenh den", "den tin hieu"])
+        if not (asks_penalty and red_light):
+            return ""
+
+        has_red_light_context = any(
+            "khong chap hanh hieu lenh cua den tin hieu" in ascii_lower(source_text(ctx))
+            for ctx in contexts
+        )
+        has_decree_168 = any(
+            "nghi dinh 168" in ascii_lower(ctx.get("doc_name") or (ctx.get("legal_reference") or {}).get("document") or "")
+            for ctx in contexts
+        )
+        if not (has_red_light_context or has_decree_168):
+            return ""
+
+        if any(term in qa for term in ["xe may", "mo to", "gan may"]):
+            return "\n".join([
+                "## Mức phạt xe máy vượt đèn đỏ",
+                "",
+                "Với mô tô/xe gắn máy, hành vi vượt đèn đỏ được xử lý theo lỗi không chấp hành hiệu lệnh của đèn tín hiệu giao thông.",
+                "",
+                "| Hành vi | Mức phạt tiền | Trừ điểm GPLX | Căn cứ |",
+                "|---|---:|---:|---|",
+                "| Không chấp hành hiệu lệnh của đèn tín hiệu giao thông/vượt đèn đỏ | 4.000.000 - 6.000.000 đồng | 4 điểm | Điểm c khoản 7 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+                "",
+                "Nếu hành vi gây tai nạn hoặc đi kèm lỗi khác, phải xét thêm nhánh xử phạt tương ứng.",
+            ])
+
+        if any(term in qa for term in ["o to", "xe hoi", "xe con", "xe tai", "xe khach", "container"]):
+            return "\n".join([
+                "## Mức phạt ô tô vượt đèn đỏ",
+                "",
+                "Với ô tô và xe tương tự ô tô, hành vi vượt đèn đỏ được xử lý theo lỗi không chấp hành hiệu lệnh của đèn tín hiệu giao thông.",
+                "",
+                "| Hành vi | Mức phạt tiền | Trừ điểm GPLX | Căn cứ |",
+                "|---|---:|---:|---|",
+                "| Không chấp hành hiệu lệnh của đèn tín hiệu giao thông/vượt đèn đỏ | 18.000.000 - 20.000.000 đồng | 4 điểm | Điểm b khoản 9 và điểm b khoản 16 Điều 6 Nghị định 168/2024/NĐ-CP |",
+                "",
+                "Nếu hành vi gây tai nạn hoặc đi kèm lỗi khác, phải xét thêm nhánh xử phạt tương ứng.",
+            ])
+        return ""
+
+    def _deterministic_signal_light_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        if not any(term in qa for term in ["den vang", "den do", "den tin hieu", "tin hieu den"]):
+            return ""
+        if self._looks_like_penalty_query_text(query):
+            return ""
+
+        signal_records = [
+            ctx for ctx in contexts
+            if any(
+                term in ascii_lower(source_text(ctx))
+                for term in ["tin hieu den mau vang", "tin hieu den mau do", "den tin hieu giao thong"]
+            )
+        ]
+        if not signal_records:
+            return ""
+
+        refs: List[str] = []
+        for record in signal_records[:5]:
+            ref = format_reference(record)
+            if ref not in refs:
+                refs.append(ref)
+
+        text_blob = " ".join(self._clean_snippet(source_text(record)) for record in signal_records[:6])
+        has_yellow = "tin hieu den mau vang" in ascii_lower(text_blob)
+        has_red = "tin hieu den mau do" in ascii_lower(text_blob) or "mau do la cam di" in ascii_lower(text_blob)
+        has_flash = "mau vang nhap nhay" in ascii_lower(text_blob)
+        if not (has_yellow or has_red):
+            return ""
+
+        lines = ["## Quy tắc đèn tín hiệu", "", "Kết luận áp dụng:"]
+        if has_yellow:
+            lines.append(
+                "- Đèn vàng cố định: phải dừng lại trước vạch dừng; nếu đang ở trên vạch dừng hoặc đã đi qua vạch dừng khi đèn chuyển vàng thì được đi tiếp."
+            )
+        if has_flash:
+            lines.append(
+                "- Đèn vàng nhấp nháy: được đi nhưng phải quan sát, giảm tốc độ hoặc dừng lại để nhường đường cho người đi bộ, xe lăn của người khuyết tật và phương tiện khác."
+            )
+        if has_red:
+            lines.append(
+                "- Đèn đỏ: cấm đi; phải dừng lại trước vạch dừng. Nếu không có vạch dừng thì dừng trước đèn tín hiệu theo chiều đi."
+            )
+        lines.extend(["", "Căn cứ chính:"])
+        lines.extend(f"- {ref}" for ref in refs[:5])
+        return "\n".join(lines)
 
     def _deterministic_table_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)
@@ -1086,35 +1277,320 @@ class LegalGraphRAG:
         return self._clean_one_line(str(value or "")).replace("|", "\\|")
 
     def _extractive_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
-        del query
-        parts = [
-            "Tôi tìm thấy các căn cứ liên quan dưới đây. Bạn có thể dùng phần căn cứ pháp lý kèm theo để đối chiếu chi tiết."
+        rows = self._fallback_evidence_rows(query, contexts)
+        if not rows:
+            return "Chưa đủ căn cứ phù hợp trong dữ liệu đã truy xuất để kết luận chắc chắn cho câu hỏi này."
+
+        lines = [
+            "## Trả lời ngắn gọn",
+            "",
+            self._fallback_lead(query, rows),
+            "",
         ]
-        try:
-            default_contexts = "8" if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else "80"
-            max_contexts = int(os.getenv("RAG_EXTRACTIVE_MAX_CONTEXTS", default_contexts))
-        except Exception:
-            max_contexts = 8 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 80
-        try:
-            default_limit = "1200" if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else "12000"
-            text_limit = int(os.getenv("RAG_EXTRACTIVE_TEXT_LIMIT", default_limit))
-        except Exception:
-            text_limit = 1200 if self._env_bool("RAG_DEPLOY_FAST_MODE", False) else 12000
-        for idx, ctx in enumerate(contexts[:max_contexts], start=1):
-            text = re.sub(r"\s+", " ", source_text(ctx) or "").strip()
-            if len(text) > text_limit:
-                text = text[: max(0, text_limit - 1)].rstrip() + "…"
-            penalty = penalty_summary(ctx)
-            penalty_bits = []
-            if penalty.get("fine_min_vnd") or penalty.get("fine_max_vnd"):
-                penalty_bits.append(f"phạt tiền {penalty.get('fine_min_vnd') or '?'} - {penalty.get('fine_max_vnd') or '?'} đồng")
-            if penalty.get("point_deduction"):
-                penalty_bits.append(f"trừ điểm: {penalty.get('point_deduction')}")
-            if penalty.get("license_suspension"):
-                penalty_bits.append(f"tước GPLX: {penalty.get('license_suspension')}")
-            penalty_text = f"\nMức áp dụng: {', '.join(str(bit) for bit in penalty_bits)}" if penalty_bits else ""
-            parts.append(f"### {idx}. {format_reference(ctx)}{penalty_text}\n{text}")
-        return "\n\n".join(parts)
+        for bullet in self._fallback_key_points(rows):
+            lines.append(f"- {bullet}")
+
+        lines.extend([
+            "",
+            "## Căn cứ áp dụng",
+            "",
+            "| Nội dung cần trả lời | Tóm tắt căn cứ | Căn cứ pháp lý |",
+            "|---|---|---|",
+        ])
+        for row in rows[: self._fallback_table_limit()]:
+            summary = row["summary"]
+            if row.get("penalty"):
+                summary = f"{summary} {row['penalty']}"
+            lines.append(
+                "| {topic} | {summary} | {ref} |".format(
+                    topic=self._escape_table(row["topic"]),
+                    summary=self._escape_table(summary),
+                    ref=self._escape_table(row["ref"]),
+                )
+            )
+
+        notes = self._fallback_notes(query, rows)
+        if notes:
+            lines.extend(["", "## Lưu ý để chốt đúng mức áp dụng", ""])
+            lines.extend(f"- {note}" for note in notes)
+        return "\n".join(lines).strip()
+
+    def _fallback_evidence_rows(self, query: str, contexts: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+        rows: List[Dict[str, str]] = []
+        seen = set()
+        for ctx in contexts[: self._fallback_context_limit()]:
+            summary = self._fallback_record_summary(query, ctx, allow_generic=False)
+            if not summary:
+                continue
+            ref = format_reference(ctx)
+            key = (ascii_lower(ref), ascii_lower(summary[:220]))
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "topic": self._fallback_topic(ctx),
+                "summary": summary,
+                "penalty": self._fallback_penalty_text(ctx),
+                "ref": ref,
+                "score": str(float(ctx.get("retrieval_score") or 0.0)),
+            })
+        if not rows:
+            for ctx in contexts[: min(3, self._fallback_context_limit())]:
+                summary = self._fallback_record_summary(query, ctx, allow_generic=True)
+                if not summary:
+                    continue
+                ref = format_reference(ctx)
+                key = (ascii_lower(ref), ascii_lower(summary[:220]))
+                if key in seen:
+                    continue
+                seen.add(key)
+                rows.append({
+                    "topic": self._fallback_topic(ctx),
+                    "summary": summary,
+                    "penalty": self._fallback_penalty_text(ctx),
+                    "ref": ref,
+                    "score": str(float(ctx.get("retrieval_score") or 0.0)),
+                })
+        rows.sort(key=lambda row: float(row.get("score") or 0.0), reverse=True)
+        return rows
+
+    def _fallback_record_summary(self, query: str, record: Dict[str, Any], *, allow_generic: bool = False) -> str:
+        text = source_text(record)
+        if not text:
+            return ""
+        extracts = self._best_extracts(query, text)
+        if not extracts and allow_generic:
+            extracts = [self._clean_snippet(text)[:420]]
+        if not extracts:
+            return ""
+        extracts = [item for item in extracts if self._usable_snippet(item)]
+        if not extracts:
+            return ""
+        summary = " ".join(extracts[:2])
+        return self._trim_text(summary, self._fallback_text_limit())
+
+    def _best_extracts(self, query: str, text: str) -> List[str]:
+        terms = self._fallback_query_terms(query)
+        chunks = self._candidate_legal_chunks(text)
+        if not chunks:
+            return []
+        scored: List[tuple[float, int, str]] = []
+        penalty_query = self._looks_like_penalty_query_text(query)
+        for idx, chunk in enumerate(chunks):
+            clean = self._clean_snippet(chunk)
+            if not self._usable_snippet(clean):
+                continue
+            norm = ascii_lower(clean)
+            term_score = sum(1.0 for term in terms if term in norm)
+            penalty_match = penalty_query and any(term in norm for term in ["phat", "tru diem", "tuoc"])
+            if term_score <= 0 and not penalty_match:
+                continue
+            score = term_score
+            if re.search(r"\d+(?:[.,]\d+)?\s*(?:km/?h|mg|ml|đồng|dong|triệu|trieu)", norm):
+                score += 0.4
+            if any(term in norm for term in ["phat tien", "tru diem", "tuoc", "tin hieu", "bien bao", "vach dung"]):
+                score += 0.6
+            if penalty_match:
+                score += 1.2
+            if score > 0:
+                scored.append((score, idx, clean))
+        if not scored:
+            return []
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return [item[2] for item in scored[:4]]
+
+    def _candidate_legal_chunks(self, text: str) -> List[str]:
+        normalized = re.sub(r"\s+", " ", (text or "").replace("\r", "\n")).strip()
+        if not normalized:
+            return []
+        pieces = re.split(
+            r"\s+(?=(?:[a-zđ]\)|\d+(?:\.\d+){1,4}\.|\d+\.\s|Điều\s+\d+|Khoản\s+\d+|Điểm\s+[a-zđ]\b))|(?:\s+#\s+)",
+            normalized,
+            flags=re.IGNORECASE,
+        )
+        chunks: List[str] = []
+        for piece in pieces:
+            piece = self._clean_snippet(piece)
+            if not piece:
+                continue
+            if len(piece) <= 520:
+                chunks.append(piece)
+                continue
+            sentences = re.split(r"(?<=[.;:])\s+(?=[A-ZÀ-ỸĐ0-9a-zđ])", piece)
+            current = ""
+            for sentence in sentences:
+                candidate = f"{current} {sentence}".strip()
+                if len(candidate) <= 520:
+                    current = candidate
+                else:
+                    if current:
+                        chunks.append(current)
+                    current = sentence[:520].strip()
+            if current:
+                chunks.append(current)
+        return chunks[:80]
+
+    def _fallback_query_terms(self, query: str) -> Set[str]:
+        stopwords = {
+            "anh", "ban", "bao", "bi", "cac", "can", "cho", "co", "cua", "duoc", "hoi",
+            "khi", "khong", "la", "lam", "muc", "nao", "neu", "nguoi", "nhung", "phai",
+            "nhu",
+            "quy", "ra", "sao", "the", "theo", "thi", "toi", "trong", "tu", "van", "ve",
+            "voi", "xu", "ly", "dieu", "khoan", "diem", "nghi", "dinh", "luat",
+            "den",
+        }
+        norm = ascii_lower(query)
+        terms = {tok for tok in re.findall(r"[a-z0-9đ]+", norm) if len(tok) >= 3 and tok not in stopwords}
+        phrase_aliases = {
+            "den do": ["tin hieu", "mau do", "cam di", "vach dung"],
+            "den vang": ["mau vang", "vach dung", "nhap nhay"],
+            "vuot den": ["tin hieu", "mau do", "mau vang"],
+            "toc do": ["km/h", "qua toc", "toc do"],
+            "nong do con": ["mg", "khi tho", "mau", "nong do con"],
+            "bien bao": ["bien", "bao hieu", "qcvn"],
+        }
+        for phrase, aliases in phrase_aliases.items():
+            if phrase in norm:
+                terms.update(aliases)
+        for match in SIGN_CODE_RE.finditer(query or ""):
+            terms.add(normalize_sign_code(match.group(0)).lower())
+        return terms
+
+    def _fallback_penalty_text(self, record: Dict[str, Any]) -> str:
+        penalty = penalty_summary(record)
+        bits: List[str] = []
+        raw = self._clean_snippet(str(penalty.get("raw_penalty_text") or ""))
+        if self._usable_penalty_text(raw):
+            bits.append(f"Mức phạt: {raw}")
+        elif penalty.get("fine_min_vnd") or penalty.get("fine_max_vnd"):
+            bits.append(f"Mức phạt tiền: {self._format_vnd(penalty.get('fine_min_vnd'))} - {self._format_vnd(penalty.get('fine_max_vnd'))}")
+        if penalty.get("point_deduction"):
+            bits.append(f"Trừ điểm GPLX: {penalty.get('point_deduction')}")
+        if penalty.get("license_suspension"):
+            bits.append(f"Tước/đình chỉ GPLX: {penalty.get('license_suspension')}")
+        return "; ".join(bits)
+
+    def _fallback_topic(self, record: Dict[str, Any]) -> str:
+        facet = str(record.get("retrieval_slot_facet") or "")
+        facet_labels = {
+            "rule": "Quy tắc áp dụng",
+            "penalty": "Xử phạt",
+            "sign": "Biển báo/tín hiệu",
+            "table": "Bảng/phụ lục",
+            "source_image": "Căn cứ trực quan",
+            "priority": "Quyền ưu tiên",
+            "scenario": "Tình huống thực tế",
+            "procedure": "Thủ tục",
+            "definition": "Khái niệm",
+        }
+        if facet in facet_labels:
+            return facet_labels[facet]
+        doc = ascii_lower(record.get("doc_name") or (record.get("legal_reference") or {}).get("document") or "")
+        if "nghi dinh 168" in doc:
+            return "Xử phạt"
+        if "qcvn" in doc or "thong tu 51" in doc:
+            return "Báo hiệu đường bộ"
+        if "luat trat tu" in doc or "luat duong bo" in doc:
+            return "Quy tắc pháp lý"
+        return "Căn cứ liên quan"
+
+    def _fallback_lead(self, query: str, rows: List[Dict[str, str]]) -> str:
+        qa = ascii_lower(query)
+        if self._looks_like_penalty_query_text(query):
+            return (
+                "Không có một mức xử lý chung nếu câu hỏi còn thiếu nhóm phương tiện, ngưỡng định lượng hoặc hậu quả. "
+                "Các nhánh có căn cứ trong dữ liệu đã truy xuất được tổng hợp dưới đây."
+            )
+        if any(term in qa for term in ["den do", "den vang", "tin hieu den", "vach dung"]):
+            return "Quy tắc về tín hiệu đèn phải được hiểu theo màu đèn, vị trí so với vạch dừng và trường hợp đèn vàng nhấp nháy."
+        if any(term in qa for term in ["bien bao", "bien cam", "p."]):
+            return "Cần xác định đúng mã/nhóm biển trước, sau đó mới xét quy tắc phải tuân thủ và nhánh xử phạt nếu đi trái hiệu lệnh."
+        if rows:
+            return "Các ý chính có căn cứ trực tiếp trong nguồn đã truy xuất là:"
+        return "Dữ liệu hiện tại chưa đủ để kết luận chắc chắn."
+
+    def _fallback_key_points(self, rows: List[Dict[str, str]]) -> List[str]:
+        points: List[str] = []
+        seen = set()
+        for row in rows:
+            summary = row["summary"]
+            if row.get("penalty"):
+                summary = f"{summary} {row['penalty']}"
+            point = f"{summary} Căn cứ: {row['ref']}."
+            normalized = ascii_lower(point[:180])
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            points.append(self._trim_text(point, 420))
+            if len(points) >= 4:
+                break
+        return points
+
+    def _fallback_notes(self, query: str, rows: List[Dict[str, str]]) -> List[str]:
+        del rows
+        qa = ascii_lower(query)
+        notes: List[str] = []
+        if self._looks_like_penalty_query_text(query) and not any(
+            term in qa for term in ["o to", "xe hoi", "xe tai", "xe khach", "xe may", "mo to", "gan may", "xe dap", "may chuyen dung"]
+        ):
+            notes.append("Cần biết loại phương tiện để chốt đúng điều/khoản xử phạt.")
+        if any(term in qa for term in ["toc do", "qua toc", "vuot toc"]) and not re.search(r"\d+(?:[.,]\d+)?\s*km/?h", qa):
+            notes.append("Cần tốc độ thực tế, tốc độ cho phép và nhóm xe để chốt ngưỡng vượt tốc độ.")
+        if "nong do con" in qa and not re.search(r"\d+(?:[.,]\d+)?\s*(?:mg|miligrams?|ml|lit)", qa):
+            notes.append("Cần chỉ số nồng độ cồn trong máu hoặc khí thở để chọn đúng ngưỡng xử phạt.")
+        return notes
+
+    def _fallback_context_limit(self) -> int:
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            default = 8
+        elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
+            default = 48
+        else:
+            default = 18
+        return self._env_int("RAG_EXTRACTIVE_MAX_CONTEXTS", default, minimum=3, maximum=80)
+
+    def _fallback_table_limit(self) -> int:
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            default = 6
+        elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
+            default = 18
+        else:
+            default = 10
+        return self._env_int("RAG_EXTRACTIVE_TABLE_ROWS", default, minimum=3, maximum=30)
+
+    def _fallback_text_limit(self) -> int:
+        if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
+            default = 280
+        elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
+            default = 620
+        else:
+            default = 420
+        return self._env_int("RAG_EXTRACTIVE_TEXT_LIMIT", default, minimum=180, maximum=1200)
+
+    def _clean_snippet(self, value: str) -> str:
+        text = re.sub(r"\s+", " ", value or "").strip(" #;-")
+        text = re.sub(r"CÔNG BÁO/Số\s+\d+\s*\+\s*\d+/Ngày\s+\d+-\d+-\d{4}", "", text, flags=re.IGNORECASE)
+        return re.sub(r"\s+", " ", text).strip(" #;-")
+
+    def _usable_snippet(self, value: str) -> bool:
+        if not value or len(value.strip()) < 24:
+            return False
+        if "\ufffd" in value:
+            return False
+        norm = ascii_lower(value)
+        if any(term in norm for term in ["khong tim thay", "placeholder"]):
+            return False
+        return True
+
+    def _trim_text(self, value: str, limit: int) -> str:
+        text = self._clean_snippet(value)
+        if len(text) <= limit:
+            return text
+        return text[: max(0, limit - 1)].rstrip(" ,;") + "…"
+
+    def _looks_like_penalty_query_text(self, query: str) -> bool:
+        qa = ascii_lower(query)
+        return any(term in qa for term in ["phat", "xu phat", "muc phat", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"])
 
     def _load_image(self, path: Optional[str]):
         if not path: return None

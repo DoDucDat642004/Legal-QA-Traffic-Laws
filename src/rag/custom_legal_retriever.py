@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import threading
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from src.rag.hybrid_vector_store import HybridLegalVectorStore
@@ -101,14 +102,11 @@ class CustomLegalRetriever:
         self.table_retriever = StructuredTableRetriever(vector_store.records)
         self.client = None # LLM Client for AI semantic probes
         self.reranker = None
+        self.reranker_model_name = reranker_model or os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
+        self._reranker_lock = threading.Lock()
         
-        if use_reranker:
-            reranker_model = reranker_model or os.getenv("RAG_RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")
-            try:
-                self.reranker = make_reranker(reranker_model)
-                logger.info("Reranker enabled: %s", type(self.reranker).__name__)
-            except Exception as exc:
-                logger.warning("Reranker disabled: %s", exc)
+        if use_reranker and self._env_bool("RAG_EAGER_LOAD_RERANKER", False):
+            self._ensure_reranker()
         
         self.query_planner = LegalQueryPlanner()
         from src.rag.adaptive_query import AdaptiveQuestionAnalyzer
@@ -145,12 +143,12 @@ class CustomLegalRetriever:
             return self.retrieve_definition(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if intent == QueryIntent.PRIORITY:
             return self.retrieve_priority(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
-        return self.retrieve_general(query, top_k=top_k, expand_depth=expand_depth)
+        return self.retrieve_general(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
 
     def _has_scenario_slot(self, plan: Optional[QueryPlan]) -> bool:
         return any((slot.get("facet") or "") == "scenario" for slot in (getattr(plan, "subquestions", None) or []))
 
-    def retrieve_general(self, query: str, top_k: int = 8, expand_depth: int = 2) -> List[Dict[str, Any]]:
+    def retrieve_general(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Hybrid text retrieval without automatic sign/table rerouting."""
         search_query = self._expand_query(query)
         seed_records = []
@@ -164,7 +162,8 @@ class CustomLegalRetriever:
         seed_records.extend(self._lexical_evidence_matches(search_query, limit=max(top_k * 2, 24)))
         
         # Phase 2: Hybrid vector search
-        seed_records.extend(self.vector_store.search(search_query, top_k=max(top_k * 3, 20)))
+        vector_multiplier = self._env_int("RAG_VECTOR_SEARCH_MULTIPLIER", 2, minimum=1, maximum=6)
+        seed_records.extend(self.vector_store.search(search_query, top_k=max(top_k * vector_multiplier, 12)))
         seed_records = self._dedupe(seed_records)
 
         # Phase 3: Graph Expansion for parent clauses, sibling points, tables and figures.
@@ -178,7 +177,7 @@ class CustomLegalRetriever:
         candidates = self._license_focus_boost(query, candidates)
         
         # Phase 5: Reranking
-        candidates = self._rerank(query, candidates, limit=top_k)
+        candidates = self._rerank(query, candidates, limit=top_k, plan=plan)
         return candidates
 
     def retrieve_penalty(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
@@ -190,7 +189,9 @@ class CustomLegalRetriever:
             doc_hint,
             "mức phạt tiền trừ điểm giấy phép lái xe tước giấy phép xử phạt vi phạm",
         ]).strip()
-        records = self.retrieve_general(penalty_query, top_k=max(top_k * 3, 24), expand_depth=expand_depth)
+        has_known_behavior = bool(self._behavior_search_specs(ascii_lower(self._focused_behavior_text(query))))
+        general_top_k = max(top_k, 12) if has_known_behavior else max(top_k * 2, 16)
+        records = self.retrieve_general(penalty_query, top_k=general_top_k, expand_depth=expand_depth, plan=plan)
         records.extend(self._known_legal_ref_matches(query))
         records.extend(self._known_chunk_matches(query))
         records.extend(self._behavior_text_matches(query))
@@ -210,9 +211,8 @@ class CustomLegalRetriever:
         records = self._document_scope_filter_boost(query, records)
         records = self._vehicle_scope_boost(query, records)
         records = self._penalty_focus_boost(query, records)
-        has_known_behavior = bool(self._behavior_search_specs(ascii_lower(self._focused_behavior_text(query))))
         penalty_limit = max(top_k, 12) if has_known_behavior and not scope else top_k
-        records = self._rerank(query, records, limit=penalty_limit)
+        records = self._rerank(query, records, limit=penalty_limit, plan=plan)
         for record in records:
             record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["penalty_route"]))
         return records
@@ -245,7 +245,7 @@ class CustomLegalRetriever:
             ))
 
         candidates = self._dedupe(seed_records)
-        candidates = self._rerank(query, candidates, limit=top_k)
+        candidates = self._rerank(query, candidates, limit=top_k, plan=plan)
         return candidates
 
     def retrieve_table(self, query: str, top_k: int = 8, expand_depth: int = 1, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
@@ -275,7 +275,7 @@ class CustomLegalRetriever:
         for record in records:
             record["rag_modality"] = record.get("rag_modality") or "table"
             record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["table_route"]))
-        return self._rerank(query, records, limit=top_k)
+        return self._rerank(query, records, limit=top_k, plan=plan)
 
     def retrieve_definition(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         definition_query = " ".join([
@@ -290,7 +290,7 @@ class CustomLegalRetriever:
         records.extend(self._deterministic_definition_matches(terms))
         records = self._dedupe(records)
         records = self._definition_boost(query, records)
-        return self._rerank(query, records, limit=top_k)
+        return self._rerank(query, records, limit=top_k, plan=plan)
 
     def retrieve_procedure(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         procedure_query = " ".join([
@@ -320,7 +320,7 @@ class CustomLegalRetriever:
             key=lambda record: float(record.get("retrieval_score") or 0),
             reverse=True,
         )
-        records = self._dedupe(priority_records + self._rerank(query, remaining_records, limit=top_k))[:top_k]
+        records = self._dedupe(priority_records + self._rerank(query, remaining_records, limit=top_k, plan=plan))[:top_k]
         for record in records:
             record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["procedure_route"]))
         return records
@@ -332,7 +332,7 @@ class CustomLegalRetriever:
         ])
         records = self.retrieve_general(priority_query, top_k=max(top_k * 3, 24), expand_depth=expand_depth)
         records = self._priority_boost(query, records)
-        return self._rerank(query, records, limit=top_k)
+        return self._rerank(query, records, limit=top_k, plan=plan)
 
     def retrieve_scenario(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         scenario_query = " ".join([
@@ -360,7 +360,7 @@ class CustomLegalRetriever:
             if scoped_records:
                 records = scoped_records
         records = self._scenario_boost(query, records)
-        return self._rerank(query, records, limit=top_k)
+        return self._rerank(query, records, limit=top_k, plan=plan)
 
     def retrieve_source_image(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Retrieves visual evidence from source pages, tables, figures, and sign crops."""
@@ -382,7 +382,7 @@ class CustomLegalRetriever:
                 record["retrieval_score"] = float(record.get("retrieval_score") or 0) + 1.5
                 record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["source_image_route"]))
         image_records = [record for record in records if record_image_paths(record)]
-        return self._rerank(query, image_records or records, limit=top_k)
+        return self._rerank(query, image_records or records, limit=top_k, plan=plan)
 
     def retrieve_document_overview(self, query: str, top_k: int = 8, expand_depth: int = 1, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Returns deterministic document structure: article count and article titles."""
@@ -1229,6 +1229,12 @@ class CustomLegalRetriever:
         except Exception:
             value = default
         return max(minimum, min(value, maximum))
+
+    def _env_bool(self, name: str, default: bool = False) -> bool:
+        value = os.getenv(name)
+        if value is None:
+            return default
+        return value.strip().lower() in {"1", "true", "yes", "on"}
 
     def _records_by_ref_prefix(
         self,
@@ -3082,7 +3088,7 @@ class CustomLegalRetriever:
             score += 0.55
         return score
 
-    def _rerank(self, query: str, candidates: List[Dict[str, Any]], limit: int) -> List[Dict[str, Any]]:
+    def _rerank(self, query: str, candidates: List[Dict[str, Any]], limit: int, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Final sort by retrieval and query-text evidence."""
         if not candidates: return []
         lexical_limit = self._env_int("RAG_LEXICAL_RERANK_LIMIT", 96, minimum=32, maximum=512)
@@ -3098,14 +3104,17 @@ class CustomLegalRetriever:
             record["retrieval_rank_score"] = float(record.get("retrieval_score") or 0)
             ranked.append(record)
         ranked = sorted(ranked, key=lambda r: float(r.get("retrieval_rank_score") or 0), reverse=True)
-        if self.reranker is None:
+        if not self._should_model_rerank(query, ranked, plan):
+            return ranked[:limit]
+        if self.reranker is None and not self._ensure_reranker():
             return ranked[:limit]
 
-        model_limit = self._env_int("RAG_MODEL_RERANK_LIMIT", 32, minimum=8, maximum=128)
+        model_limit = self._env_int("RAG_MODEL_RERANK_LIMIT", 12, minimum=4, maximum=128)
         model_pool = ranked[:model_limit]
         pairs = [(query, self._rerank_text(record)) for record in model_pool]
         try:
-            raw_scores = self.reranker.predict(pairs)
+            with self._reranker_lock:
+                raw_scores = self.reranker.predict(pairs)
             scores = [float(score) for score in raw_scores]
         except Exception as exc:
             logger.warning("Model rerank failed; keeping lexical ranking: %s", exc)
@@ -3121,6 +3130,55 @@ class CustomLegalRetriever:
                 record["retrieval_rank_score"] = float(record.get("retrieval_rank_score") or 0) + normalized * 4.0
                 record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["model_rerank"]))
         return sorted(model_pool + ranked[model_limit:], key=lambda r: float(r.get("retrieval_rank_score") or 0), reverse=True)[:limit]
+
+    def _ensure_reranker(self) -> bool:
+        if self.reranker is not None:
+            return True
+        with self._reranker_lock:
+            if self.reranker is not None:
+                return True
+            try:
+                self.reranker = make_reranker(self.reranker_model_name)
+                logger.info("Reranker loaded conditionally: %s", type(self.reranker).__name__)
+                return True
+            except Exception as exc:
+                logger.warning("Conditional reranker unavailable: %s", exc)
+                return False
+
+    def _should_model_rerank(self, query: str, ranked: List[Dict[str, Any]], plan: Optional[QueryPlan]) -> bool:
+        if not ranked:
+            return False
+        if self._env_bool("RAG_ENABLE_RERANKER", False):
+            return True
+        if not self._env_bool("RAG_ENABLE_RERANKER_FOR_HARD", True):
+            return False
+
+        filters = getattr(plan, "filters", {}) if plan is not None else {}
+        if not isinstance(filters, dict):
+            filters = {}
+        difficulty = str(filters.get("_adaptive_difficulty") or "").lower()
+        try:
+            score = int(filters.get("_adaptive_difficulty_score") or 0)
+        except Exception:
+            score = 0
+        facets = {str(facet) for facet in (filters.get("_adaptive_facets") or [])}
+        if difficulty == "hard" or score >= self._env_int("RAG_RERANK_MIN_DIFFICULTY_SCORE", 5, minimum=3, maximum=12):
+            return True
+        if difficulty or score or facets:
+            return False
+
+        qa = ascii_lower(query)
+        if facets & {"scenario", "aggregation", "legal_detail", "document_overview", "source_image", "table"}:
+            return True
+        if len(query.split()) >= self._env_int("RAG_RERANK_MIN_WORDS", 28, minimum=12, maximum=80):
+            return True
+        if len(self._behavior_search_specs(ascii_lower(self._focused_behavior_text(query)))) >= 2:
+            return True
+        if self._looks_like_penalty_query(query) and not self._vehicle_scope(query) and any(
+            term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"]
+        ):
+            return True
+        return False
 
     def _rerank_text(self, record: Dict[str, Any]) -> str:
         chunks = [

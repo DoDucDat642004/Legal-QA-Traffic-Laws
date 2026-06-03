@@ -20,7 +20,7 @@ The system is built for practical legal QA: vague questions, traffic-sign questi
 - Graph expansion across related legal articles, clauses, traffic signs, tables, and source images.
 - Traffic-sign lookup and image-based sign recognition.
 - Deterministic fallbacks for key cases when the LLM is unavailable: P.127, speed violations, broad penalty questions, max/min fines, max point deduction, and out-of-scope questions.
-- Source search, graph trace, claim verification, and data status panels in the frontend.
+- Automatic answer trace, claim verification, source search, graph trace, and data status panels in the frontend.
 - Qdrant-backed semantic retrieval using the exported OpenVINO vietnamese-bi-encoder model under `data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder`.
 
 ## Legal Data Included
@@ -95,7 +95,15 @@ RAG_EMBEDDING_DIMENSION=768
 RAG_EMBEDDING_MAX_LENGTH=256
 RAG_OPENVINO_MODEL_DIR=data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder
 RAG_STRICT_VECTOR_BACKEND=true
-RAG_ENABLE_RERANKER=true
+RAG_ENABLE_RERANKER=false
+RAG_ENABLE_RERANKER_FOR_HARD=true
+RAG_MODEL_RERANK_LIMIT=8
+RAG_PROFILE=balanced
+RAG_MAX_PLANNED_QUERIES=8
+RAG_RETRIEVAL_MAX_ROUNDS=3
+RAG_RETRIEVAL_MAX_SLOTS=18
+RAG_INCLUDE_ANSWER_TRACE=true
+RAG_AUTO_VERIFY_CLAIMS=true
 QDRANT_COLLECTION=legal_traffic_records_vi
 RAG_ANSWER_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
 RAG_VISION_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
@@ -112,6 +120,8 @@ TRAFFIC_LAW_API_URL=http://localhost:8002 streamlit run frontend/app.py --server
 ```
 
 Open `http://localhost:7860`.
+
+For an Intel Core i9 / 16 GB RAM machine, keep `RAG_PROFILE=balanced`, OpenVINO embeddings, `RAG_ENABLE_RERANKER=false`, and `RAG_ENABLE_RERANKER_FOR_HARD=true` for interactive use. Easy questions stay fast with lexical/graph ranking; hard questions lazy-load the OpenVINO reranker and rerank a small candidate pool.
 
 ## Docker
 
