@@ -11,6 +11,7 @@ from src.rag.custom_legal_retriever import CustomLegalRetriever
 from src.rag.legal_graph_rag import LegalGraphRAG
 from src.rag.legal_utils import public_asset_path
 from src.rag.model_policy import generate_content_with_fallback, model_candidates
+from src.rag.query_preprocessor import missing_data_hints, prepare_chat_query
 from src.rag.query_planner import LegalQueryPlanner, QueryPlan
 from frontend.asset_utils import image_source
 
@@ -88,6 +89,52 @@ class ModelPolicyTest(unittest.TestCase):
 
 
 class QueryPlannerCoverageTest(unittest.TestCase):
+    def test_query_preprocessor_compacts_long_query_without_llm(self):
+        long_background = " ".join(["thong tin ngoai le khong lien quan"] * 240)
+        query = (
+            f"{long_background}. Tinh huong chinh: xe may vuot den do tai nga tu, "
+            "sau do khong doi mu bao hiem va hoi muc phat, tru diem GPLX."
+        )
+
+        with patched_env(RAG_PREPARED_QUERY_MAX_CHARS="900", RAG_LONG_QUERY_WORDS="120"):
+            prepared = prepare_chat_query(None, query, [])
+
+        self.assertTrue(prepared.was_preprocessed)
+        self.assertLessEqual(len(prepared.effective_query), 900)
+        self.assertIn("xe may", prepared.effective_query)
+        self.assertIn("vuot den do", prepared.effective_query)
+        self.assertIn("khong doi mu bao hiem", prepared.effective_query)
+
+    def test_query_preprocessor_uses_llm_json_for_history_condense(self):
+        json_payload = (
+            '{"standalone_query":"Xe máy trong tình huống trước vượt đèn đỏ; hỏi mức phạt tiền, trừ điểm GPLX và căn cứ.",'
+            '"history_summary":"Tình huống trước là xe máy ở ngã tư.",'
+            '"missing_data_hints":["Thiếu hậu quả tai nạn nếu có."],'
+            '"warnings":[]}'
+        )
+        client = FakeClient({"gemini-3.1-flash-lite": json_payload})
+        history = [
+            {"role": "user", "content": "Tôi đi xe máy qua ngã tư khi đèn đỏ."},
+            {"role": "assistant", "content": "Cần tra cứu tín hiệu đèn và mức phạt tương ứng."},
+        ]
+
+        with patched_env(RAG_ENABLE_QUERY_PREPROCESSOR_LLM="true"):
+            prepared = prepare_chat_query(client, "Vậy bị phạt bao nhiêu?", history)
+
+        self.assertTrue(prepared.used_llm)
+        self.assertIn("Xe máy", prepared.effective_query)
+        self.assertIn("vượt đèn đỏ", prepared.effective_query)
+        self.assertIn("Thiếu hậu quả tai nạn nếu có.", prepared.missing_data_hints)
+        self.assertEqual(client.models.calls[0], "gemini-3.1-flash-lite")
+        self.assertTrue(json_payload)
+
+    def test_missing_data_hints_cover_ambiguous_speed_penalty(self):
+        hints = missing_data_hints("Chạy xe quá tốc độ bị phạt sao?")
+        joined = "\n".join(hints)
+
+        self.assertIn("Loại phương tiện", joined)
+        self.assertIn("ngưỡng tốc độ", joined)
+
     def test_rule_planner_handles_interwoven_table_image_sign_penalty_scenario(self):
         query = (
             "Tinh huong: toi thay bien P.127 trong phu luc/bang QCVN, "
