@@ -18,6 +18,16 @@ logger = logging.getLogger("HybridLegalVectorStore")
 HYBRID_VECTOR_INDEX_VERSION = "legal_graph_rag_vector_v6_asset_scoped_qcvn_sign_code_guard"
 
 
+def _should_load_embedder(
+    *,
+    enable_embeddings: bool,
+    local_model_path: Path,
+    force_reindex: bool,
+    allow_model_download: bool,
+) -> bool:
+    return bool(enable_embeddings and (local_model_path.exists() or force_reindex or allow_model_download))
+
+
 class HybridLegalVectorStore:
     """
     Local implementation of a hybrid vector database combining FAISS (semantic) and BM25 (keyword) search.
@@ -60,9 +70,11 @@ class HybridLegalVectorStore:
         allow_model_download = os.getenv("RAG_ALLOW_MODEL_DOWNLOAD", "").lower() in {"1", "true", "yes", "on"}
         local_model_path = Path(embedding_model).expanduser()
         
-        should_load_embedder = bool(
-            local_model_path.exists()
-            or (enable_embeddings and (force_reindex or allow_model_download))
+        should_load_embedder = _should_load_embedder(
+            enable_embeddings=enable_embeddings,
+            local_model_path=local_model_path,
+            force_reindex=force_reindex,
+            allow_model_download=allow_model_download,
         )
 
         if should_load_embedder:

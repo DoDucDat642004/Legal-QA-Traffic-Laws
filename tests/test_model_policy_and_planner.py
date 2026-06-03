@@ -1,8 +1,11 @@
 import os
+import tempfile
 import unittest
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 
+from src.rag.hybrid_vector_store import _should_load_embedder
 from src.rag.legal_graph_rag import LegalGraphRAG
 from src.rag.model_policy import generate_content_with_fallback, model_candidates
 from src.rag.query_planner import LegalQueryPlanner
@@ -100,6 +103,29 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIn("sign", plan.expected_modalities)
         self.assertIn("table", plan.expected_modalities)
         self.assertIn("image", plan.expected_modalities)
+
+
+class HybridVectorStoreConfigTest(unittest.TestCase):
+    def test_disabled_embeddings_skip_existing_local_model_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            local_model_path = Path(tmp_dir)
+
+            self.assertFalse(
+                _should_load_embedder(
+                    enable_embeddings=False,
+                    local_model_path=local_model_path,
+                    force_reindex=False,
+                    allow_model_download=False,
+                )
+            )
+            self.assertTrue(
+                _should_load_embedder(
+                    enable_embeddings=True,
+                    local_model_path=local_model_path,
+                    force_reindex=False,
+                    allow_model_download=False,
+                )
+            )
 
 
 class DeterministicPenaltyAnswerTest(unittest.TestCase):
