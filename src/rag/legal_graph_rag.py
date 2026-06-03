@@ -192,11 +192,11 @@ class LegalGraphRAG:
         contexts = self._retrieve_direct(query, plan, profile)
         max_contexts = int((profile.retrieval_budget or {}).get("max_contexts") or 18)
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
-            max_contexts = min(max_contexts, self._env_int("RAG_FAST_MAX_CONTEXTS", 18, minimum=4, maximum=48))
+            max_contexts = min(max_contexts, self._env_int("RAG_FAST_MAX_CONTEXTS", 10, minimum=4, maximum=48))
         contexts = contexts[:max_contexts]
         images = self._context_images(
             contexts,
-            limit=self._env_int("RAG_FAST_MAX_IMAGES", 12, minimum=0, maximum=40),
+            limit=self._env_int("RAG_FAST_MAX_IMAGES", 6, minimum=0, maximum=40),
         )
         return {
             "answer": self.generate_answer(query, contexts),
@@ -271,7 +271,7 @@ class LegalGraphRAG:
         top_k = int(budget.get("top_k") or 10)
         expand_depth = int(budget.get("expand_depth") or 1)
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
-            top_k = min(top_k, self._env_int("RAG_FAST_TOP_K", 18, minimum=4, maximum=64))
+            top_k = min(top_k, self._env_int("RAG_FAST_TOP_K", 10, minimum=4, maximum=64))
             expand_depth = min(expand_depth, self._env_int("RAG_FAST_EXPAND_DEPTH", 1, minimum=0, maximum=3))
         facets = set(profile.facets or [])
         if "sign" in facets:
