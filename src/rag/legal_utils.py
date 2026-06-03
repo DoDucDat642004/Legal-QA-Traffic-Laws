@@ -39,11 +39,26 @@ def sign_group_from_code(code: str) -> str:
 
 def public_asset_path(path: str) -> str:
     """Converts internal file paths to public-facing URLs."""
-    if not path: return ""
-    normalized = path.replace("\\", "/")
-    if normalized.startswith("data/processed/"):
-        return "/processed/" + normalized[len("data/processed/"):]
-    return "/processed/" + normalized.split("data/processed/")[-1]
+    if not path:
+        return ""
+    normalized = str(path).strip().replace("\\", "/")
+    if not normalized:
+        return ""
+    if normalized.startswith(("http://", "https://")):
+        return normalized
+    if normalized.startswith("/processed/"):
+        return normalized
+    if normalized.startswith("processed/"):
+        return "/" + normalized
+    marker = "data/processed/"
+    if marker in normalized:
+        relative = normalized.split(marker, 1)[1]
+    elif normalized.startswith("/"):
+        return normalized
+    else:
+        relative = normalized
+    relative = relative.lstrip("/")
+    return "/processed/" + relative
 
 def record_image_paths(record: Dict[str, Any]) -> List[str]:
     """Collects all source/table/figure image paths attached to one RAG record."""
