@@ -77,6 +77,7 @@ COPY --chown=user:user . .
 USER user
 
 RUN set -eux; \
+    mkdir -p data/processed data/graph data/models/openvino; \
     needs_lfs=0; \
     for required_file in \
       data/graph/legal_graph.json \
