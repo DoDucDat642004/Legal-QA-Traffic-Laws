@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 
@@ -25,6 +26,22 @@ def _force_offline_local_env() -> None:
     os.environ["RAG_GRAPH_BACKEND"] = "local"
     os.environ["RAG_CANONICAL_BACKEND"] = "local"
     os.environ["RAG_OBJECT_BACKEND"] = "local"
+    os.environ["RAG_DEPLOY_FAST_MODE"] = "true"
+    os.environ["RAG_ENABLE_EMBEDDINGS"] = "false"
+    os.environ["RAG_ENABLE_RERANKER"] = "false"
+    os.environ["RAG_ENABLE_AI_PLANNER"] = "false"
+    os.environ["RAG_RETRIEVAL_MAX_ROUNDS"] = "1"
+    os.environ["RAG_RETRIEVAL_MAX_SLOTS"] = "8"
+    os.environ["RAG_FAST_MAX_CONTEXTS"] = "18"
+    os.environ["RAG_FAST_TOP_K"] = "18"
+    os.environ["RAG_FAST_EXPAND_DEPTH"] = "1"
+    os.environ["RAG_FAST_MAX_IMAGES"] = "12"
+    os.environ["RAG_INCLUDE_GRAPH_TRACE"] = "false"
+    os.environ["RAG_API_IMAGE_LIMIT"] = "12"
+    os.environ["RAG_EXTRACTIVE_ANSWER_ONLY"] = "true"
+    os.environ["RAG_ENABLE_SIGN_AI_PROBE"] = "false"
+    os.environ["RAG_ANSWER_MAX_OUTPUT_TOKENS"] = "4096"
+    os.environ["RAG_ANSWER_MAX_CONTINUATIONS"] = "0"
     os.environ["RAG_ALLOW_MODEL_DOWNLOAD"] = "false"
     os.environ["RAG_ALLOW_RERANKER_DOWNLOAD"] = "false"
     os.environ["RAG_OPENVINO_EXPORT"] = "false"
@@ -90,11 +107,43 @@ def _check_records() -> None:
         raise RuntimeError("No source image assets found in processed records.")
 
 
+def _check_fast_queries() -> None:
+    from src.rag.legal_graph_rag import LegalGraphRAG
+
+    rag = LegalGraphRAG(
+        ROOT / "data/processed",
+        graph_path=ROOT / "data/graph/legal_graph.json",
+        use_reranker=False,
+    )
+    queries = [
+        "Xe máy vượt đèn đỏ bị phạt bao nhiêu?",
+        "Biển P.102 có ý nghĩa gì?",
+        "Người điều khiển xe máy có nồng độ cồn cao bị xử lý thế nào?",
+        "Ô tô vượt quá tốc độ 15 km/h bị phạt sao?",
+    ]
+    for query in queries:
+        start = time.perf_counter()
+        result = rag.query_adaptive(query)
+        elapsed = time.perf_counter() - start
+        answer = str(result.get("answer") or "").strip()
+        contexts = result.get("contexts") or []
+        if not answer or not contexts:
+            raise RuntimeError(f"Fast query smoke returned incomplete result for: {query}")
+        if elapsed > 60:
+            raise RuntimeError(f"Fast query smoke exceeded 60s ({elapsed:.1f}s): {query}")
+        print(
+            f"Deploy smoke: fast query ok in {elapsed:.2f}s; "
+            f"contexts={len(contexts)}; query={query}",
+            flush=True,
+        )
+
+
 def main() -> int:
     _force_offline_local_env()
     try:
         _check_artifacts()
         _check_records()
+        _check_fast_queries()
         print("Deploy smoke: offline deploy artifacts validated.", flush=True)
     except Exception as exc:
         print(f"Deploy smoke failed: {exc}", file=sys.stderr)

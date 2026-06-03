@@ -24,6 +24,19 @@ from asset_utils import image_source
 API_URL = os.getenv("TRAFFIC_LAW_API_URL", "http://localhost:8002").rstrip("/")
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
+
+def env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+SHOW_ADVANCED_TOOLS = env_bool("SHOW_ADVANCED_TOOLS", False)
+SHOW_RETRIEVAL_DETAILS = env_bool("SHOW_RETRIEVAL_DETAILS", False)
+ENABLE_PRE_ANALYSIS = env_bool("ENABLE_PRE_ANALYSIS", False)
+CHAT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("CHAT_REQUEST_TIMEOUT_SECONDS", "150"))
+
 st.set_page_config(page_title="Luật Giao Thông AI", layout="wide", page_icon="§")
 
 
@@ -31,14 +44,15 @@ st.markdown(
     """
     <style>
     :root {
-        --bg: #f7f8fb;
+        --bg: #f5f7f9;
         --panel: #ffffff;
-        --border: #d9dee8;
-        --text: #111827;
+        --border: #d8dee6;
+        --text: #172033;
         --muted: #667085;
         --accent: #0f766e;
-        --accent-soft: #e6f5f2;
-        --warn-soft: #fff7e6;
+        --accent-dark: #115e59;
+        --accent-soft: #e5f3ef;
+        --warn-soft: #fff8e8;
     }
     .stApp {
         background: var(--bg);
@@ -48,12 +62,12 @@ st.markdown(
         border-right: 1px solid var(--border);
     }
     .app-header {
-        padding: 14px 0 10px 0;
+        padding: 10px 0 14px 0;
         border-bottom: 1px solid var(--border);
         margin-bottom: 18px;
     }
     .app-title {
-        font-size: 28px;
+        font-size: 26px;
         line-height: 1.2;
         font-weight: 750;
         color: var(--text);
@@ -63,6 +77,25 @@ st.markdown(
         font-size: 14px;
         color: var(--muted);
         margin-top: 6px;
+        max-width: 820px;
+    }
+    .welcome-panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+        margin: 8px 0 14px 0;
+    }
+    .welcome-title {
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .welcome-note {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.5;
     }
     .info-grid {
         display: grid;
@@ -219,6 +252,9 @@ st.markdown(
     .stTextArea textarea {
         border-radius: 8px;
     }
+    .stChatInput textarea {
+        min-height: 48px;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -226,15 +262,15 @@ st.markdown(
 
 
 PROCESSING_STEPS = [
-    ("Phân tích câu hỏi", "Xác định độ khó, ý định, tài liệu và các nhánh cần tra cứu."),
-    ("Lập kế hoạch truy vấn", "Tách câu hỏi thành các phần nhỏ để tránh bỏ sót căn cứ."),
-    ("Truy xuất căn cứ", "Tìm lần lượt văn bản, bảng, ảnh trang gốc và ảnh biển báo liên quan."),
-    ("Tổng hợp trả lời", "Ghép kết quả, kiểm tra căn cứ và diễn đạt lại mạch lạc."),
+    ("Tiếp nhận câu hỏi", "Đọc nội dung và xác định nhóm vấn đề pháp luật giao thông."),
+    ("Tìm căn cứ", "Tra cứu văn bản, biển báo, bảng biểu và nguồn liên quan."),
+    ("Đối chiếu", "Chọn căn cứ phù hợp và loại bỏ nguồn yếu."),
+    ("Trả lời", "Tóm tắt kết luận kèm căn cứ để bạn kiểm tra lại."),
 ]
 
 
 SAMPLE_QUESTIONS = [
-    "Tôi chưa đủ tuổi chạy xe gắn máy nhưng đi xe phân khối lớn, vượt đèn đỏ, có nồng độ cồn, không đội mũ, đi ngược chiều và gây tai nạn thì bị xử lý thế nào?",
+    "Xe máy vượt đèn đỏ bị phạt bao nhiêu và có bị trừ điểm GPLX không?",
     "Biển P.102 có ý nghĩa gì, đi vào đường có biển này bị phạt ra sao?",
     "Người điều khiển xe máy có nồng độ cồn cao thì mức phạt, trừ điểm và tước GPLX thế nào?",
 ]
@@ -288,9 +324,10 @@ def render_header() -> None:
     render_html(
         """
         <div class="app-header">
-            <div class="app-title">Trợ lý Luật Giao thông</div>
+            <div class="app-title">Trợ lý Luật Giao thông Việt Nam</div>
             <div class="app-subtitle">
-                Tra cứu căn cứ pháp luật, bảng biểu, ảnh trang gốc và biển báo từ dữ liệu đã trích xuất.
+                Hỏi về mức phạt, biển báo, giấy phép lái xe, thủ tục và tình huống giao thông đường bộ.
+                Câu trả lời luôn kèm căn cứ để bạn tự đối chiếu.
             </div>
         </div>
         """
@@ -377,17 +414,17 @@ def render_analysis(analysis: dict[str, Any] | None, *, compact: bool = False) -
             )
 
 
-def render_reference_gallery(images: list[str], *, max_visible: int = 80) -> None:
+def render_reference_gallery(images: list[str], *, max_visible: int = 12) -> None:
     if not images:
         return
-    with st.expander(f"Căn cứ hình ảnh từ văn bản gốc ({len(images)})", expanded=True):
-        cols = st.columns(4)
+    with st.expander(f"Ảnh căn cứ từ văn bản gốc ({len(images)})", expanded=False):
+        cols = st.columns(3)
         for idx, img_path in enumerate(images[:max_visible]):
             caption = img_path.rsplit("/", 1)[-1]
-            with cols[idx % 4]:
+            with cols[idx % 3]:
                 st.image(image_url(img_path), caption=caption, use_container_width=True)
         if len(images) > max_visible:
-            st.caption(f"Còn {len(images) - max_visible} ảnh khác trong metadata kết quả.")
+            st.caption(f"Còn {len(images) - max_visible} ảnh căn cứ khác.")
 
 
 def reference_label(ref: dict[str, Any]) -> str:
@@ -409,21 +446,22 @@ def reference_label(ref: dict[str, Any]) -> str:
 def render_references(references: list[dict[str, Any]]) -> None:
     if not references:
         return
-    with st.expander(f"Nguồn đã dùng ({len(references)})", expanded=False):
-        for idx, ref in enumerate(references[:40], start=1):
+    with st.expander(f"Căn cứ pháp lý ({len(references)})", expanded=True):
+        for idx, ref in enumerate(references[:12], start=1):
             reasons = ", ".join(ref.get("retrieval_reasons") or [])
             score = ref.get("retrieval_score")
             score_text = f"score={score:.3f}" if isinstance(score, (int, float)) else ""
             images = ref.get("images") or ([ref.get("image")] if ref.get("image") else [])
             image_text = f"{len(images)} ảnh" if images else "không có ảnh"
+            detail_text = f"{ref.get('modality') or 'text'} · {image_text}"
+            if SHOW_RETRIEVAL_DETAILS and score_text:
+                detail_text = f"{detail_text} · {score_text}"
             render_html(
                 f"""
                 <div class="source-card">
                     <div class="source-title">{idx}. {html_escape(reference_label(ref))}</div>
-                    <div class="source-meta">
-                        {html_escape(ref.get("modality") or "text")} · {html_escape(image_text)} · {html_escape(score_text)}
-                    </div>
-                    <div class="small-note">{html_escape(reasons)}</div>
+                    <div class="source-meta">{html_escape(detail_text)}</div>
+                    {'<div class="small-note">' + html_escape(reasons) + '</div>' if SHOW_RETRIEVAL_DETAILS and reasons else ''}
                 </div>
                 """
             )
@@ -596,9 +634,8 @@ def render_case_actions() -> None:
     if not st.session_state.messages:
         return
     messages = exportable_messages()
-    json_payload = json.dumps(messages, ensure_ascii=False, indent=2)
     markdown_payload = case_markdown(messages)
-    col_a, col_b, col_c = st.columns([1, 1, 1])
+    col_a, col_b = st.columns([1, 1])
     if col_a.button("Lưu hồ sơ phiên này", use_container_width=True):
         title = next((msg.get("content", "") for msg in messages if msg.get("role") == "user"), "Hồ sơ")
         st.session_state.saved_cases.append({
@@ -608,19 +645,21 @@ def render_case_actions() -> None:
         })
         st.success("Đã lưu hồ sơ trong phiên làm việc.")
     col_b.download_button(
-        "Export Markdown",
+        "Tải hồ sơ Markdown",
         data=markdown_payload,
         file_name="ho-so-luat-giao-thong.md",
         mime="text/markdown",
         use_container_width=True,
     )
-    col_c.download_button(
-        "Export JSON",
-        data=json_payload,
-        file_name="ho-so-luat-giao-thong.json",
-        mime="application/json",
-        use_container_width=True,
-    )
+    if SHOW_ADVANCED_TOOLS:
+        json_payload = json.dumps(messages, ensure_ascii=False, indent=2)
+        st.download_button(
+            "Tải JSON kỹ thuật",
+            data=json_payload,
+            file_name="ho-so-luat-giao-thong.json",
+            mime="application/json",
+            use_container_width=True,
+        )
 
 
 def render_metadata(metadata: dict[str, Any] | None) -> None:
@@ -943,15 +982,18 @@ def render_status_page() -> None:
 
 
 def render_message_extras(message: dict[str, Any], *, compact_analysis: bool = True) -> None:
-    render_analysis(message.get("query_analysis"), compact=compact_analysis)
-    if message.get("vision"):
+    if SHOW_RETRIEVAL_DETAILS:
+        render_analysis(message.get("query_analysis"), compact=compact_analysis)
+    if SHOW_RETRIEVAL_DETAILS and message.get("vision"):
         with st.expander("Kết quả nhận diện ảnh", expanded=False):
             st.json(message["vision"])
-    render_metadata(message.get("metadata"))
-    if message.get("graph_trace"):
+    if SHOW_RETRIEVAL_DETAILS:
+        render_metadata(message.get("metadata"))
+    if SHOW_RETRIEVAL_DETAILS and message.get("graph_trace"):
         with st.expander("Đường dẫn graph và liên kết căn cứ", expanded=False):
             render_graph_trace(message.get("graph_trace"))
-    render_claim_verifier(message)
+    if SHOW_RETRIEVAL_DETAILS:
+        render_claim_verifier(message)
     render_reference_gallery(message.get("reference_images") or [])
     render_references(message.get("references") or [])
 
@@ -967,29 +1009,34 @@ def message_history_payload() -> str:
 
 def render_sidebar() -> tuple[str, Any, bool, bool]:
     with st.sidebar:
-        st.markdown("### Điều hướng")
-        app_mode = st.radio(
-            "Chọn màn hình",
-            ["Trò chuyện AI", "Kiểm tra truy vấn", "Nguồn & graph", "Trạng thái dữ liệu"],
-            key="app_mode",
-            label_visibility="collapsed",
-        )
+        st.markdown("### Luật giao thông")
+        if SHOW_ADVANCED_TOOLS:
+            app_mode = st.radio(
+                "Chọn màn hình",
+                ["Trò chuyện AI", "Kiểm tra truy vấn", "Nguồn & graph", "Trạng thái dữ liệu"],
+                key="app_mode",
+                label_visibility="collapsed",
+            )
+        else:
+            app_mode = "Trò chuyện AI"
+            st.session_state.app_mode = app_mode
+            st.caption("Nhập câu hỏi hoặc tải ảnh biển báo để tra cứu.")
         st.divider()
 
-        st.markdown("### Kết nối")
-        st.caption(f"Backend: `{API_URL}`")
-        col_a, col_b = st.columns(2)
-        if col_a.button("Kiểm tra", use_container_width=True):
-            try:
-                health = requests.get(f"{API_URL}/health", timeout=4).json()
-                st.success(f"Backend sẵn sàng: {health.get('status')}")
-            except Exception as exc:
-                st.error(f"Chưa kết nối được backend: {exc}")
-        clear_chat = col_b.button("Xóa chat", use_container_width=True)
+        clear_chat = st.button("Xóa cuộc trò chuyện", use_container_width=True)
+        if SHOW_ADVANCED_TOOLS:
+            with st.expander("Kết nối backend", expanded=False):
+                st.caption(f"Backend: `{API_URL}`")
+                if st.button("Kiểm tra backend", use_container_width=True):
+                    try:
+                        health = requests.get(f"{API_URL}/health", timeout=4).json()
+                        st.success(f"Backend sẵn sàng: {health.get('status')}")
+                    except Exception as exc:
+                        st.error(f"Chưa kết nối được backend: {exc}")
 
         if st.session_state.get("saved_cases"):
             st.divider()
-            st.markdown("### Hồ sơ đã lưu")
+            st.markdown("### Phiên đã lưu")
             case_options = [
                 f"{idx + 1}. {case.get('saved_at')} · {case.get('title')}"
                 for idx, case in enumerate(st.session_state.saved_cases)
@@ -1005,10 +1052,10 @@ def render_sidebar() -> tuple[str, Any, bool, bool]:
         uploaded_file = st.file_uploader("Tải ảnh biển báo", type=["jpg", "jpeg", "png"], label_visibility="collapsed")
         if uploaded_file is not None:
             st.image(uploaded_file, caption="Ảnh đã tải lên", use_container_width=True)
-        analyze_image = st.button("Phân tích ảnh", disabled=uploaded_file is None, use_container_width=True)
+        analyze_image = st.button("Tra cứu biển báo trong ảnh", disabled=uploaded_file is None, use_container_width=True)
 
         st.divider()
-        st.markdown("### Câu hỏi mẫu")
+        st.markdown("### Gợi ý câu hỏi")
         for idx, sample in enumerate(SAMPLE_QUESTIONS, start=1):
             if st.button(sample, key=f"sample_{idx}", use_container_width=True):
                 st.session_state.queued_question = sample
@@ -1018,7 +1065,17 @@ def render_sidebar() -> tuple[str, Any, bool, bool]:
 
 def render_chat_history() -> None:
     if not st.session_state.messages:
-        st.info("Nhập câu hỏi pháp luật giao thông hoặc tải ảnh biển báo ở thanh bên để bắt đầu.")
+        render_html(
+            """
+            <div class="welcome-panel">
+                <div class="welcome-title">Bạn cần tra cứu tình huống nào?</div>
+                <div class="welcome-note">
+                    Hãy hỏi bằng ngôn ngữ tự nhiên, ví dụ mức phạt khi vượt đèn đỏ,
+                    ý nghĩa biển báo, thủ tục giấy phép lái xe hoặc một tình huống vi phạm cụ thể.
+                </div>
+            </div>
+            """
+        )
         return
 
     for idx, message in enumerate(st.session_state.messages):
@@ -1057,7 +1114,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
         with step_box.container():
             render_stepper(active_index=0)
 
-        if uploaded_file is None:
+        if ENABLE_PRE_ANALYSIS and uploaded_file is None:
             try:
                 analysis_response = api_post(
                     "/chat/analyze",
@@ -1071,17 +1128,15 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
 
         with step_box.container():
             render_stepper(active_index=1, done_until=0)
-        with analysis_box:
-            render_analysis(query_analysis)
 
         wait_seconds = int((query_analysis or {}).get("max_wait_seconds") or 90)
-        request_timeout = max(600, wait_seconds + 60)
+        request_timeout = min(CHAT_REQUEST_TIMEOUT_SECONDS, max(45, wait_seconds + 45))
 
         with step_box.container():
             render_stepper(active_index=2, done_until=1)
             st.progress(0.72)
             timer_placeholder = st.empty()
-            st.caption("Đang truy xuất tuần tự các nguồn liên quan...")
+            st.caption("Đang tra cứu căn cứ pháp luật liên quan...")
 
         response_container = {"response": None, "error": None}
 
@@ -1106,7 +1161,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
         start_time = time.time()
         while req_thread.is_alive():
             elapsed = int(time.time() - start_time)
-            timer_placeholder.info(f"⏳ Thinking... {elapsed} seconds.")
+            timer_placeholder.info(f"Đang xử lý... {elapsed} giây")
             time.sleep(1)
         
         response = response_container["response"]
@@ -1115,7 +1170,9 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
         if exc:
             with step_box.container():
                 render_stepper(active_index=2, done_until=1)
-            st.error(f"Không thể kết nối backend: {exc}")
+            st.error("Backend đang mất quá nhiều thời gian để phản hồi. Vui lòng thử lại với câu hỏi ngắn hơn hoặc chờ vài phút rồi gửi lại.")
+            if SHOW_ADVANCED_TOOLS:
+                st.caption(str(exc))
             return
 
         with step_box.container():
@@ -1124,7 +1181,12 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
             st.caption("Đang tổng hợp câu trả lời và căn cứ hiển thị...")
 
         if response.status_code != 200:
-            st.error(f"Lỗi backend: {response.text}")
+            if response.status_code in {408, 504}:
+                st.error("Truy vấn này quá nặng cho phiên hiện tại. Hãy tách câu hỏi thành từng hành vi hoặc thử lại sau ít phút.")
+            else:
+                st.error("Backend chưa trả được câu trả lời cho truy vấn này.")
+            if SHOW_ADVANCED_TOOLS:
+                st.caption(response.text)
             return
 
         res_json = response.json()
@@ -1152,7 +1214,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
                     "graph_trace": graph_trace,
                     "vision": vision,
                 },
-                compact_analysis=False,
+                compact_analysis=True,
             )
 
         st.session_state.messages.append(
