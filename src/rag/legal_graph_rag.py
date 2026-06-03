@@ -416,12 +416,13 @@ class LegalGraphRAG:
                 first_response=res,
                 max_output_tokens=max_output_tokens,
             )
+            answer = self._strip_completion_marker(answer)
             return self._replace_weak_answer_if_needed(query, contexts, answer)
         except Exception as exc:
             logger.warning("Answer generation failed with max_output_tokens=%s: %s", max_output_tokens, exc)
             if max_output_tokens > 8192:
                 try:
-                    res, _model = generate_content_with_fallback(
+                    res, model = generate_content_with_fallback(
                         self.client,
                         contents=contents,
                         config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=8192),
@@ -430,7 +431,15 @@ class LegalGraphRAG:
                         logger=logger,
                         label="Answer generation fallback",
                     )
-                    return self._replace_weak_answer_if_needed(query, contexts, res.text or self._extractive_answer(query, contexts))
+                    answer = res.text or self._extractive_answer(query, contexts)
+                    answer = self._continue_if_truncated(
+                        model=model,
+                        base_contents=contents,
+                        answer=answer,
+                        first_response=res,
+                        max_output_tokens=8192,
+                    )
+                    return self._replace_weak_answer_if_needed(query, contexts, self._strip_completion_marker(answer))
                 except Exception:
                     pass
 
@@ -466,11 +475,12 @@ class LegalGraphRAG:
     def _system_prompt(self) -> str:
         return (
             "Bạn là chuyên gia pháp lý về Luật Giao Thông Việt Nam. "
-            "Hãy tổng hợp câu trả lời đầy đủ, chính xác, mạch lạc và tự nhiên. "
+            "Hãy tổng hợp câu trả lời đầy đủ, chính xác, mạch lạc và tự nhiên cho người đọc phổ thông. "
             "Áp dụng zero-shot legal reasoning và few-shot pattern matching nội bộ, "
             "nhưng KHÔNG trình bày chain-of-thought. Chỉ nêu kết luận, căn cứ, điều kiện áp dụng, "
-            "và các bước kiểm chứng ngắn gọn khi cần. Tự chia câu hỏi thành các vấn đề nhỏ, "
-            "trả lời từng vấn đề bằng căn cứ tương ứng, rồi tổng hợp kết luận cuối. "
+            "và các bước kiểm chứng ngắn gọn khi cần. Tự chia câu hỏi thành các vấn đề nhỏ, diễn giải từng chi tiết rõ ràng, "
+            "trả lời từng vấn đề bằng căn cứ tương ứng, rồi tổng hợp kết luận cuối. Không viết cụt câu, không cắt xén chữ, "
+            "không bỏ dở bảng hoặc danh sách giữa chừng. "
             "Chỉ kết luận khi có căn cứ trong nguồn được cung cấp."
         )
 
@@ -500,6 +510,8 @@ class LegalGraphRAG:
             "21. Cấu trúc mặc định: Trả lời ngắn gọn -> Phân tích từng vấn đề/hành vi -> Căn cứ áp dụng -> Lưu ý/thiếu dữ kiện nếu có.\n"
             "22. Không bắt người dùng tự ghép nguồn: mỗi kết luận quan trọng phải đi kèm căn cứ ngay trong cùng dòng hoặc cùng đoạn.\n"
             "23. Không xuất quá trình suy luận nội bộ; chỉ xuất kết quả phân tích pháp lý đã kiểm chứng từ nguồn.\n"
+            "24. Diễn giải bằng câu văn tự nhiên, rõ ràng, dễ hiểu; phân tích đủ từng chi tiết cần thiết, không nén ý đến mức người đọc phải tự suy luận.\n"
+            "25. Câu trả lời phải kết thúc hoàn chỉnh: không dừng ở giữa câu, giữa bảng, giữa danh sách hoặc sau các từ nối như 'và', 'theo', 'căn cứ'. Khi đã hoàn tất toàn bộ nội dung, thêm đúng dòng riêng: <<<HOAN_TAT_TRA_LOI>>>.\n"
             "Few-shot format nội bộ: 'Biển + hành vi' => ý nghĩa biển trước, hành vi sau, xử phạt cuối; "
             "'Bảng/phụ lục' => nêu dòng/cột; 'Tình huống nhiều bước' => kết luận từng bước."
         )
@@ -588,7 +600,7 @@ class LegalGraphRAG:
 
     def _answer_max_output_tokens(self) -> int:
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
-            default = 4096
+            default = 8192
         elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
             default = 32768
         else:
@@ -597,7 +609,7 @@ class LegalGraphRAG:
 
     def _max_continuations(self) -> int:
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
-            default = 0
+            default = 2
         elif self._runtime_profile() in {"deep", "accurate", "accuracy"}:
             default = 2
         else:
@@ -628,6 +640,45 @@ class LegalGraphRAG:
         except Exception:
             return ""
 
+    def _completion_marker(self) -> str:
+        return os.getenv("RAG_ANSWER_COMPLETION_MARKER", "<<<HOAN_TAT_TRA_LOI>>>").strip() or "<<<HOAN_TAT_TRA_LOI>>>"
+
+    def _strip_completion_marker(self, answer: str) -> str:
+        marker = self._completion_marker()
+        cleaned = (answer or "").replace(marker, "")
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
+    def _answer_needs_continuation(self, answer: str, response: Any) -> bool:
+        finish_reason = self._finish_reason(response).upper()
+        if finish_reason in {"MAX_TOKENS", "FINISH_REASON_MAX_TOKENS"}:
+            return True
+        if self._completion_marker() in (answer or ""):
+            return False
+        marker_required = self._env_bool("RAG_REQUIRE_ANSWER_COMPLETION_MARKER", True)
+        if marker_required and self._completion_marker() not in (answer or ""):
+            return True
+        return self._looks_like_incomplete_answer(answer)
+
+    def _looks_like_incomplete_answer(self, answer: str) -> bool:
+        text = self._strip_completion_marker(answer)
+        if not text:
+            return True
+        tail = text.rstrip()
+        if tail.endswith(("...", "…")):
+            return True
+        tail_norm = ascii_lower(tail[-160:])
+        if re.search(r"\b(?:va|hoac|theo|can cu|gom|bao gom|la|voi|tai|o|neu|truong hop|dong thoi|cu the)\s*[:;,-]?$", tail_norm):
+            return True
+        last_line = tail.splitlines()[-1].strip()
+        if last_line.startswith("|") and not last_line.endswith("|"):
+            return True
+        if tail.count("```") % 2:
+            return True
+        if re.search(r"[A-Za-zÀ-ỹ0-9,;:]$", tail) and len(last_line.split()) >= 3:
+            return True
+        return False
+
     def _continue_if_truncated(
         self,
         *,
@@ -637,7 +688,7 @@ class LegalGraphRAG:
         first_response: Any,
         max_output_tokens: int,
     ) -> str:
-        if self._finish_reason(first_response).upper() not in {"MAX_TOKENS", "FINISH_REASON_MAX_TOKENS"}:
+        if not self._answer_needs_continuation(answer, first_response):
             return answer
         continuations = self._max_continuations()
         if continuations <= 0:
@@ -645,10 +696,12 @@ class LegalGraphRAG:
         current = answer
         for _idx in range(continuations):
             prompt = (
-                "\n[CÂU TRẢ LỜI ĐANG BỊ NGẮT]\n"
+                "\n[CÂU TRẢ LỜI CẦN HOÀN THIỆN]\n"
                 f"{current[-3000:]}\n\n"
-                "Hãy viết TIẾP từ đúng vị trí bị ngắt. Không lặp lại phần đã viết, "
-                "không mở đầu lại, chỉ tiếp tục nội dung còn thiếu dựa trên các nguồn đã cung cấp."
+                "Hãy viết TIẾP từ đúng vị trí còn thiếu để câu trả lời đầy đủ, tự nhiên, rõ ràng và không bị cắt chữ. "
+                "Không lặp lại phần đã viết, không mở đầu lại, không thay đổi kết luận đã có căn cứ. "
+                "Nếu nội dung phía trên thực sự đã đủ, chỉ thêm dòng <<<HOAN_TAT_TRA_LOI>>>. "
+                "Khi hoàn tất toàn bộ phần còn thiếu, kết thúc bằng dòng riêng <<<HOAN_TAT_TRA_LOI>>>."
             )
             try:
                 res, _model = generate_content_with_fallback(
@@ -665,7 +718,7 @@ class LegalGraphRAG:
             if not continuation:
                 break
             current = f"{current.rstrip()}\n{continuation}"
-            if self._finish_reason(res).upper() not in {"MAX_TOKENS", "FINISH_REASON_MAX_TOKENS"}:
+            if not self._answer_needs_continuation(current, res):
                 break
         return current
 
