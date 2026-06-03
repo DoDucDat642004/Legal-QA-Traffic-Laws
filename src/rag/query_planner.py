@@ -96,7 +96,38 @@ class LegalQueryPlanner:
         enabled = os.getenv("RAG_ENABLE_AI_PLANNER", "true").lower() in {"1", "true", "yes", "on"}
         if not client or not enabled:
             return fallback
+        always = os.getenv("RAG_AI_PLANNER_ALWAYS", "false").lower() in {"1", "true", "yes", "on"}
+        min_rule_confidence = self._env_float("RAG_AI_PLANNER_MIN_RULE_CONFIDENCE", 0.72)
+        if (
+            not always
+            and fallback.confidence >= min_rule_confidence
+            and not self._should_escalate_to_ai(query, fallback)
+        ):
+            return fallback
         return self.ai_plan(query, client, fallback=fallback) or fallback
+
+    def _should_escalate_to_ai(self, query: str, fallback: QueryPlan) -> bool:
+        facets = {str(slot.get("facet") or "general") for slot in fallback.subquestions}
+        complex_facets = {
+            "scenario",
+            "aggregation",
+            "legal_detail",
+            "document_overview",
+            "priority",
+            "source_image",
+        }
+        if facets & complex_facets:
+            return True
+        if len([facet for facet in facets if facet != "general"]) >= 3:
+            return True
+        if len(fallback.subquestions) >= 5:
+            return True
+        qa = ascii_lower(query)
+        if len(query.split()) >= 24:
+            return True
+        if len(self._known_behavior_hits(qa)) >= 2:
+            return True
+        return any(term in qa for term in ["dong thoi", "cung luc", "sau do", "truong hop", "tinh huong", "so sanh"])
 
     def rule_plan(self, query: str) -> QueryPlan:
         """Applies heuristic rules to categorize the query and build a plan."""
@@ -1024,6 +1055,12 @@ class LegalQueryPlanner:
         except Exception:
             return default
         return max(0.0, min(1.0, parsed))
+
+    def _env_float(self, name: str, default: float) -> float:
+        try:
+            return float(os.getenv(name, str(default)))
+        except Exception:
+            return default
 
     def _bounded_int(self, value: Any, *, default: int, min_value: int, max_value: int) -> int:
         try:

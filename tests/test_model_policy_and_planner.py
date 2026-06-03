@@ -6,10 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from src.rag.hybrid_vector_store import _should_load_embedder
+from src.rag.adaptive_query import AdaptiveQuestionAnalyzer
+from src.rag.custom_legal_retriever import CustomLegalRetriever
 from src.rag.legal_graph_rag import LegalGraphRAG
 from src.rag.legal_utils import public_asset_path
 from src.rag.model_policy import generate_content_with_fallback, model_candidates
-from src.rag.query_planner import LegalQueryPlanner
+from src.rag.query_planner import LegalQueryPlanner, QueryPlan
 from frontend.asset_utils import image_source
 
 
@@ -106,6 +108,60 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIn("table", plan.expected_modalities)
         self.assertIn("image", plan.expected_modalities)
 
+    def test_adaptive_analyzer_expands_ambiguous_penalty_by_vehicle_group(self):
+        analyzer = AdaptiveQuestionAnalyzer()
+        plan = SimpleNamespace(
+            subquestions=[
+                {
+                    "facet": "penalty",
+                    "query": "Tra cứu mức phạt cho câu hỏi: Chạy xe quá tốc độ bị phạt sao?",
+                    "priority": 1,
+                    "reason": "Planner AI chỉ tạo một nhánh chung.",
+                    "must_answer": True,
+                }
+            ],
+            intent=SimpleNamespace(value="penalty"),
+            plan_source="ai",
+            difficulty_hint="medium",
+        )
+
+        profile = analyzer.analyze("Chạy xe quá tốc độ bị phạt sao?", plan)
+        queries = "\n".join(slot["query"] for slot in profile.evidence_slots)
+
+        self.assertIn("ô tô", queries)
+        self.assertIn("mô tô", queries)
+        self.assertIn("xe máy chuyên dùng", queries)
+        self.assertEqual(profile.difficulty, "hard")
+        self.assertGreaterEqual(len(profile.evidence_slots), 4)
+
+    def test_adaptive_analyzer_keeps_single_vehicle_single_penalty_easy(self):
+        analyzer = AdaptiveQuestionAnalyzer()
+        planner = LegalQueryPlanner()
+        query = "Xe máy vượt đèn đỏ bị phạt bao nhiêu?"
+
+        profile = analyzer.analyze(query, planner.rule_plan(query))
+
+        self.assertEqual(profile.difficulty, "easy")
+        self.assertLessEqual(profile.difficulty_score, 2)
+        self.assertIn("Câu hỏi xử phạt một hành vi", profile.difficulty_reason)
+
+    def test_conditional_reranker_only_triggers_for_hard_queries(self):
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+        easy_plan = QueryPlan(filters={
+            "_adaptive_difficulty": "easy",
+            "_adaptive_difficulty_score": 2,
+            "_adaptive_facets": ["penalty"],
+        })
+        hard_plan = QueryPlan(filters={
+            "_adaptive_difficulty": "hard",
+            "_adaptive_difficulty_score": 7,
+            "_adaptive_facets": ["scenario", "penalty"],
+        })
+
+        with patched_env(RAG_ENABLE_RERANKER="false", RAG_ENABLE_RERANKER_FOR_HARD="true"):
+            self.assertFalse(retriever._should_model_rerank("Xe máy vượt đèn đỏ bị phạt bao nhiêu?", [{}], easy_plan))
+            self.assertTrue(retriever._should_model_rerank("Tình huống nhiều lỗi cần tổng hợp mức phạt", [{}], hard_plan))
+
 
 class HybridVectorStoreConfigTest(unittest.TestCase):
     def test_disabled_embeddings_skip_existing_local_model_path(self):
@@ -192,6 +248,101 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("8.000.000 - 10.000.000 đồng", answer)
         self.assertIn("12.400.000 - 16.600.000 đồng", answer)
         self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
+
+    def test_signal_light_question_answers_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Đèn vàng và đèn đỏ thì phải đi như thế nào?",
+            [
+                {
+                    "doc_name": "QCVN 41:2024 (Thông tư 51/2024)",
+                    "legal_reference": {"document": "QCVN 41:2024 (Thông tư 51/2024)", "section": "6.3.2 - 6.3.5"},
+                    "source_body_exact": (
+                        "6.3.2. Tín hiệu đèn màu vàng phải dừng lại trước vạch dừng; "
+                        "trường hợp đang đi trên vạch dừng hoặc đã đi qua vạch dừng mà tín hiệu đèn màu vàng thì được đi tiếp. "
+                        "Trường hợp tín hiệu đèn màu vàng nhấp nháy, người Điều khiển phương tiện tham gia giao thông đường bộ được đi "
+                        "nhưng phải quan sát, giảm tốc độ hoặc dừng lại nhường đường cho người đi bộ, xe lăn của người khuyết tật qua đường hoặc các phương tiện khác. "
+                        "6.3.3. Tín hiệu đèn màu đỏ là cấm đi: báo hiệu phải dừng lại trước vạch dừng. "
+                        "Nếu không có vạch dừng thì phải dừng trước đèn tín hiệu theo chiều đi."
+                    ),
+                }
+            ],
+        )
+
+        self.assertIn("Đèn vàng cố định", answer)
+        self.assertIn("Đèn vàng nhấp nháy", answer)
+        self.assertIn("Đèn đỏ", answer)
+        self.assertIn("QCVN 41:2024", answer)
+
+    def test_motorbike_red_light_penalty_answers_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Xe máy vượt đèn đỏ bị phạt bao nhiêu?",
+            [
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "c"},
+                    "source_body_exact": "c) Không chấp hành hiệu lệnh của đèn tín hiệu giao thông;",
+                }
+            ],
+        )
+
+        self.assertIn("4.000.000 - 6.000.000 đồng", answer)
+        self.assertIn("4 điểm", answer)
+        self.assertIn("Điểm c khoản 7", answer)
+
+    def test_extractive_fallback_synthesizes_relevant_rules(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._extractive_answer(
+            "Đèn vàng và đèn đỏ thì phải đi như thế nào?",
+            [
+                {
+                    "doc_name": "QCVN 41:2024 (Thông tư 51/2024)",
+                    "legal_reference": {"document": "QCVN 41:2024 (Thông tư 51/2024)", "section": "6.3"},
+                    "source_body_exact": (
+                        "6.3.2. Tín hiệu đèn màu vàng phải dừng lại trước vạch dừng; "
+                        "trường hợp đang đi trên vạch dừng hoặc đã đi qua vạch dừng mà tín hiệu đèn màu vàng thì được đi tiếp. "
+                        "# 6.3.3. Tín hiệu đèn màu đỏ là cấm đi: báo hiệu phải dừng lại trước vạch dừng. "
+                        "Nếu không có vạch dừng thì phải dừng trước đèn tín hiệu theo chiều đi."
+                    ),
+                    "retrieval_score": 9.0,
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "3", "point": "a"},
+                    "source_body_exact": "a) Chuyển hướng không quan sát hoặc không gi�7, Điều 7, Chương II.",
+                    "retrieval_score": 8.0,
+                },
+            ],
+        )
+
+        self.assertNotIn("Tôi tìm thấy các căn cứ", answer)
+        self.assertIn("Trả lời ngắn gọn", answer)
+        self.assertIn("đèn màu vàng phải dừng", answer)
+        self.assertIn("đèn màu đỏ là cấm đi", answer)
+        self.assertNotIn("gi�7", answer)
+
+    def test_extractive_fallback_uses_penalty_metadata(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._extractive_answer(
+            "Xe máy vượt đèn đỏ bị phạt bao nhiêu?",
+            [
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "c"},
+                    "source_body_exact": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông.",
+                    "penalties": {
+                        "main_penalty": {"individual_min_vnd": 4000000, "individual_max_vnd": 6000000},
+                        "point_deduction": 4,
+                    },
+                    "retrieval_score": 10.0,
+                }
+            ],
+        )
+
+        self.assertIn("4.000.000 đồng - 6.000.000 đồng", answer)
+        self.assertIn("Trừ điểm GPLX: 4", answer)
+        self.assertIn("Điểm c, Khoản 7, Điều 7", answer)
 
 
 if __name__ == "__main__":

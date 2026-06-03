@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
@@ -190,6 +191,17 @@ class AdaptiveQuestionAnalyzer:
             score += 4
             reasons.append("Cần gom đầy đủ toàn bộ cấu trúc điều/khoản/điểm")
 
+        if self._is_simple_vehicle_penalty_query(q, qa, facets, slot_count):
+            score = min(score, 2)
+            reasons = [
+                reason for reason in reasons
+                if reason not in {
+                    "Câu hỏi có nhiều nhánh pháp lý",
+                    "Cần truy vấn tuần tự nhiều câu hỏi con",
+                }
+            ]
+            reasons.append("Câu hỏi xử phạt một hành vi, đã rõ nhóm phương tiện")
+
         difficulty_hint = str(getattr(plan, "difficulty_hint", "") or "").lower()
         if difficulty_hint == "hard":
             score = max(score, 6)
@@ -200,20 +212,138 @@ class AdaptiveQuestionAnalyzer:
 
         return min(score, 12), list(dict.fromkeys(reasons))
 
+    def _is_simple_vehicle_penalty_query(self, q: str, qa: str, facets: List[str], slot_count: int) -> bool:
+        meaningful = {facet for facet in facets if facet != "general"}
+        if not meaningful or not meaningful.issubset({"rule", "penalty"}):
+            return False
+        if not self._vehicle_scope(q):
+            return False
+        if slot_count > 2:
+            return False
+        behavior_count = len([
+            code for code, terms, _description, facet in self._known_behavior_patterns()
+            if facet == "penalty" and any(term in qa for term in terms)
+        ])
+        return behavior_count <= 1
+
     def _determine_budget(self, score: int) -> Tuple[str, str, int, Dict[str, int]]:
         """Maps complexity score to retrieval resource allocation."""
+        profile = os.getenv("RAG_PROFILE", "balanced").strip().lower()
+        if profile in {"fast", "speed", "lite"}:
+            if score >= 5:
+                return "hard", "Khó", 60, {"top_k": 24, "expand_depth": 2, "evidence_slot_top_k": 7, "max_contexts": 28, "max_images": 12}
+            if score >= 3:
+                return "medium", "Trung bình", 35, {"top_k": 16, "expand_depth": 1, "evidence_slot_top_k": 5, "max_contexts": 18, "max_images": 8}
+            return "easy", "Dễ", 20, {"top_k": 10, "expand_depth": 1, "evidence_slot_top_k": 4, "max_contexts": 10, "max_images": 5}
+        if profile in {"deep", "accurate", "accuracy"}:
+            if score >= 5:
+                return "hard", "Khó", 90, {"top_k": 64, "expand_depth": 5, "evidence_slot_top_k": 14, "max_contexts": 90, "max_images": 40}
+            if score >= 3:
+                return "medium", "Trung bình", 55, {"top_k": 24, "expand_depth": 3, "evidence_slot_top_k": 7, "max_contexts": 28, "max_images": 18}
+            return "easy", "Dễ", 30, {"top_k": 14, "expand_depth": 2, "evidence_slot_top_k": 5, "max_contexts": 16, "max_images": 10}
+
         if score >= 5:
-            return "hard", "Khó", 90, {"top_k": 64, "expand_depth": 5, "evidence_slot_top_k": 14, "max_contexts": 90, "max_images": 40}
+            return "hard", "Khó", 75, {"top_k": 40, "expand_depth": 3, "evidence_slot_top_k": 10, "max_contexts": 48, "max_images": 24}
         if score >= 3:
-            return "medium", "Trung bình", 55, {"top_k": 24, "expand_depth": 3, "evidence_slot_top_k": 7, "max_contexts": 28, "max_images": 18}
-        return "easy", "Dễ", 30, {"top_k": 14, "expand_depth": 2, "evidence_slot_top_k": 5, "max_contexts": 16, "max_images": 10}
+            return "medium", "Trung bình", 45, {"top_k": 22, "expand_depth": 2, "evidence_slot_top_k": 6, "max_contexts": 24, "max_images": 12}
+        return "easy", "Dễ", 25, {"top_k": 12, "expand_depth": 1, "evidence_slot_top_k": 4, "max_contexts": 12, "max_images": 6}
 
     def _decompose(self, q: str, qa: str, plan: Any) -> List[Dict[str, Any]]:
         """Builds evidence slots from the planner, with rule fallback."""
         plan_slots = self._sanitize_slots(getattr(plan, "subquestions", None), fallback_query=q)
+        rule_slots = self._rule_decompose(q, qa)
         if plan_slots:
-            return plan_slots
-        return self._rule_decompose(q, qa)
+            return self._merge_slots(plan_slots, rule_slots, q=q, qa=qa)
+        return rule_slots
+
+    def _merge_slots(
+        self,
+        primary: List[Dict[str, Any]],
+        secondary: List[Dict[str, Any]],
+        *,
+        q: str,
+        qa: str,
+    ) -> List[Dict[str, Any]]:
+        """Keeps planner slots but adds high-recall rule slots for missed facets."""
+        merged: List[Dict[str, Any]] = []
+        for slot in [*primary, *secondary]:
+            facet = str(slot.get("facet") or "general")
+            if facet == "general" and any(str(existing.get("facet") or "") != "general" for existing in merged):
+                continue
+            if self._has_similar_slot(slot, merged):
+                continue
+            item = dict(slot)
+            item["priority"] = self._safe_int(item.get("priority"), len(merged) + 1)
+            merged.append(item)
+
+        merged.sort(key=lambda item: int(item.get("priority") or 1))
+        for idx, slot in enumerate(merged, start=1):
+            slot["priority"] = idx
+        return self._compact_simple_slots(merged, q=q, qa=qa)[:16]
+
+    def _compact_simple_slots(self, slots: List[Dict[str, Any]], *, q: str, qa: str) -> List[Dict[str, Any]]:
+        facets = {str(slot.get("facet") or "general") for slot in slots}
+        complex_facets = {"scenario", "aggregation", "legal_detail", "document_overview", "table", "sign", "source_image", "priority", "procedure", "definition"}
+        if facets & complex_facets:
+            return slots
+        if not self._vehicle_scope(q):
+            return slots
+        behavior_count = len([
+            code for code, terms, _description, facet in self._known_behavior_patterns()
+            if facet == "penalty" and any(term in qa for term in terms)
+        ])
+        if behavior_count > 1:
+            return slots
+
+        compacted: List[Dict[str, Any]] = []
+        kept_rule = False
+        kept_penalty = False
+        for slot in slots:
+            facet = str(slot.get("facet") or "general")
+            if facet == "rule":
+                if kept_rule:
+                    continue
+                kept_rule = True
+            elif facet == "penalty":
+                if kept_penalty:
+                    continue
+                kept_penalty = True
+            compacted.append(slot)
+        for idx, slot in enumerate(compacted, start=1):
+            slot["priority"] = idx
+        return compacted
+
+    def _has_similar_slot(self, candidate: Dict[str, Any], slots: List[Dict[str, Any]]) -> bool:
+        candidate_facet = str(candidate.get("facet") or "general")
+        candidate_query = str(candidate.get("query") or "")
+        candidate_terms = set(re.findall(r"[a-z0-9đ]+", ascii_lower(candidate_query)))
+        candidate_vehicle = self._slot_vehicle_marker(candidate_query)
+        for slot in slots:
+            if str(slot.get("facet") or "general") != candidate_facet:
+                continue
+            slot_query = str(slot.get("query") or "")
+            slot_vehicle = self._slot_vehicle_marker(slot_query)
+            if (candidate_vehicle or slot_vehicle) and candidate_vehicle != slot_vehicle:
+                continue
+            slot_terms = set(re.findall(r"[a-z0-9đ]+", ascii_lower(slot_query)))
+            if not candidate_terms or not slot_terms:
+                continue
+            overlap = len(candidate_terms & slot_terms) / max(1, len(candidate_terms | slot_terms))
+            if overlap >= 0.62:
+                return True
+        return False
+
+    def _slot_vehicle_marker(self, query: str) -> str:
+        qa = ascii_lower(query)
+        if "may chuyen dung" in qa:
+            return "specialized"
+        if any(term in qa for term in ["mo to", "xe mo to", "xe may", "gan may"]):
+            return "motorbike"
+        if any(term in qa for term in ["o to", "xe hoi", "xe con", "xe tai", "xe khach", "container"]):
+            return "car"
+        if any(term in qa for term in ["xe dap", "tho so"]):
+            return "bicycle"
+        return ""
 
     def _rule_decompose(self, q: str, qa: str) -> List[Dict[str, Any]]:
         """Rules-based decomposition into evidence slots."""
@@ -255,12 +385,12 @@ class AdaptiveQuestionAnalyzer:
                 "must_answer": True,
             })
 
-        if "bien" in qa and any(k in qa for k in ["hinh", "mau", "nhu the nao", "y nghia", "qcvn"]):
+        if SIGN_CODE_RE.search(q or "") or ("bien" in qa and any(k in qa for k in ["hinh", "mau", "nhu the nao", "y nghia", "qcvn"])):
             slots.append({
                 "facet": "sign",
                 "query": f"Xác định biển báo/vạch kẻ, hình dạng, ý nghĩa và căn cứ áp dụng trong câu hỏi: {q}",
                 "priority": 1,
-                "reason": "Yêu cầu mô tả hình ảnh biển báo"
+                "reason": "Cần hiểu đúng biển báo/vạch kẻ trước khi kết luận."
             })
 
         if self._looks_like_table_query(qa):
@@ -303,14 +433,23 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Yêu cầu xác định quy định nền"
             })
 
-        if any(k in qa for k in ["phat", "bao nhieu", "bi gi", "xu ly", "vi pham"]):
-            behavior_slots = self._compound_penalty_slots(q, qa, start_priority=4)
-            slots.extend(behavior_slots or [{
+        if any(k in qa for k in ["phat", "xu phat", "muc phat", "bao nhieu", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]):
+            behavior_slots = self._known_behavior_slots(q, qa, start_priority=4)
+            if not behavior_slots:
+                behavior_slots = self._compound_penalty_slots(q, qa, start_priority=4)
+            penalty_slots = behavior_slots or [{
                 "facet": "penalty",
                 "query": f"Tra cứu mức phạt tiền, trừ điểm, tước giấy phép và biện pháp bổ sung cho hành vi trong câu hỏi: {q}",
                 "priority": 4,
                 "reason": "Yêu cầu tra cứu mức xử phạt",
-            }])
+                "must_answer": True,
+            }]
+            vehicle_slots = self._ambiguous_vehicle_penalty_slots(
+                q,
+                qa,
+                start_priority=4 + len(penalty_slots),
+            )
+            slots.extend([*penalty_slots, *vehicle_slots])
 
         if self._looks_like_procedure_query(qa):
             slots.append({
@@ -386,6 +525,173 @@ class AdaptiveQuestionAnalyzer:
                 "must_answer": True,
             })
         return out[:4]
+
+    def _known_behavior_slots(self, q: str, qa: str, *, start_priority: int) -> List[Dict[str, Any]]:
+        slots: List[Dict[str, Any]] = []
+        for code, terms, description, facet in self._known_behavior_patterns():
+            if not any(term in qa for term in terms):
+                continue
+            if facet == "rule":
+                subquery = (
+                    "Tra cứu điều kiện pháp lý và căn cứ áp dụng cho riêng vấn đề: "
+                    f"{description}. Ngữ cảnh câu hỏi gốc: {q}"
+                )
+                reason = "Tách riêng điều kiện nền để không trộn với phần xử phạt."
+            elif code == "accident":
+                subquery = (
+                    "Tra cứu trách nhiệm, nghĩa vụ tại hiện trường, mức xử phạt tăng nặng và hậu quả pháp lý "
+                    f"cho riêng vấn đề: {description}. Ngữ cảnh câu hỏi gốc: {q}"
+                )
+                reason = "Tách riêng hậu quả tai nạn vì có thể kéo theo nhiều nhánh trách nhiệm."
+            else:
+                subquery = (
+                    "Tra cứu mức phạt tiền, trừ điểm giấy phép lái xe, tước giấy phép và biện pháp bổ sung "
+                    f"theo Nghị định 168/2024/NĐ-CP cho riêng hành vi: {description}. "
+                    f"Ngữ cảnh câu hỏi gốc: {q}"
+                )
+                reason = "Tách riêng từng hành vi để không bỏ sót hoặc cộng sai mức xử phạt."
+            slots.append({
+                "facet": facet,
+                "query": subquery,
+                "priority": start_priority + len(slots),
+                "reason": reason,
+                "must_answer": True,
+            })
+        return slots[:8]
+
+    def _known_behavior_patterns(self) -> List[Tuple[str, List[str], str, str]]:
+        return [
+            (
+                "underage_license",
+                ["chua du tuoi", "khong du tuoi", "chua du 18", "duoi 18", "17 tuoi", "nguoi 17", "gplx hang a", "giay phep lai xe hang a"],
+                "độ tuổi, điều kiện giấy phép lái xe và xe mô tô/xe gắn máy phân khối lớn",
+                "rule",
+            ),
+            (
+                "red_light",
+                ["vuot den do", "khong chap hanh tin hieu den", "den tin hieu giao thong", "den do"],
+                "vượt đèn đỏ hoặc không chấp hành tín hiệu đèn giao thông",
+                "penalty",
+            ),
+            (
+                "alcohol",
+                ["say xin", "hoi con", "nong do con", "ruou bia", "co con cao"],
+                "điều khiển xe khi trong máu hoặc hơi thở có nồng độ cồn",
+                "penalty",
+            ),
+            (
+                "helmet",
+                ["khong doi mu", "mu bao hiem"],
+                "không đội mũ bảo hiểm khi tham gia giao thông bằng xe mô tô/xe máy",
+                "penalty",
+            ),
+            (
+                "wrong_way",
+                ["nguoc chieu", "duong nguoc chieu", "duong cam", "cam di nguoc chieu", "p102", "p.102"],
+                "đi vào đường ngược chiều, đường một chiều hoặc đường cấm",
+                "penalty",
+            ),
+            (
+                "speed",
+                ["vi pham toc do", "qua toc do", "chay qua toc", "vuot toc", "p127", "p.127", "toc do toi da"],
+                "chạy quá tốc độ quy định hoặc vượt trị số tốc độ tối đa ghi trên biển P.127",
+                "penalty",
+            ),
+            (
+                "phone",
+                ["dien thoai", "thiet bi am thanh", "dung tay cam va su dung dien thoai"],
+                "sử dụng điện thoại hoặc thiết bị âm thanh khi điều khiển phương tiện",
+                "penalty",
+            ),
+            (
+                "drug",
+                ["ma tuy", "chat ma tuy", "chat kich thich"],
+                "điều khiển xe khi trong cơ thể có chất ma túy hoặc chất kích thích bị cấm",
+                "penalty",
+            ),
+            (
+                "accident",
+                ["gay tai nan", "tai nan cho nguoi khac", "tai nan giao thong"],
+                "gây tai nạn giao thông cho người khác",
+                "penalty",
+            ),
+        ]
+
+    def _ambiguous_vehicle_penalty_slots(self, q: str, qa: str, *, start_priority: int) -> List[Dict[str, Any]]:
+        if self._vehicle_scope(q):
+            return []
+        if not any(term in qa for term in ["phat", "xu phat", "muc phat", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]):
+            return []
+        if not any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"]):
+            return []
+
+        speed_query = self._looks_like_speed_query(qa)
+        slots: List[Dict[str, Any]] = []
+        for vehicle in self._vehicle_groups_for_query(q):
+            label = self._vehicle_label(vehicle)
+            article_hint = self._vehicle_article_hint(vehicle)
+            if speed_query:
+                query = (
+                    f"Tra cứu đầy đủ mọi mức xử phạt chạy quá tốc độ/P.127 cho {label} "
+                    f"theo {article_hint} Nghị định 168/2024/NĐ-CP: mốc km/h, điểm/khoản, "
+                    "phạt tiền bằng số, trừ điểm, tước GPLX/tạm giữ nếu có. "
+                    f"Câu hỏi gốc: {q}"
+                )
+                reason = "Câu hỏi tốc độ chưa nêu loại phương tiện nên phải tách riêng từng nhóm xe."
+            else:
+                query = (
+                    f"Tra cứu khả năng xử phạt cho {label} theo {article_hint} Nghị định 168/2024/NĐ-CP. "
+                    "Nếu câu hỏi gốc mơ hồ, lấy đủ hành vi liên quan cùng mức tiền, trừ điểm, "
+                    "tước GPLX/tạm giữ nếu có; không chỉ ghi 'theo quy định'. "
+                    f"Câu hỏi gốc: {q}"
+                )
+                reason = "Câu hỏi xử phạt chưa nêu loại phương tiện nên phải bao phủ từng nhóm xe."
+            slots.append({
+                "facet": "penalty",
+                "query": query,
+                "priority": start_priority + len(slots),
+                "reason": reason,
+                "must_answer": True,
+            })
+        return slots[:6]
+
+    def _vehicle_scope(self, query: str) -> str:
+        qa = ascii_lower(query)
+        if "may chuyen dung" in qa:
+            return "specialized"
+        if any(term in qa for term in ["xe may", "mo to", "gan may"]):
+            return "motorbike"
+        if any(term in qa for term in ["o to", "xe hoi", "xe con", "xe tai", "xe khach"]):
+            return "car"
+        if "xe dap" in qa or "tho so" in qa:
+            return "bicycle"
+        return ""
+
+    def _vehicle_groups_for_query(self, query: str) -> List[str]:
+        qa = ascii_lower(query)
+        groups = ["car", "motorbike", "specialized"]
+        if not self._looks_like_speed_query(qa) or any(term in qa for term in ["tat ca", "toan bo", "phuong tien", "chay xe"]):
+            groups.append("bicycle")
+        return groups
+
+    def _vehicle_label(self, vehicle: str) -> str:
+        return {
+            "car": "ô tô, xe chở hàng bốn bánh có gắn động cơ và các loại xe tương tự ô tô",
+            "motorbike": "mô tô, xe gắn máy và các loại xe tương tự xe mô tô/xe gắn máy",
+            "specialized": "xe máy chuyên dùng",
+            "bicycle": "xe đạp, xe đạp máy và xe thô sơ khác",
+        }.get(vehicle, vehicle)
+
+    def _vehicle_article_hint(self, vehicle: str) -> str:
+        return {
+            "car": "Điều 6 và Điều 13",
+            "motorbike": "Điều 7 và Điều 14",
+            "specialized": "Điều 8 và Điều 15",
+            "bicycle": "Điều 9",
+        }.get(vehicle, "")
+
+    def _looks_like_speed_query(self, qa: str) -> bool:
+        return any(term in qa for term in ["toc do", "qua toc", "vuot toc", "p127", "p.127"])
 
     def _looks_like_penalty_behavior(self, text: str) -> bool:
         qa = ascii_lower(text)
