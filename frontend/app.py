@@ -2,6 +2,7 @@ import io
 import json
 import os
 import re
+import sys
 import threading
 import time
 import unicodedata
@@ -13,11 +14,14 @@ import requests
 import streamlit as st
 from PIL import Image
 
-from frontend.asset_utils import image_source
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from asset_utils import image_source
 
 
 API_URL = os.getenv("TRAFFIC_LAW_API_URL", "http://localhost:8002").rstrip("/")
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 st.set_page_config(page_title="Luật Giao Thông AI", layout="wide", page_icon="§")
