@@ -6,14 +6,19 @@ import threading
 import time
 import unicodedata
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import requests
 import streamlit as st
 from PIL import Image
 
+from frontend.asset_utils import image_source
+
 
 API_URL = os.getenv("TRAFFIC_LAW_API_URL", "http://localhost:8002").rstrip("/")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 st.set_page_config(page_title="Luật Giao Thông AI", layout="wide", page_icon="§")
 
@@ -250,11 +255,7 @@ def api_get(path: str, *, params: dict[str, Any] | None = None, timeout: int = 6
 
 
 def image_url(path: str) -> str:
-    if not path:
-        return ""
-    if path.startswith("http://") or path.startswith("https://"):
-        return path
-    return f"{API_URL}{path}"
+    return image_source(path, api_url=API_URL, processed_dir=PROCESSED_DIR)
 
 
 def html_escape(value: Any) -> str:

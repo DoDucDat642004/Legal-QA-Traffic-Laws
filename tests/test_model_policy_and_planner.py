@@ -7,8 +7,10 @@ from types import SimpleNamespace
 
 from src.rag.hybrid_vector_store import _should_load_embedder
 from src.rag.legal_graph_rag import LegalGraphRAG
+from src.rag.legal_utils import public_asset_path
 from src.rag.model_policy import generate_content_with_fallback, model_candidates
 from src.rag.query_planner import LegalQueryPlanner
+from frontend.asset_utils import image_source
 
 
 @contextmanager
@@ -125,6 +127,54 @@ class HybridVectorStoreConfigTest(unittest.TestCase):
                     force_reindex=False,
                     allow_model_download=False,
                 )
+            )
+
+
+class AssetPathTest(unittest.TestCase):
+    def test_public_asset_path_is_idempotent_for_processed_assets(self):
+        self.assertEqual(
+            public_asset_path("data/processed/images/doc/page_0.png"),
+            "/processed/images/doc/page_0.png",
+        )
+        self.assertEqual(
+            public_asset_path("/processed/images/doc/page_0.png"),
+            "/processed/images/doc/page_0.png",
+        )
+        self.assertEqual(
+            public_asset_path("processed/images/doc/page_0.png"),
+            "/processed/images/doc/page_0.png",
+        )
+        self.assertEqual(
+            public_asset_path("/app/data/processed/sign_assets/P_127.png"),
+            "/processed/sign_assets/P_127.png",
+        )
+        self.assertEqual(
+            public_asset_path("https://example.test/asset.png"),
+            "https://example.test/asset.png",
+        )
+
+    def test_image_source_prefers_local_processed_file_for_streamlit(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            processed_dir = Path(tmp_dir) / "processed"
+            image_path = processed_dir / "images" / "doc" / "page_0.png"
+            image_path.parent.mkdir(parents=True)
+            image_path.write_bytes(b"png")
+
+            self.assertEqual(
+                image_source(
+                    "/processed/images/doc/page_0.png",
+                    api_url="http://127.0.0.1:8002",
+                    processed_dir=processed_dir,
+                ),
+                str(image_path.resolve()),
+            )
+            self.assertEqual(
+                image_source(
+                    "data/processed/images/doc/missing.png",
+                    api_url="http://127.0.0.1:8002",
+                    processed_dir=processed_dir,
+                ),
+                "http://127.0.0.1:8002/processed/images/doc/missing.png",
             )
 
 

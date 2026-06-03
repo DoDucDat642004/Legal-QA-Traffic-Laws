@@ -65,11 +65,29 @@ def _check_artifacts() -> None:
 
 def _check_records() -> None:
     from src.rag.record_expander import load_processed_records
+    from src.rag.legal_utils import record_image_paths
+    from frontend.asset_utils import image_source
 
     records = load_processed_records(ROOT / "data/processed")
     if not records:
         raise RuntimeError("No processed legal records found for deploy.")
     print(f"Deploy smoke: loaded {len(records)} processed records.")
+
+    for record in records:
+        paths = record_image_paths(record)
+        if not paths:
+            continue
+        source = image_source(
+            paths[0],
+            api_url="http://127.0.0.1:8002",
+            processed_dir=ROOT / "data/processed",
+        )
+        if not Path(source).is_file():
+            raise RuntimeError(f"Processed image asset is not locally readable: {paths[0]} -> {source}")
+        print(f"Deploy smoke: source image asset resolved locally: {source}", flush=True)
+        break
+    else:
+        raise RuntimeError("No source image assets found in processed records.")
 
 
 def main() -> int:
