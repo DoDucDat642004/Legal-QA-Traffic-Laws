@@ -43,8 +43,16 @@ class FakeModels:
         model = kwargs["model"]
         self.calls.append(model)
         response = self.responses.get(model)
+        if isinstance(response, list):
+            response = response.pop(0) if response else ""
         if isinstance(response, Exception):
             raise response
+        if isinstance(response, tuple):
+            text, finish_reason = response
+            return SimpleNamespace(
+                text=text,
+                candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name=finish_reason))],
+            )
         return SimpleNamespace(text=response)
 
 
@@ -282,6 +290,51 @@ class AssetPathTest(unittest.TestCase):
 
 
 class DeterministicPenaltyAnswerTest(unittest.TestCase):
+    def test_answer_continuation_strips_completion_marker(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        rag.client = FakeClient({
+            "gemini-3.1-flash-lite": [
+                (" phần còn lại rõ ràng.\n<<<HOAN_TAT_TRA_LOI>>>", "STOP"),
+            ]
+        })
+        first_response = SimpleNamespace(
+            text="Trả lời đang bị cắt giữa",
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="MAX_TOKENS"))],
+        )
+
+        with patched_env(RAG_ANSWER_MAX_CONTINUATIONS="2", RAG_REQUIRE_ANSWER_COMPLETION_MARKER="true"):
+            answer = rag._continue_if_truncated(
+                model="gemini-3.1-flash-lite",
+                base_contents=["system", "context"],
+                answer="Trả lời đang bị cắt giữa",
+                first_response=first_response,
+                max_output_tokens=4096,
+            )
+
+        self.assertIn("Trả lời đang bị cắt giữa", answer)
+        self.assertIn("phần còn lại rõ ràng", answer)
+        self.assertNotIn("<<<HOAN_TAT_TRA_LOI>>>", rag._strip_completion_marker(answer))
+
+    def test_completion_marker_prevents_unneeded_continuation(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        rag.client = FakeClient({"gemini-3.1-flash-lite": [("không nên gọi", "STOP")]})
+        response = SimpleNamespace(
+            text="Đã trả lời đầy đủ.\n<<<HOAN_TAT_TRA_LOI>>>",
+            candidates=[SimpleNamespace(finish_reason=SimpleNamespace(name="STOP"))],
+        )
+
+        with patched_env(RAG_ANSWER_MAX_CONTINUATIONS="2", RAG_REQUIRE_ANSWER_COMPLETION_MARKER="true"):
+            answer = rag._continue_if_truncated(
+                model="gemini-3.1-flash-lite",
+                base_contents=["system"],
+                answer=response.text,
+                first_response=response,
+                max_output_tokens=4096,
+            )
+
+        self.assertEqual(answer, response.text)
+        self.assertEqual(rag.client.models.calls, [])
+
     def test_motorbike_helmet_alcohol_red_light_question_answers_without_model(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         answer = rag._deterministic_structured_answer(
