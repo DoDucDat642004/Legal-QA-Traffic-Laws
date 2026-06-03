@@ -188,7 +188,8 @@ class LegalQueryPlanner:
                 client,
                 contents=[prompt],
                 config=config,
-                env_names=("RAG_PLANNER_MODEL", "RAG_AI_PLANNER_MODEL", "RAG_ANSWER_MODEL"),
+                env_names=("RAG_PLANNER_MODEL", "RAG_AI_PLANNER_MODEL"),
+                task="planner",
                 logger=logger,
                 label="AI query planning",
             )
@@ -225,7 +226,8 @@ class LegalQueryPlanner:
             if facet and facet != "general" and not self._has_similar_slot(slot, subquestions):
                 subquestions.append(dict(slot))
 
-        subquestions = sorted(subquestions, key=lambda item: int(item.get("priority") or 1))[:12]
+        max_queries = int(os.getenv("RAG_MAX_PLANNED_QUERIES", "12"))
+        subquestions = sorted(subquestions, key=lambda item: int(item.get("priority") or 1))[:max_queries]
         intent = self._intent_from_value(data.get("intent")) or fallback.intent
         confidence = self._bounded_float(data.get("confidence"), default=fallback.confidence)
         difficulty_hint = str(data.get("difficulty_hint") or "").lower()

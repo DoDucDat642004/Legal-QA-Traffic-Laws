@@ -788,7 +788,8 @@ def _condense_query(client: Any, current_query: str, chat_history: List[Dict]) -
         res, _model = generate_content_with_fallback(
             client,
             contents=[prompt],
-            env_names=("RAG_ANSWER_MODEL",),
+            env_names=("RAG_CONDENSE_MODEL", "RAG_PLANNER_MODEL"),
+            task="condense",
             logger=logger,
             label="Condense query",
         )
@@ -862,6 +863,7 @@ async def chat_image(image: UploadFile = File(...), query: str = Form("")):
             config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=2048),
             env_names=("RAG_VISION_MODEL",),
             vision=True,
+            task="vision",
             logger=logger,
             label="Vision sign recognition",
         )

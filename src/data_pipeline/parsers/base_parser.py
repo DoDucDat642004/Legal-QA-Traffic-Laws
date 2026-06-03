@@ -81,7 +81,7 @@ class BaseParser:
         vision_repaired_context = ""
         has_visuals = bool(chunk.get("tables") or chunk.get("figures") or chunk.get("is_sign_page"))
         
-        models_to_try = model_candidates("EXTRACTION_PRIMARY_MODEL", "EXTRACTION_MODEL")
+        models_to_try = model_candidates("EXTRACTION_PRIMARY_MODEL", "EXTRACTION_MODEL", task="extraction")
         
         if has_visuals:
             logger.info(f" - [VISION REPAIR] Processing visuals for {chunk.get('source_chunk_id')}...")
@@ -119,6 +119,7 @@ class BaseParser:
                     config=types.GenerateContentConfig(temperature=0.0),
                     env_names=("EXTRACTION_VISION_MODEL",),
                     vision=True,
+                    task="vision",
                     logger=logger,
                     label="Vision repair",
                 )
@@ -160,6 +161,7 @@ class BaseParser:
                         ]
                     ),
                     env_names=("EXTRACTION_PRIMARY_MODEL", "EXTRACTION_MODEL"),
+                    task="extraction",
                     logger=logger,
                     label="Structured extraction",
                 )

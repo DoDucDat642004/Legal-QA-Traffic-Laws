@@ -307,6 +307,7 @@ class LegalGraphRAG:
                 contents=contents,
                 config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=max_output_tokens),
                 env_names=("RAG_ANSWER_MODEL",),
+                task="answer",
                 logger=logger,
                 label="Answer generation",
             )
@@ -328,6 +329,7 @@ class LegalGraphRAG:
                         contents=contents,
                         config=types.GenerateContentConfig(temperature=0.0, max_output_tokens=8192),
                         env_names=("RAG_ANSWER_MODEL",),
+                        task="answer",
                         logger=logger,
                         label="Answer generation fallback",
                     )
@@ -514,6 +516,9 @@ class LegalGraphRAG:
             return source_text(first)
         if modality == "aggregation":
             return source_text(first)
+        multi_penalty_answer = self._deterministic_motorbike_multi_penalty_answer(query, contexts)
+        if multi_penalty_answer:
+            return multi_penalty_answer
         vague_answer = self._deterministic_vague_penalty_answer(query, contexts)
         if vague_answer:
             return vague_answer
@@ -527,6 +532,46 @@ class LegalGraphRAG:
         if sign_answer:
             return sign_answer
         return ""
+
+    def _deterministic_motorbike_multi_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        has_no_helmet = ("khong doi" in qa and "mu" in qa) or "mu bao hiem" in qa
+        has_alcohol = any(term in qa for term in [
+            "nong do con",
+            "say xin",
+            "ruou",
+            "bia",
+            "co con",
+        ])
+        has_red_light = any(term in qa for term in [
+            "vuot den do",
+            "den do",
+            "tin hieu den",
+            "den tin hieu",
+        ])
+        asks_penalty = any(term in qa for term in ["phat", "xu phat", "bi gi", "xu ly", "bao nhieu"])
+        explicit_car = any(term in qa for term in ["o to", "xe hoi", "xe tai", "xe khach", "container"])
+        if explicit_car or not (has_no_helmet and has_alcohol and has_red_light and asks_penalty):
+            return ""
+
+        lines = [
+            "## Mức phạt dự kiến cho mô tô/xe gắn máy",
+            "",
+            "Giả định bạn điều khiển mô tô/xe gắn máy. Ba lỗi này thường bị xử phạt theo từng hành vi riêng; phần nồng độ cồn phải có số đo cụ thể mới chốt được một mức duy nhất.",
+            "",
+            "| Hành vi | Mức phạt tiền | GPLX/điểm | Căn cứ |",
+            "|---|---|---|---|",
+            "| Không đội mũ bảo hiểm khi điều khiển xe | 400.000 - 600.000 đồng | Không thấy quy định trừ điểm trong nhánh này | Điểm h khoản 2 Điều 7 Nghị định 168/2024/NĐ-CP |",
+            "| Không chấp hành hiệu lệnh đèn tín hiệu giao thông/vượt đèn đỏ | 4.000.000 - 6.000.000 đồng | Trừ 4 điểm GPLX | Điểm c khoản 7 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+            "| Có nồng độ cồn nhưng chưa vượt quá 50 mg/100 ml máu hoặc 0,25 mg/l khí thở | 2.000.000 - 3.000.000 đồng | Trừ 4 điểm GPLX | Điểm a khoản 6 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+            "| Nồng độ cồn vượt quá 50 đến 80 mg/100 ml máu hoặc vượt quá 0,25 đến 0,4 mg/l khí thở | 6.000.000 - 8.000.000 đồng | Trừ 10 điểm GPLX | Điểm b khoản 8 và điểm d khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+            "| Nồng độ cồn vượt quá 80 mg/100 ml máu hoặc vượt quá 0,4 mg/l khí thở | 8.000.000 - 10.000.000 đồng | Tước quyền sử dụng GPLX 22 - 24 tháng | Điểm d khoản 9 và điểm c khoản 12 Điều 7 Nghị định 168/2024/NĐ-CP |",
+            "",
+            "Tạm tính tổng tiền phạt nếu cộng 3 lỗi: 6.400.000 - 9.600.000 đồng ở ngưỡng cồn thấp; 10.400.000 - 14.600.000 đồng ở ngưỡng trung bình; 12.400.000 - 16.600.000 đồng ở ngưỡng cao.",
+            "",
+            "Nếu không chấp hành yêu cầu kiểm tra nồng độ cồn, hoặc nếu hành vi gây tai nạn, mức xử lý có thể chuyển sang nhánh nặng hơn.",
+        ]
+        return "\n".join(lines)
 
     def _deterministic_vague_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)

@@ -14,6 +14,31 @@ ALLOWED_VISION_MODELS: tuple[str, ...] = tuple(
     model for model in ALLOWED_TEXT_MODELS if model.startswith("gemini-")
 )
 
+FAST_TEXT_MODELS: tuple[str, ...] = (
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemma-4-26b-a4b",
+    "gemma-4-31b-it",
+)
+
+DEEP_TEXT_MODELS: tuple[str, ...] = (
+    "gemma-4-31b-it",
+    "gemma-4-26b-a4b",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+)
+
+TASK_DEFAULT_MODELS: dict[str, tuple[str, ...]] = {
+    "answer": DEEP_TEXT_MODELS,
+    "continuation": DEEP_TEXT_MODELS,
+    "extraction": DEEP_TEXT_MODELS,
+    "qa_generation": DEEP_TEXT_MODELS,
+    "planner": FAST_TEXT_MODELS,
+    "condense": FAST_TEXT_MODELS,
+    "sign_probe": FAST_TEXT_MODELS,
+    "vision": ALLOWED_VISION_MODELS,
+}
+
 
 def _split_env_models(value: str) -> list[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
@@ -28,21 +53,30 @@ def _dedupe_allowed(models: Iterable[str], *, vision: bool = False) -> list[str]
     return out
 
 
-def model_candidates(*env_names: str, vision: bool = False) -> list[str]:
+def _task_defaults(task: Optional[str], *, vision: bool) -> list[str]:
+    if vision:
+        return list(TASK_DEFAULT_MODELS["vision"])
+    if not task:
+        return list(ALLOWED_TEXT_MODELS)
+    key = str(task).strip().lower().replace("-", "_")
+    return list(TASK_DEFAULT_MODELS.get(key, ALLOWED_TEXT_MODELS))
+
+
+def model_candidates(*env_names: str, vision: bool = False, task: Optional[str] = None) -> list[str]:
     """Returns allowed models, honoring env preferences only when allowlisted."""
-    defaults = list(ALLOWED_VISION_MODELS if vision else ALLOWED_TEXT_MODELS)
+    defaults = _task_defaults(task, vision=vision)
     preferred: list[str] = []
     for env_name in env_names:
         preferred.extend(_split_env_models(os.getenv(env_name, "")))
     return _dedupe_allowed([*preferred, *defaults], vision=vision)
 
 
-def first_text_model(*env_names: str) -> str:
-    return model_candidates(*env_names, vision=False)[0]
+def first_text_model(*env_names: str, task: Optional[str] = None) -> str:
+    return model_candidates(*env_names, vision=False, task=task)[0]
 
 
-def first_vision_model(*env_names: str) -> str:
-    return model_candidates(*env_names, vision=True)[0]
+def first_vision_model(*env_names: str, task: Optional[str] = None) -> str:
+    return model_candidates(*env_names, vision=True, task=task)[0]
 
 
 def generate_content_with_fallback(
@@ -53,13 +87,14 @@ def generate_content_with_fallback(
     env_names: tuple[str, ...] = (),
     models: Optional[Iterable[str]] = None,
     vision: bool = False,
+    task: Optional[str] = None,
     logger: Optional[Any] = None,
     label: str = "generation",
     require_text: bool = True,
 ) -> tuple[Any, str]:
     """Calls generate_content with allowed fallback models only."""
     last_exc: Optional[Exception] = None
-    candidates = _dedupe_allowed(models or model_candidates(*env_names, vision=vision), vision=vision)
+    candidates = _dedupe_allowed(models or model_candidates(*env_names, vision=vision, task=task), vision=vision)
     for model in candidates:
         try:
             kwargs = {"model": model, "contents": contents}
@@ -86,13 +121,14 @@ async def async_generate_content_with_fallback(
     env_names: tuple[str, ...] = (),
     models: Optional[Iterable[str]] = None,
     vision: bool = False,
+    task: Optional[str] = None,
     logger: Optional[Any] = None,
     label: str = "generation",
     require_text: bool = True,
 ) -> tuple[Any, str]:
     """Async variant for google-genai aio clients."""
     last_exc: Optional[Exception] = None
-    candidates = _dedupe_allowed(models or model_candidates(*env_names, vision=vision), vision=vision)
+    candidates = _dedupe_allowed(models or model_candidates(*env_names, vision=vision, task=task), vision=vision)
     for model in candidates:
         try:
             kwargs = {"model": model, "contents": contents}

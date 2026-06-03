@@ -33,6 +33,14 @@ fi
 find scripts -name '*.sh' -print0 | xargs -0 bash -n
 
 echo
+echo "== Unit tests =="
+if [[ -d tests ]]; then
+  "$PYTHON_BIN" -m unittest discover -s tests
+else
+  echo "No tests directory found; skipped unit tests."
+fi
+
+echo
 echo "== Git LFS tracked assets =="
 if command -v git-lfs >/dev/null 2>&1; then
   git lfs ls-files | sed -n '1,80p'
@@ -48,6 +56,7 @@ BOOST_FILES=(
   "data/eval/336-2025-nd-cp_boost.json"
   "data/eval/qa_qcvn_boost.json"
   "data/eval/168-nd-cp_boost.json"
+  "data/eval/real_world_faq_boost.jsonl"
   "data/eval/35-2024-qh15_boost.json"
   "data/eval/36-2024-qh15_boost.json"
 )

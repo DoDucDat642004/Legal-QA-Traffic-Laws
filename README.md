@@ -97,6 +97,11 @@ RAG_OPENVINO_MODEL_DIR=data/models/openvino/bkai-foundation-models_vietnamese-bi
 RAG_STRICT_VECTOR_BACKEND=true
 RAG_ENABLE_RERANKER=true
 QDRANT_COLLECTION=legal_traffic_records_vi
+RAG_ANSWER_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
+RAG_VISION_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
+RAG_PLANNER_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
+RAG_CONDENSE_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
+RAG_SIGN_PROBE_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
 ```
 
 Run the API and frontend:

@@ -611,7 +611,7 @@ async def stage_enrich(chunks: list[dict], doc_name: str, pdf_path: str, out_pat
                     "figures": c.get('figures', []),
                     "image_path": c.get('image_path', ''),
                     "extraction_meta": {
-                        "engine": first_text_model("EXTRACTION_MODEL", "EXTRACTION_PRIMARY_MODEL"),
+                        "engine": first_text_model("EXTRACTION_MODEL", "EXTRACTION_PRIMARY_MODEL", task="extraction"),
                         "timestamp": time.time(),
                         "confidence": 0.95,
                         "warnings": verify_penalties(rule_dict, c.get('text', ''))

@@ -1264,6 +1264,7 @@ class CustomLegalRetriever:
         reason: str,
         boost: float,
         limit: Optional[int] = None,
+        rag_modality: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         if not source_chunk_ids:
             return []
@@ -1285,6 +1286,8 @@ class CustomLegalRetriever:
                 continue
             seen.add(key)
             item = dict(record)
+            if rag_modality:
+                item["rag_modality"] = rag_modality
             item["retrieval_score"] = float(item.get("retrieval_score") or 0) + boost
             item["retrieval_reasons"] = sorted(set(item.get("retrieval_reasons", []) + [reason]))
             out.append(item)
@@ -1437,7 +1440,7 @@ class CustomLegalRetriever:
         add_ref(["hang hoa ky gui", "mui hoi thoi"], "Luật Đường bộ 2024", "68", clause="2", reason="topic_consigned_goods_forbidden", boost=36.0)
         add_ref(["hang hoa ky gui", "boi thuong"], "Luật Đường bộ 2024", "68", clause="7", reason="topic_consigned_goods_compensation", boost=36.0)
         add_ref(["dich vu ho tro van tai duong bo"], "Luật Đường bộ 2024", "71", reason="topic_transport_support_services")
-        add_ref(["nguy co mat an toan", "cao toc", "thong bao"], "Luật Đường bộ 2024", "51", clause="3", point="a", reason="topic_expressway_safety_risk_report")
+        add_ref(["nguy co mat an toan", "cao toc", "thong bao"], "Luật Đường bộ 2024", "51", clause="3", point="a", reason="topic_expressway_safety_risk_report", boost=64.0)
         add_ref(["trung tam quan ly", "dieu hanh giao thong", "cao toc"], "Luật Đường bộ 2024", "53", clause="1", reason="topic_expressway_traffic_center")
         add_ref(["duong day tai dien", "diem thap nhat", "mat duong bo"], "Luật Đường bộ 2024", "17", clause="5", point="a", reason="topic_powerline_vertical_clearance", boost=42.0)
         add_ref(["duong day tai dien", "cot den chieu sang"], "Luật Đường bộ 2024", "17", clause="5", point="c", reason="topic_powerline_lighting_clearance", boost=42.0)
@@ -1880,6 +1883,10 @@ class CustomLegalRetriever:
             specs.append(("phone", ["su dung dien thoai", "thiet bi am thanh", "dung tay cam va su dung dien thoai"]))
         if any(term in qa for term in ["cho theo tu 03", "cho theo 03", "cho 3 nguoi", "cho ba nguoi"]):
             specs.append(("three_passengers", ["cho theo tu 03 nguoi tro len", "cho ba nguoi", "cho theo 03 nguoi"]))
+        if any(term in qa for term in ["di vao duong cao toc", "vao duong cao toc", "vao cao toc"]):
+            specs.append(("expressway_entry", ["di vao duong cao toc", "duong cao toc"]))
+        if any(term in qa for term in ["khong co giay phep lai xe", "khong co gplx", "khong co bang lai", "khong bang lai", "chua co bang lai"]):
+            specs.append(("no_license", ["khong co giay phep lai xe", "giay phep lai xe da bi tru het diem"]))
         if any(term in qa for term in ["nguoc chieu", "duong cam", "cam di nguoc chieu", "p102", "p.102"]):
             specs.append((
                 "wrong_way",
@@ -1924,7 +1931,7 @@ class CustomLegalRetriever:
         q = query.lower()
         qa = ascii_lower(query)
         exp = []
-        if "xe máy" in q: exp.append("xe mô tô xe gắn máy giấy phép lái xe hạng A")
+        if "xe máy" in q: exp.append("xe mô tô xe gắn máy người điều khiển xe")
         if "phân khối lớn" in q or "phan khoi lon" in qa: exp.append("trên 125 cm3 công suất trên 11 kW giấy phép lái xe hạng A")
         if "chưa đủ tuổi" in q or "không đủ tuổi" in q or "chua du tuoi" in qa: exp.append("độ tuổi người lái xe điều kiện điều khiển phương tiện")
         if "vượt đèn đỏ" in q or "vuot den do" in qa: exp.append("không chấp hành tín hiệu đèn giao thông")
@@ -1934,6 +1941,8 @@ class CustomLegalRetriever:
             exp.append("điều khiển xe chạy quá tốc độ quy định tốc độ tối đa cho phép")
         if "không đội mũ" in q or "khong doi mu" in qa: exp.append("không đội mũ bảo hiểm cho người đi mô tô xe máy")
         if "ngược chiều" in q or "nguoc chieu" in qa: exp.append("đi ngược chiều đường một chiều đi vào đường cấm")
+        if "cao tốc" in q and any(term in qa for term in ["xe may", "mo to", "gan may"]):
+            exp.append("điều khiển xe mô tô xe gắn máy đi vào đường cao tốc")
         if "tai nạn" in q or "tai nan" in qa: exp.append("gây tai nạn giao thông trách nhiệm người điều khiển phương tiện")
         if "p.102" in q or "p102" in qa:
             exp.append("cấm đi ngược chiều đi vào đường cấm")
@@ -2037,7 +2046,7 @@ class CustomLegalRetriever:
         if any(term in qa for term in ["tu du 16 tuoi", "duoi 18 tuoi"]) and any(term in qa for term in ["o to", "xe o to"]):
             add("Nghị định 168/2024/NĐ-CP", "18", "known_ref_underage_car_penalty", clause="6", boost=24.0)
             add("Nghị định 168/2024/NĐ-CP", "48", "known_ref_underage_car_amendment", clause="9", boost=22.0)
-        if any(term in qa for term in ["khong co giay phep lai xe", "khong co gplx"]):
+        if any(term in qa for term in ["khong co giay phep lai xe", "khong co gplx", "khong co bang lai", "khong bang lai", "chua co bang lai"]):
             add("Nghị định 168/2024/NĐ-CP", "18", "known_ref_no_license_penalty", boost=22.0)
             add("Nghị định 168/2024/NĐ-CP", "48", "known_ref_no_license_amendment", clause="9", boost=20.0)
         if any(term in qa for term in ["het han su dung", "gplx het han", "giay phep lai xe het han", "giay phep lai xe da het han"]):
@@ -2053,12 +2062,18 @@ class CustomLegalRetriever:
                 add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_red_light_motorbike_penalty", clause="7", point="c", boost=30.0)
         if any(term in qa for term in ["nong do con", "hoi con", "say xin", "uong ruou"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_penalty", boost=28.0)
+        if "dien thoai" in qa and any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
+            add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_phone_car_penalty", clause="5", point="h", boost=30.0)
         if "dien thoai" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_phone_motorbike_penalty", clause="4", point="đ", boost=30.0)
         if "mu bao hiem" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_helmet_motorbike_penalty", clause="2", point="h", boost=30.0)
         if any(term in qa for term in ["cho theo tu 03", "cho theo 03", "cho 3 nguoi", "cho ba nguoi"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_three_passengers_motorbike", clause="3", point="b", boost=26.0)
+        if "cao toc" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_expressway_penalty", clause="7", point="b", boost=30.0)
+        if "cao toc" in qa and any(term in qa for term in ["nguoi di bo", "di bo"]):
+            add("Nghị định 168/2024/NĐ-CP", "10", "known_ref_pedestrian_expressway_penalty", clause="2", point="a", boost=30.0)
         if all(term in qa for term in ["vat nuoi", "keo xe"]):
             add("Nghị định 168/2024/NĐ-CP", "11", "known_ref_animal_drawn_unattended", clause="1", point="e", boost=26.0)
         if any(term in qa for term in ["do rac", "chat phe thai", "phe thai"]) and "duong bo" in qa:
@@ -2068,8 +2083,22 @@ class CustomLegalRetriever:
             if "100%" in qa or "tren 100" in qa:
                 add("Nghị định 168/2024/NĐ-CP", "26", "known_ref_loading_overweight_over_100", clause="5", boost=28.0)
 
-        if any(term in qa for term in ["gay tai nan", "tai nan giao thong", "tai nan cho nguoi khac"]):
-            add("Luật Trật tự ATGT 2024 (Tiếp)", "80", "known_ref_accident_responsibility", boost=16.0)
+        if any(term in qa for term in ["gay tai nan", "tai nan giao thong", "tai nan cho nguoi khac", "hien truong tai nan"]):
+            add("Luật Trật tự ATGT 2024 (Tiếp)", "80", "known_ref_accident_responsibility", boost=38.0)
+            if any(term in qa for term in ["co mat", "hien truong", "thay tai nan"]):
+                add("Luật Trật tự ATGT 2024 (Tiếp)", "80", "known_ref_accident_witness_responsibility", clause="2", boost=42.0)
+
+        if any(term in qa for term in ["that day an toan", "day dai an toan"]):
+            add("Luật Trật tự ATGT 2024", "10", "known_ref_seatbelt_rule", clause="2", boost=34.0)
+        if any(term in qa for term in ["den vang", "mau vang"]) and any(term in qa for term in ["dung", "di tiep", "tin hieu"]):
+            add("Luật Trật tự ATGT 2024", "11", "known_ref_yellow_light_rule", clause="4", point="b", boost=36.0)
+        if any(term in qa for term in ["bang lai", "gplx", "giay phep lai xe"]):
+            if any(term in qa for term in ["bao nhieu diem", "quy diem", "co bao nhieu diem"]):
+                add("Luật Trật tự ATGT 2024 (Tiếp)", "58", "known_ref_license_point_quota", clause="1", boost=42.0)
+            if "phuc hoi" in qa and any(term in qa for term in ["12 diem", "du 12 diem", "bao lau"]):
+                add("Luật Trật tự ATGT 2024 (Tiếp)", "58", "known_ref_license_point_restore", clause="2", boost=42.0)
+            if any(term in qa for term in ["tru het diem", "het diem"]):
+                add("Luật Trật tự ATGT 2024 (Tiếp)", "58", "known_ref_license_point_exhausted", clause="3", boost=42.0)
 
         if any(term in qa for term in ["vuot den do", "tin hieu den", "nong do con", "hoi con", "say xin", "khong doi mu", "mu bao hiem", "nguoc chieu", "duong cam", "p102", "p.102"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_penalty", boost=0.9)
@@ -2243,10 +2272,16 @@ class CustomLegalRetriever:
     def _known_chunk_matches(self, query: str) -> List[Dict[str, Any]]:
         """Adds narrow source-chunk anchors when extracted references are noisy."""
         qa = ascii_lower(self._focused_behavior_text(query))
-        specs: List[Tuple[List[str], List[str], str, float]] = []
+        specs: List[Tuple[List[str], List[str], str, float, Optional[str]]] = []
 
-        def add(needles: List[str], source_chunk_ids: List[str], reason: str, boost: float = 34.0) -> None:
-            specs.append((needles, source_chunk_ids, reason, boost))
+        def add(
+            needles: List[str],
+            source_chunk_ids: List[str],
+            reason: str,
+            boost: float = 34.0,
+            modality: Optional[str] = None,
+        ) -> None:
+            specs.append((needles, source_chunk_ids, reason, boost, modality))
 
         article36_chunks = [
             "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
@@ -2294,13 +2329,417 @@ class CustomLegalRetriever:
             "known_chunk_arrow_delineator",
             boost=36.0,
         )
+        add(
+            ["phoi thoc"],
+            [
+                "nghị_định_168/2024/nđ-cp_12_2_g_57af76",
+                "nghị_định_168/2024/nđ-cp_41_3_g_34afc3",
+            ],
+            "known_chunk_168_drying_crops_on_road",
+            boost=72.0,
+        )
+        add(
+            ["giay chung nhan dang ky xe", "o to"],
+            [
+                "nghị_định_168/2024/nđ-cp_13_4_a_5c592b",
+                "nghị_định_168/2024/nđ-cp_48_6_0_2cfdcf",
+            ],
+            "known_chunk_168_car_no_registration_certificate",
+            boost=72.0,
+        )
+        add(
+            ["giay chung nhan dang ky xe", "mo to"],
+            [
+                "nghị_định_168/2024/nđ-cp_14_2_a_7bdde9",
+                "nghị_định_168/2024/nđ-cp_48_7_0_1f67f7",
+            ],
+            "known_chunk_168_motorbike_no_registration_certificate",
+            boost=72.0,
+        )
+        add(
+            ["tu du 16 tuoi", "duoi 18 tuoi", "o to"],
+            ["nghị_định_168/2024/nđ-cp_48_9_0_a50e2e"],
+            "known_chunk_168_underage_car_fine_amount",
+            boost=72.0,
+        )
+        add(
+            ["buoc nop lai", "loi bat hop phap"],
+            ["nghị_định_336/2025/nđ-cp_3_4_c_e236bf"],
+            "known_chunk_336_illegal_benefit_remedy",
+            boost=72.0,
+        )
+        add(
+            ["taxi", "thiet bi in hoa don", "dong ho tinh tien"],
+            ["nghị_định_336/2025/nđ-cp_12_4_d_b6df48"],
+            "known_chunk_336_taxi_invoice_meter",
+            boost=72.0,
+        )
+        add(
+            ["cao toc", "tam dung khai thac"],
+            [
+                "luật_đường_bộ_2024_51_2_0_d75180",
+                "luật_đường_bộ_2024_51_2_a_ff510c",
+                "luật_đường_bộ_2024_51_2_b_5d45e6",
+            ],
+            "known_chunk_road_law_expressway_suspension",
+            boost=72.0,
+        )
+        add(
+            ["tam dung khai thac duong cao toc", "la gi"],
+            ["luật_đường_bộ_2024_51_1_0_dd9761"],
+            "known_chunk_road_law_expressway_suspension_definition",
+            boost=96.0,
+        )
+        add(
+            ["nguy co mat an toan", "cao toc", "bao cao"],
+            ["luật_đường_bộ_2024_51_3_a_a35358"],
+            "known_chunk_road_law_expressway_safety_report_60m",
+            boost=72.0,
+        )
+        add(
+            ["nguy co mat an toan", "cao toc", "thong bao"],
+            ["luật_đường_bộ_2024_51_3_a_a35358"],
+            "known_chunk_road_law_expressway_safety_notice_60m",
+            boost=96.0,
+        )
+        add(
+            ["chi phi", "quan ly", "van hanh", "cao toc"],
+            [
+                "luật_đường_bộ_2024_55_1_0_53c969",
+                "luật_đường_bộ_2024_55_0_0_2707bc",
+            ],
+            "known_chunk_road_law_state_expressway_cost",
+            boost=72.0,
+        )
+        add(
+            ["lai xe khach", "tu choi", "dieu khien"],
+            [
+                "luật_đường_bộ_2024_59_2_0_f09663",
+                "luật_đường_bộ_2024_59_2_0_01e6d5",
+            ],
+            "known_chunk_road_law_passenger_driver_refuse_vehicle",
+            boost=72.0,
+        )
+        add(
+            ["lai xe tai", "tu choi", "cho hang"],
+            [
+                "luật_đường_bộ_2024_63_1_a_9a5cd3",
+                "luật_đường_bộ_2024_63_1_a_8a4405",
+            ],
+            "known_chunk_road_law_freight_driver_refuse_goods",
+            boost=72.0,
+        )
+        add(
+            ["o to cuu thuong", "thiet bi"],
+            ["luật_đường_bộ_2024_69_3_0_516956"],
+            "known_chunk_road_law_ambulance_equipment",
+            boost=72.0,
+        )
+        add(
+            ["thong tu 35", "quy dinh", "noi dung"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_1_0_0_00b01b",
+                "thông_tư_35/2024/tt-bgtvt_1_0_0_00a2c9",
+            ],
+            "known_chunk_tt35_scope",
+            boost=72.0,
+        )
+        add(
+            ["so phoi", "giay phep lai xe"],
+            ["thông_tư_35/2024/tt-bgtvt_3_2_0_2958a2"],
+            "known_chunk_tt35_license_blank_number",
+            boost=72.0,
+        )
+        add(
+            ["hang b1", "xe tap lai", "toi da"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_6_2_b_d5380c",
+                "thông_tư_35/2024/tt-bgtvt_6_2_0_2a80e0",
+                "thông_tư_35/2024/tt-bgtvt_6_3_b_3890a5",
+            ],
+            "known_chunk_tt35_b1_training_car_max_learners",
+            boost=72.0,
+        )
+        add(
+            ["dao tao", "a1", "a", "b1", "toi da", "ngay"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_6_2_a_aabb9f",
+                "thông_tư_35/2024/tt-bgtvt_6_2_0_2a80e0",
+                "thông_tư_35/2024/tt-bgtvt_6_3_a_037594",
+            ],
+            "known_chunk_tt35_motorcycle_training_days",
+            boost=72.0,
+        )
+        add(
+            ["hang b1", "diem kiem tra", "mon hoc"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_6_4_b_9b19a0",
+                "thông_tư_35/2024/tt-bgtvt_6_2_b_d5380c",
+                "thông_tư_35/2024/tt-bgtvt_6_3_b_3890a5",
+            ],
+            "known_chunk_tt35_b1_course_completion_score",
+            boost=72.0,
+        )
+        add(
+            ["hang c1", "xe tap lai", "hoc vien"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_7_2_b_0946f6",
+                "thông_tư_35/2024/tt-bgtvt_7_2_0_2a80e0",
+                "thông_tư_35/2024/tt-bgtvt_7_3_b_18f154",
+            ],
+            "known_chunk_tt35_c1_training_car_max_learners",
+            boost=72.0,
+        )
+        add(
+            ["hang b", "c1", "tong thoi gian", "ngay"],
+            ["thông_tư_35/2024/tt-bgtvt_12_2_a_4fb8be"],
+            "known_chunk_tt35_b_c1_training_days",
+            boost=72.0,
+        )
+        add(
+            ["khuyet tat", "hang b so tu dong", "xe tap lai"],
+            ["thông_tư_35/2024/tt-bgtvt_12_2_a_4fb8be"],
+            "known_chunk_tt35_disabled_b_automatic_training_vehicle",
+            boost=72.0,
+        )
+        add(
+            ["dien thoai", "phong sat hach"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_25_1_đ_886465",
+                "thông_tư_35/2024/tt-bgtvt_25_2_đ_061088",
+                "thông_tư_35/2024/tt-bgtvt_25_1_0_d986f3",
+            ],
+            "known_chunk_tt35_exam_phone_violation",
+            boost=72.0,
+        )
+        add(
+            ["giay phep lai xe", "qua han", "01 nam", "sat hach"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_34_1_a_0c3a40",
+                "thông_tư_35/2024/tt-bgtvt_34_2_0_7624d3",
+                "thông_tư_35/2024/tt-bgtvt_34_0_0_92d5ce",
+            ],
+            "known_chunk_tt35_expired_license_retest_over_one_year",
+            boost=72.0,
+        )
+        add(
+            ["ho so doi giay phep", "ban chinh", "luu tru"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_36_3_d_363613",
+                "thông_tư_35/2024/tt-bgtvt_36_1_d_bd9930",
+                "thông_tư_35/2024/tt-bgtvt_36_2_d_ec0c6b",
+            ],
+            "known_chunk_tt35_license_exchange_file_retention",
+            boost=72.0,
+        )
+        add(
+            ["hoc vien", "tap lai", "nhan dien"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_63_1_h_a1e36a",
+                "thông_tư_35/2024/tt-bgtvt_63_1_k_d6844c",
+                "thông_tư_35/2024/tt-bgtvt_63_0_0_5314be",
+            ],
+            "known_chunk_tt35_learner_identification",
+            boost=72.0,
+        )
+        add(
+            ["lan duong", "dinh nghia"],
+            ["luật_trật_tự_atgt_2024_2_6_0_800279"],
+            "known_chunk_traffic_law_lane_definition",
+            boost=72.0,
+        )
+        add(
+            ["thu tu uu tien", "bao hieu"],
+            [
+                "luật_trật_tự_atgt_2024_11_2_0_cc7cfc",
+                "luật_trật_tự_atgt_2024_11_2_a_a41ce4",
+                "luật_trật_tự_atgt_2024_11_2_b_fa73f1",
+            ],
+            "known_chunk_traffic_law_signal_priority_order",
+            boost=72.0,
+        )
+        add(
+            ["vang nhap nhay"],
+            [
+                "luật_trật_tự_atgt_2024_11_4_b_445c72",
+                "luật_trật_tự_atgt_2024_11_4_b_996c2f",
+            ],
+            "known_chunk_traffic_law_flashing_yellow_signal",
+            boost=72.0,
+        )
+        add(
+            ["bien bao co dinh", "bien bao tam thoi"],
+            ["luật_trật_tự_atgt_2024_11_12_0_312d24"],
+            "known_chunk_traffic_law_temporary_fixed_sign",
+            boost=72.0,
+        )
+        add(
+            ["gac chan duong sat", "den do nhap nhay"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_24_1_0_a2d2f8"],
+            "known_chunk_traffic_law_rail_crossing_signal",
+            boost=72.0,
+        )
+        add(
+            ["nhap vao lan duong", "cao toc"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_25_1_a_fb4962"],
+            "known_chunk_traffic_law_enter_expressway_lane",
+            boost=72.0,
+        )
+        add(
+            ["den uu tien", "xe cuu thuong", "mau"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_27_3_a_008e07"],
+            "known_chunk_traffic_law_ambulance_priority_light_color",
+            boost=72.0,
+        )
+        add(
+            ["xe uu tien", "han che toc do", "den giao thong"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_27_4_0_a17f94",
+                "luật_trật_tự_atgt_2024_(tiếp)_27_4_0_67b3e6",
+            ],
+            "known_chunk_traffic_law_priority_vehicle_exemptions",
+            boost=72.0,
+        )
+        add(
+            ["xe uu tien", "gioi han toc do", "den giao thong"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_27_4_0_a17f94",
+                "luật_trật_tự_atgt_2024_(tiếp)_27_4_0_67b3e6",
+            ],
+            "known_chunk_traffic_law_priority_vehicle_exemptions_alt",
+            boost=96.0,
+        )
+        add(
+            ["trung dau gia", "ban lai rieng", "bien so xe"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_38_2_c_6c0af5"],
+            "known_chunk_traffic_law_auction_plate_no_separate_resale",
+            boost=96.0,
+        )
+        add(
+            ["thu hoi", "chung nhan dang ky xe", "bien so xe"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_39_6_0_5291d6",
+                "luật_trật_tự_atgt_2024_(tiếp)_39_6_a_adc4f8",
+                "luật_trật_tự_atgt_2024_(tiếp)_39_6_b_046158",
+            ],
+            "known_chunk_traffic_law_registration_plate_revocation",
+            boost=72.0,
+        )
+        add(
+            ["tuoi toi thieu", "xe gan may"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_59_1_a_b3d137",
+                "luật_trật_tự_atgt_2024_(tiếp)_59_1_a_1d416a",
+            ],
+            "known_chunk_traffic_law_motorbike_min_age",
+            boost=72.0,
+        )
+        add(
+            ["sat hach lai xe", "to chuc", "ca nhan"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_61_3_0_16bada",
+                "luật_trật_tự_atgt_2024_(tiếp)_61_3_0_d11352",
+            ],
+            "known_chunk_traffic_law_driving_test_authority",
+            boost=72.0,
+        )
+        add(
+            ["chung chi boi duong", "kien thuc phap luat", "giao thong duong bo"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_63_1_0_89d5db",
+                "luật_trật_tự_atgt_2024_(tiếp)_63_1_0_8fbda7",
+            ],
+            "known_chunk_traffic_law_road_law_certificate_subject",
+            boost=72.0,
+        )
+        add(
+            ["so cap chung chi", "boi duong kien thuc phap luat", "luu tru"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_51_3_a_3513bb",
+                "thông_tư_35/2024/tt-bgtvt_51_3_0_a77b87",
+                "thông_tư_35/2024/tt-bgtvt_51_1_a_4a3319",
+            ],
+            "known_chunk_tt35_certificate_log_retention",
+            boost=96.0,
+        )
+        add(
+            ["du lieu giam sat", "du lieu dat", "so cap chung chi", "luu tru"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_table_49_p49_t1_18aaebf0",
+                "thông_tư_35/2024/tt-bgtvt_table_49_p49_t1_fab51dc7",
+                "thông_tư_35/2024/tt-bgtvt_table_57_p57_t0_31d58011",
+                "thông_tư_35/2024/tt-bgtvt_table_57_p57_t0_5ea7a49f",
+                "thông_tư_35/2024/tt-bgtvt_table_60_p60_t1_39bad90b",
+                "thông_tư_35/2024/tt-bgtvt_table_60_p60_t1_83f536a8",
+            ],
+            "known_chunk_tt35_training_dat_certificate_retention_tables",
+            boost=96.0,
+            modality="table",
+        )
+        add(
+            ["chon cat", "nan nhan", "khong co than nhan"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_82_4_0_5db5f9",
+                "luật_trật_tự_atgt_2024_(tiếp)_82_4_0_94c5fd",
+            ],
+            "known_chunk_traffic_law_unclaimed_accident_victim_burial",
+            boost=72.0,
+        )
+        add(
+            ["quy giam thieu thiet hai", "su dung"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_85_3_0_9288b7",
+                "luật_trật_tự_atgt_2024_(tiếp)_85_3_a_956fba",
+                "luật_trật_tự_atgt_2024_(tiếp)_85_3_b_c8f986",
+            ],
+            "known_chunk_traffic_law_accident_damage_fund_use",
+            boost=72.0,
+        )
+        add(
+            ["tieu chuan kham suc khoe", "nong do con", "mau"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_87_5_0_71ff4c",
+                "luật_trật_tự_atgt_2024_(tiếp)_87_5_0_ba7289",
+            ],
+            "known_chunk_traffic_law_health_alcohol_ministry",
+            boost=72.0,
+        )
+        add(
+            ["luat so 36", "hieu luc"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_88_1_0_0a5ca1"],
+            "known_chunk_traffic_law_36_effective_date",
+            boost=72.0,
+        )
+        add(
+            ["hang a1", "cap truoc", "duoc phep dieu khien"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_89_2_a_651514",
+                "luật_trật_tự_atgt_2024_(tiếp)_89_2_a_94449e",
+            ],
+            "known_chunk_traffic_law_old_a1_license_scope",
+            boost=72.0,
+        )
+        add(
+            ["hang b2", "cap truoc", "duoc dieu khien"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_89_2_g_f912ca",
+                "luật_trật_tự_atgt_2024_(tiếp)_89_2_g_ee4e93",
+            ],
+            "known_chunk_traffic_law_old_b2_license_scope",
+            boost=72.0,
+        )
 
         out: List[Dict[str, Any]] = []
         seen = set()
-        for needles, source_chunk_ids, reason, boost in specs:
+        for needles, source_chunk_ids, reason, boost, modality in specs:
             if not all(needle in qa for needle in needles):
                 continue
-            for record in self._records_by_source_chunk_ids(source_chunk_ids, reason=reason, boost=boost):
+            for record in self._records_by_source_chunk_ids(
+                source_chunk_ids,
+                reason=reason,
+                boost=boost,
+                rag_modality=modality,
+            ):
                 key = (record.get("source_chunk_id") or record.get("id"), reason)
                 if key in seen:
                     continue

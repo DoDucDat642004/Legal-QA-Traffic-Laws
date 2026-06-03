@@ -8,6 +8,13 @@ STREAMLIT_PORT="${PORT:-${STREAMLIT_PORT:-7860}}"
 
 export TRAFFIC_LAW_API_URL="${TRAFFIC_LAW_API_URL:-http://127.0.0.1:${API_PORT}}"
 
+mkdir -p \
+  "${HOME:-/tmp}/intel" \
+  "${HF_HOME:-/tmp/.cache/huggingface}" \
+  "${MPLCONFIGDIR:-/tmp/.cache/matplotlib}" \
+  "${XDG_CACHE_HOME:-/tmp/.cache}/fontconfig" \
+  2>/dev/null || true
+
 cleanup() {
   if [[ -n "${API_PID:-}" ]] && kill -0 "${API_PID}" 2>/dev/null; then
     kill "${API_PID}" 2>/dev/null || true

@@ -462,7 +462,7 @@ Return ONLY a JSON object following this schema:
         model_fail_counts = {}
         for attempt in range(6):
             try:
-                models_to_try = model_candidates("QA_PRIMARY_MODEL", "QA_MODEL")
+                models_to_try = model_candidates("QA_PRIMARY_MODEL", "QA_MODEL", task="qa_generation")
                 available_models = [m for m in models_to_try if m not in EXHAUSTED_MODELS]
                 if not available_models:
                     logger.critical(f"ALL MODELS EXHAUSTED! Cannot process chunk {chunk_id}")
@@ -490,6 +490,7 @@ Return ONLY a JSON object following this schema:
                     config=config,
                     env_names=("QA_PRIMARY_MODEL", "QA_MODEL"),
                     models=available_models,
+                    task="qa_generation",
                     logger=logger,
                     label="QA generation",
                 )

@@ -150,7 +150,8 @@ class TrafficSignCatalog:
                 client,
                 contents=[prompt],
                 config=types.GenerateContentConfig(temperature=0.0),
-                env_names=("RAG_SIGN_PROBE_MODEL", "RAG_ANSWER_MODEL"),
+                env_names=("RAG_SIGN_PROBE_MODEL",),
+                task="sign_probe",
                 logger=logger,
                 label="Traffic sign semantic probe",
             )

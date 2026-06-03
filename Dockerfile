@@ -3,7 +3,12 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    HOME=/tmp \
+    HF_HOME=/tmp/.cache/huggingface \
+    XDG_CACHE_HOME=/tmp/.cache \
+    MPLCONFIGDIR=/tmp/.cache/matplotlib \
     HF_HUB_DISABLE_TELEMETRY=1 \
     TOKENIZERS_PARALLELISM=false \
     RAG_VECTOR_BACKEND=qdrant \
@@ -33,7 +38,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     RAG_QDRANT_ENABLE_LEXICAL=true \
     RAG_RERANKER_MODEL=BAAI/bge-reranker-v2-m3 \
     RAG_MODEL_RERANK_LIMIT=32 \
-    RAG_RERANKER_DEVICE=cpu \
+    RAG_RERANKER_DEVICE=CPU \
     OPENVINO_TELEMETRY_DISABLE=1 \
     HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1 \
@@ -59,10 +64,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+RUN useradd -m -u 1000 user \
+    && mkdir -p /tmp/.cache/huggingface /tmp/.cache/matplotlib /tmp/.cache/fontconfig /tmp/intel \
+    && chown -R user:user /app /tmp/.cache /tmp/intel \
+    && chmod -R 777 /tmp/.cache /tmp/intel
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY --chown=user:user . .
+
+USER user
 
 RUN set -eux; \
     needs_lfs=0; \
