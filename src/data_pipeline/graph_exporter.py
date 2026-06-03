@@ -1,0 +1,375 @@
+import argparse
+import json
+import re
+from pathlib import Path
+
+from src.rag.legal_utils import (
+    ascii_lower,
+    normalize_sign_code,
+    penalty_summary,
+    sign_group_from_code,
+    source_text,
+    looks_like_procedure,
+)
+
+
+CROSS_REF_RE = re.compile(
+    r"(?:(điểm)\s+([a-zđ])\s+)?(?:(khoản)\s+(\d+)\s+)?điều\s+(\d+[a-z]?)",
+    re.IGNORECASE,
+)
+NORMALIZED_SIGN_CODE_RE = re.compile(r"^(?:DP|IE|[PWRISE])\d{2,3}[A-ZĐ]?$", re.IGNORECASE)
+DOCUMENT_ALIASES = [
+    ("Nghị định 168/2024/NĐ-CP", ["nghi dinh 168", "nd 168", "168/2024", "168-2024"]),
+    ("Nghị định 336/2025/NĐ-CP", ["nghi dinh 336", "nd 336", "336/2025", "336-2025"]),
+    ("Luật Đường bộ 2024", ["luat duong bo", "35/2024/qh15", "35-2024-qh15"]),
+    ("Luật Trật tự ATGT 2024", ["luat trat tu", "trat tu an toan giao thong", "36/2024/qh15", "36-2024-qh15"]),
+    ("QCVN 41:2024 (Thông tư 51/2024)", ["qcvn 41", "thong tu 51", "51/2024", "51-2024"]),
+    ("Thông tư 35/2024/TT-BGTVT", ["thong tu 35", "35/2024/tt-bgtvt", "35-2024-tt-bgtvt"]),
+]
+
+
+def _load_json(path: Path):
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _node_id(record: dict) -> str:
+    return record.get("source_chunk_id") or record.get("id")
+
+
+def _ref_key(document: str, article: str = "", clause: str = "", point: str = "") -> str:
+    parts = [document or ""]
+    if article:
+        parts.append(f"D{article}")
+    if clause:
+        parts.append(f"K{clause}")
+    if point:
+        parts.append(f"P{point}")
+    return "|".join(parts)
+
+
+def _record_ref_key(record: dict) -> str:
+    ref = record.get("legal_reference") or {}
+    return _ref_key(
+        ref.get("document") or record.get("doc_name") or "",
+        str(ref.get("article") or ""),
+        str(ref.get("clause") or ""),
+        str(ref.get("point") or ""),
+    )
+
+
+def _target_documents_for_cross_ref(text: str, match_start: int, default_doc: str) -> list[str]:
+    """Infers target document for a local Điều/Khoản/Điểm reference.
+
+    The default is the current document, but references often appear as
+    "điểm ... khoản ... Điều ... Nghị định 168/2024/NĐ-CP". Capturing that
+    doc context at export time gives runtime graph traversal true cross-doc
+    edges instead of only same-doc CITES edges.
+    """
+    window = ascii_lower(text[max(0, match_start - 120): match_start + 260])
+    docs = [
+        document
+        for document, aliases in DOCUMENT_ALIASES
+        if any(alias in window for alias in aliases)
+    ]
+    return list(dict.fromkeys(docs or [default_doc]))
+
+
+def _safe_id(value: str) -> str:
+    return re.sub(r"[^0-9A-Za-zÀ-ỹ_:.|-]+", "_", str(value or "")).strip("_")
+
+
+def _record_sign_codes(record: dict) -> set[str]:
+    codes = set()
+    sign_info = record.get("sign_info") if isinstance(record.get("sign_info"), dict) else {}
+    for value in [
+        sign_info.get("sign_code"),
+        (record.get("legal_reference") or {}).get("figure"),
+        record.get("sign_code"),
+    ]:
+        normalized = normalize_sign_code(str(value or ""))
+        if normalized:
+            codes.add(normalized)
+    doc_name = str(record.get("doc_name") or (record.get("legal_reference") or {}).get("document") or "").lower()
+    record_id = str(record.get("id") or "")
+    if record_id and ("qcvn" in doc_name or "thông tư 51" in doc_name):
+        first = record_id.split("_", 1)[0]
+        normalized = normalize_sign_code(first)
+        if normalized and NORMALIZED_SIGN_CODE_RE.fullmatch(normalized):
+            codes.add(normalized)
+    return codes
+
+
+def _figures_for_record(record: dict) -> list[dict]:
+    figures = [fig for fig in (record.get("figures") or []) if isinstance(fig, dict)]
+    seen = set()
+    deduped = []
+    for fig in figures:
+        key = (fig.get("id"), normalize_sign_code(str(fig.get("code") or "")), fig.get("image_path"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(fig)
+
+    target_codes = _record_sign_codes(record)
+    if not target_codes:
+        return deduped
+    return [
+        fig
+        for fig in deduped
+        if normalize_sign_code(str(fig.get("code") or "")) in target_codes
+    ]
+
+
+def _tables_for_record(record: dict) -> list[dict]:
+    out = []
+    seen = set()
+    for table in record.get("tables") or []:
+        if not isinstance(table, dict) or not table.get("id"):
+            continue
+        key = (table.get("id"), table.get("page"), table.get("image_path"), table.get("text"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(table)
+    return out
+
+
+def _ensure_legal_hierarchy(nodes: dict, edges: list, record: dict, chunk_id: str) -> None:
+    ref = record.get("legal_reference") or {}
+    document = ref.get("document") or record.get("doc_name") or ""
+    article = str(ref.get("article") or "")
+    clause = str(ref.get("clause") or "")
+    point = str(ref.get("point") or "")
+    if not document:
+        return
+
+    doc_id = f"doc::{_safe_id(document)}"
+    nodes[doc_id] = {"id": doc_id, "type": "document", "name": document}
+    parent_id = doc_id
+
+    if article:
+        article_id = f"{doc_id}::D{_safe_id(article)}"
+        nodes[article_id] = {
+            "id": article_id,
+            "type": "article",
+            "num": article,
+            "doc_name": document,
+        }
+        edges.append({"source": doc_id, "target": article_id, "type": "HAS_ARTICLE"})
+        parent_id = article_id
+
+    if clause:
+        clause_id = f"{parent_id}::K{_safe_id(clause)}"
+        nodes[clause_id] = {
+            "id": clause_id,
+            "type": "clause",
+            "num": clause,
+            "doc_name": document,
+            "article": article,
+        }
+        edges.append({"source": parent_id, "target": clause_id, "type": "HAS_CLAUSE"})
+        parent_id = clause_id
+
+    if point:
+        point_id = f"{parent_id}::P{_safe_id(point)}"
+        nodes[point_id] = {
+            "id": point_id,
+            "type": "point",
+            "num": point,
+            "doc_name": document,
+            "article": article,
+            "clause": clause,
+        }
+        edges.append({"source": parent_id, "target": point_id, "type": "HAS_POINT"})
+        parent_id = point_id
+
+    if parent_id != doc_id:
+        edges.append({"source": parent_id, "target": chunk_id, "type": "HAS_CHUNK"})
+
+
+def _add_penalty_node(nodes: dict, edges: list, record: dict, chunk_id: str) -> None:
+    if not record.get("penalties"):
+        return
+    summary = penalty_summary(record)
+    penalty_id = f"penalty::{_safe_id(chunk_id)}"
+    nodes[penalty_id] = {
+        "id": penalty_id,
+        "type": "penalty",
+        "doc_name": record.get("doc_name") or (record.get("legal_reference") or {}).get("document"),
+        "source_chunk_id": chunk_id,
+        **summary,
+    }
+    edges.append({"source": chunk_id, "target": penalty_id, "type": "HAS_PENALTY"})
+
+
+def _add_procedure_node(nodes: dict, edges: list, record: dict, chunk_id: str) -> None:
+    if not looks_like_procedure(record):
+        return
+    text = source_text(record)
+    procedure_id = f"procedure::{_safe_id(chunk_id)}"
+    metadata = record.get("metadata") or {}
+    quantitative = record.get("quantitative_data") or {}
+    nodes[procedure_id] = {
+        "id": procedure_id,
+        "type": "procedure",
+        "doc_name": record.get("doc_name") or (record.get("legal_reference") or {}).get("document"),
+        "source_chunk_id": chunk_id,
+        "name": metadata.get("rule_type") or metadata.get("domain") or "",
+        "target_audience": metadata.get("target_audience") or metadata.get("traffic_participant") or [],
+        "submission_methods": [quantitative.get("submission_method")] if quantitative.get("submission_method") else [],
+        "processing_time_days": quantitative.get("processing_time_days"),
+        "raw_procedure_text": text[:2000],
+    }
+    edges.append({"source": chunk_id, "target": procedure_id, "type": "HAS_PROCEDURE"})
+
+
+def _add_sign_node(nodes: dict, edges: list, record: dict, fig: dict, chunk_id: str, figure_id: str) -> None:
+    code = fig.get("code")
+    if not code:
+        return
+    normalized = normalize_sign_code(str(code))
+    if not normalized:
+        return
+    sign_id = f"sign::{normalized}"
+    existing = nodes.get(sign_id, {})
+    image_paths = set(existing.get("image_paths") or [])
+    if fig.get("image_path"):
+        image_paths.add(fig["image_path"])
+    linked_figure_ids = set(existing.get("linked_figure_ids") or [])
+    linked_figure_ids.add(figure_id)
+    nodes[sign_id] = {
+        "id": sign_id,
+        "type": "sign",
+        "code": code,
+        "normalized_code": normalized,
+        "name": fig.get("name") or existing.get("name") or "",
+        "sign_group": fig.get("sign_group") or sign_group_from_code(normalized),
+        "meaning": record.get("meaning_and_usage") or record.get("qa_context") or "",
+        "visual_description": fig.get("caption") or "",
+        "doc_name": record.get("doc_name") or (record.get("legal_reference") or {}).get("document"),
+        "source_chunk_id": chunk_id,
+        "image_paths": sorted(image_paths),
+        "linked_figure_ids": sorted(linked_figure_ids),
+    }
+    edges.append({"source": chunk_id, "target": sign_id, "type": "HAS_SIGN"})
+    edges.append({"source": figure_id, "target": sign_id, "type": "REPRESENTS_SIGN"})
+
+
+def export_graph(processed_files: list[Path], out_path: Path) -> dict:
+    nodes = {}
+    edges = []
+    ref_index = {}
+    all_records = []
+
+    for file_path in processed_files:
+        for record in _load_json(file_path):
+            rid = _node_id(record)
+            if not rid:
+                continue
+            ref_key = _record_ref_key(record)
+            ref_index.setdefault(ref_key, rid)
+            all_records.append(record)
+
+    for record in all_records:
+            rid = _node_id(record)
+            ref = record.get("legal_reference") or {}
+            nodes[rid] = {
+                "id": rid,
+                "type": "legal_chunk",
+                "doc_name": record.get("doc_name") or ref.get("document"),
+                "record_id": record.get("id"),
+                "record_type": record.get("record_type"),
+                "legal_reference": ref,
+                "page_start": ref.get("page_start") or (record.get("chunk_meta") or {}).get("page_start"),
+                "page_end": ref.get("page_end") or (record.get("chunk_meta") or {}).get("page_end"),
+                "text_sha256": record.get("source_text_sha256"),
+            }
+            _ensure_legal_hierarchy(nodes, edges, record, rid)
+            _add_penalty_node(nodes, edges, record, rid)
+            _add_procedure_node(nodes, edges, record, rid)
+
+            for parent in record.get("parent_hierarchy") or []:
+                if not isinstance(parent, dict):
+                    continue
+                parent_id = f"{rid}::parent::{parent.get('kind')}::{parent.get('num')}"
+                nodes[parent_id] = {
+                    "id": parent_id,
+                    "type": parent.get("kind") or "parent",
+                    "num": parent.get("num"),
+                    "title": parent.get("title"),
+                    "doc_name": record.get("doc_name") or ref.get("document"),
+                }
+                edges.append({"source": parent_id, "target": rid, "type": "PARENT_OF"})
+
+            for table in _tables_for_record(record):
+                table_id = f"table::{_safe_id(record.get('doc_name') or ref.get('document') or '')}::{_safe_id(table['id'])}"
+                nodes[table_id] = {
+                    "id": table_id,
+                    "type": "table",
+                    "doc_name": record.get("doc_name") or ref.get("document"),
+                    "source_chunk_id": rid,
+                    "page": table.get("page"),
+                    "image_path": table.get("image_path"),
+                    "text": table.get("text"),
+                    "bbox": table.get("bbox"),
+                }
+                edges.append({"source": rid, "target": table_id, "type": "HAS_TABLE"})
+
+            for fig in _figures_for_record(record):
+                if not fig.get("id"):
+                    continue
+                fig_id = f"figure::{fig['id']}"
+                nodes[fig_id] = {
+                    "id": fig_id,
+                    "type": "figure",
+                    "code": fig.get("code"),
+                    "name": fig.get("name"),
+                    "caption": fig.get("caption"),
+                    "doc_name": record.get("doc_name") or ref.get("document"),
+                    "source_chunk_id": rid,
+                    "page": fig.get("page"),
+                    "image_path": fig.get("image_path"),
+                }
+                edges.append({"source": rid, "target": fig_id, "type": "HAS_FIGURE"})
+                _add_sign_node(nodes, edges, record, fig, rid, fig_id)
+
+            source_text = record.get("source_body_exact") or record.get("content") or ""
+            doc_name = record.get("doc_name") or ref.get("document") or ""
+            for match in CROSS_REF_RE.finditer(source_text):
+                point = match.group(2) or ""
+                clause = match.group(4) or ""
+                article = match.group(5) or ""
+                for target_doc in _target_documents_for_cross_ref(source_text, match.start(), doc_name):
+                    target_ref = _ref_key(target_doc, article, clause, point)
+                    edges.append({
+                        "source": rid,
+                        "target_ref": target_ref,
+                        "target": ref_index.get(target_ref),
+                        "type": "CITES",
+                        "raw": match.group(0),
+                    })
+
+    graph = {"nodes": list(nodes.values()), "edges": edges}
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8") as f:
+        json.dump(graph, f, ensure_ascii=False, indent=2)
+    return graph
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Export legal chunks, parent hierarchy, references, tables, and figures as graph JSON.")
+    parser.add_argument("--processed-dir", default="data/processed")
+    parser.add_argument("--file", help="Processed file fragment.")
+    parser.add_argument("--out", default="data/graph/legal_graph.json")
+    args = parser.parse_args()
+
+    files = sorted(Path(args.processed_dir).glob("*.extracted.json"))
+    if args.file:
+        files = [p for p in files if args.file in p.name]
+    graph = export_graph(files, Path(args.out))
+    print(f"Exported graph: nodes={len(graph['nodes'])}, edges={len(graph['edges'])}, out={args.out}")
+
+
+if __name__ == "__main__":
+    main()

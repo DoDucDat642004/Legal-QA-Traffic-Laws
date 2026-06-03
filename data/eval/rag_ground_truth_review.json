@@ -1,0 +1,3957 @@
+[
+  {
+    "id": "168-nd-cp.signed_0044",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 44
+    },
+    "question": "Tổ chức kinh doanh vận tải xếp hàng hóa lên xe ô tô vượt tải trọng trên 100% bị phạt bao nhiêu tiền?",
+    "gold_answer": "Phạt tiền từ 8.000.000 đồng đến 10.000.000 đồng đối với tổ chức.",
+    "query_type": "PENALTY",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "26",
+        "clause": "5",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 5 Điều 26 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": [
+      "nghị_định_168/2024/nđ-cp_26_0_0_9c168f",
+      "nghị_định_168/2024/nđ-cp_26_2_b_dbf79b",
+      "nghị_định_168/2024/nđ-cp_26_11_0_86e70a"
+    ],
+    "acceptable_chunks": [
+      "nghị_định_168/2024/nđ-cp_26_2_b_dbf79b",
+      "nghị_định_168/2024/nđ-cp_26_11_0_86e70a"
+    ],
+    "reference_quote": "5. Phạt tiền từ 4.000.000 đồng đến 5.000.000 đồng đối với cá nhân, từ 8.000.000 đồng đến 10.000.000 đồng đối với tổ chức xếp hàng hóa lên mỗi xe ô tô (kể cả rơ moóc và sơ mi rơ moóc) vượt quá tải trọng (khối lượng hàng chuyên chở) cho phép tham gia giao thông được ghi trong giấy chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường của xe trên 100%.",
+    "expected_numbers": [
+      {
+        "value": 8000000,
+        "unit": "VND",
+        "type": "amount"
+      },
+      {
+        "value": 10000000,
+        "unit": "VND",
+        "type": "amount"
+      },
+      {
+        "value": 4000000,
+        "unit": "VND",
+        "type": "amount"
+      },
+      {
+        "value": 5000000,
+        "unit": "VND",
+        "type": "amount"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Phạt tiền từ 8.000.000 đồng đến 10.000.000 đồng đối với tổ chức.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "26",
+            "clause": "5",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 5 Điều 26 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "5. Phạt tiền từ 4.000.000 đồng đến 5.000.000 đồng đối với cá nhân, từ 8.000.000 đồng đến 10.000.000 đồng đối với tổ chức xếp hàng hóa lên mỗi xe ô tô (kể cả rơ moóc và sơ mi rơ moóc) vượt quá tải trọng (khối lượng hàng chuyên chở) cho phép tham gia giao thông được ghi trong giấy chứng nhận kiểm định an toàn kỹ thuật và bảo vệ môi trường của xe trên 100%."
+      }
+    ],
+    "required_citations": [
+      "Khoản 5 Điều 26 Nghị định 168/2024/NĐ-CP"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_26_0_0_9c168f",
+          "record_id": "Điều 26_0_9c168f",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "26",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 55,
+            "page_end": 55
+          }
+        },
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_26_2_b_dbf79b",
+          "record_id": "Hành_vi_sai_lệch_người_lái_b_dbf79b",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "26",
+            "clause": "2",
+            "point": "b",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 59,
+            "page_end": 59
+          }
+        },
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_26_11_0_86e70a",
+          "record_id": "Khoan_11_Dieu_nay_0_86e70a",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "26",
+            "clause": "11",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 59,
+            "page_end": 59
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-2024-qh15_0052",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/35-2024-qh15.json",
+      "index": 52
+    },
+    "question": "Chủ đầu tư dự án thủy lợi cắt ngang đường bộ hiện có phải làm gì để bồi hoàn?",
+    "gold_answer": "Phải xây dựng công trình đường bộ để bồi hoàn, thay thế cho phần công trình đường bộ bị ảnh hưởng hoặc bồi hoàn bằng kinh phí xây dựng đoạn đường thay thế.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Luật Đường bộ 2024",
+        "article": "34",
+        "clause": "2",
+        "point": "d",
+        "section": "",
+        "raw": "Điểm d Khoản 2 Điều 34 Luật Đường bộ số 35/2024/QH15"
+      }
+    ],
+    "expected_chunks": [
+      "luật_đường_bộ_2024_34_0_0_a5693c",
+      "luật_đường_bộ_2024_34_1_0_6f1563"
+    ],
+    "acceptable_chunks": [
+      "luật_đường_bộ_2024_34_1_0_6f1563"
+    ],
+    "reference_quote": "d) Trước khi xây dựng công trình thủy lợi, thủy điện cắt ngang, chồng lấn lên vị trí đường bộ hoặc ảnh hưởng đến công trình đường bộ đang khai thác, chủ đầu tư dự án xây dựng công trình thủy lợi, thủy điện phải xây dựng công trình đường bộ để bồi hoàn, thay thế cho phần công trình đường bộ bị ảnh hưởng hoặc bồi hoàn bằng kinh phí xây dựng đoạn đường thay thế. Công trình đường bộ để bồi hoàn có cấp kỹ thuật, quy mô không thấp hơn công trình đường bộ bị ảnh hưởng;",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Phải xây dựng công trình đường bộ để bồi hoàn, thay thế cho phần công trình đường bộ bị ảnh hưởng hoặc bồi hoàn bằng kinh phí xây dựng đoạn đường thay thế.",
+        "support_refs": [
+          {
+            "doc": "Luật Đường bộ 2024",
+            "article": "34",
+            "clause": "2",
+            "point": "d",
+            "section": "",
+            "raw": "Điểm d Khoản 2 Điều 34 Luật Đường bộ số 35/2024/QH15"
+          }
+        ],
+        "support_quote": "d) Trước khi xây dựng công trình thủy lợi, thủy điện cắt ngang, chồng lấn lên vị trí đường bộ hoặc ảnh hưởng đến công trình đường bộ đang khai thác, chủ đầu tư dự án xây dựng công trình thủy lợi, thủy điện phải xây dựng công trình đường bộ để bồi hoàn, thay thế cho phần công trình đường bộ bị ảnh hưởng hoặc bồi hoàn bằng kinh phí xây dựng đoạn đường thay thế. Công trình đường bộ để bồi hoàn có cấp kỹ thuật, quy mô không thấp hơn công trình đường bộ bị ảnh hưởng;"
+      }
+    ],
+    "required_citations": [
+      "Điểm d Khoản 2 Điều 34 Luật Đường bộ số 35/2024/QH15"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "luật_đường_bộ_2024_34_0_0_a5693c",
+          "record_id": "LUAT_DUONGBO_2024_D34_TITLE_0_a5693c",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Đường bộ 2024",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "34",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 32,
+            "page_end": 32
+          }
+        },
+        {
+          "source_chunk_id": "luật_đường_bộ_2024_34_1_0_6f1563",
+          "record_id": "LDB2024_A34_C1_0_6f1563",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Đường bộ 2024",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "34",
+            "clause": "1",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 32,
+            "page_end": 32
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-bgtvt_0052",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/35-bgtvt.json",
+      "index": 52
+    },
+    "question": "Điều kiện về độ tuổi của người dự sát hạch lái xe được tính đến thời điểm nào?",
+    "gold_answer": "Đủ tuổi được tính đến ngày dự sát hạch lái xe.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "28",
+        "clause": "1",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 1 Điều 28 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": [
+      "thông_tư_35/2024/tt-bgtvt_28_0_0_44bc2a",
+      "thông_tư_35/2024/tt-bgtvt_28_3_0_381d6f",
+      "thông_tư_35/2024/tt-bgtvt_28_2_0_0aadae"
+    ],
+    "acceptable_chunks": [
+      "thông_tư_35/2024/tt-bgtvt_28_3_0_381d6f",
+      "thông_tư_35/2024/tt-bgtvt_28_2_0_0aadae"
+    ],
+    "reference_quote": "1. Đủ tuổi (tính đến ngày dự sát hạch lái xe), sức khỏe theo quy định tại khoản 1 và khoản 2 Điều 59 Luật Trật tự, an toàn giao thông đường bộ.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Đủ tuổi được tính đến ngày dự sát hạch lái xe.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "28",
+            "clause": "1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 1 Điều 28 Thông tư 35/2024/TT-BGTVT"
+          }
+        ],
+        "support_quote": "1. Đủ tuổi (tính đến ngày dự sát hạch lái xe), sức khỏe theo quy định tại khoản 1 và khoản 2 Điều 59 Luật Trật tự, an toàn giao thông đường bộ."
+      }
+    ],
+    "required_citations": [
+      "Khoản 1 Điều 28 Thông tư 35/2024/TT-BGTVT"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_28_0_0_44bc2a",
+          "record_id": "RULE_001_0_44bc2a",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "28",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 31,
+            "page_end": 31
+          }
+        },
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_28_3_0_381d6f",
+          "record_id": "RULE_001_0_381d6f",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "28",
+            "clause": "3",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 31,
+            "page_end": 31
+          }
+        },
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_28_2_0_0aadae",
+          "record_id": "DL_HOAN_THANH_DAO_TAO_001_0_0aadae",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "II",
+            "section": null,
+            "article": "28",
+            "clause": "2",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 31,
+            "page_end": 31
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-bgtvt_0063",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/35-bgtvt.json",
+      "index": 63
+    },
+    "question": "Người vi phạm trật tự an toàn giao thông chưa thực hiện xong quyết định xử phạt có được cấp lại giấy phép lái xe không?",
+    "gold_answer": "Chưa cấp lại giấy phép lái xe đối với người vi phạm chưa thực hiện xong yêu cầu của cơ quan nhà nước có thẩm quyền về giải quyết, xử lý vụ việc vi phạm hành chính,.",
+    "query_type": "PENALTY",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "35",
+        "clause": "3",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 3 Điều 35 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": [
+      "thông_tư_35/2024/tt-bgtvt_35_0_0_75ce7c",
+      "thông_tư_35/2024/tt-bgtvt_35_2_0_550564"
+    ],
+    "acceptable_chunks": [
+      "thông_tư_35/2024/tt-bgtvt_35_2_0_550564"
+    ],
+    "reference_quote": "chưa cấp lại giấy phép lái xe đối với người vi phạm trật tự, an toàn giao thông đường bộ chưa thực hiện xong yêu cầu của cơ quan nhà nước có thẩm quyền về giải quyết, xử lý vụ việc vi phạm hành chính trong lĩnh vực trật tự, an toàn giao thông đường bộ.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Chưa cấp lại giấy phép lái xe đối với người vi phạm chưa thực hiện xong yêu cầu của cơ quan nhà nước có thẩm quyền về giải quyết, xử lý vụ việc vi phạm hành chính,.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "35",
+            "clause": "3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3 Điều 35 Thông tư 35/2024/TT-BGTVT"
+          }
+        ],
+        "support_quote": "chưa cấp lại giấy phép lái xe đối với người vi phạm trật tự, an toàn giao thông đường bộ chưa thực hiện xong yêu cầu của cơ quan nhà nước có thẩm quyền về giải quyết, xử lý vụ việc vi phạm hành chính trong lĩnh vực trật tự, an toàn giao thông đường bộ."
+      }
+    ],
+    "required_citations": [
+      "Khoản 3 Điều 35 Thông tư 35/2024/TT-BGTVT"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_35_0_0_75ce7c",
+          "record_id": "TT_35_2024_D35_0_75ce7c",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "35",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 36,
+            "page_end": 36
+          }
+        },
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_35_2_0_550564",
+          "record_id": "GPLX_NGAY_TRUNG_TUYEN_001_0_550564",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "35",
+            "clause": "2",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 36,
+            "page_end": 36
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "35-bgtvt_0075",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/35-bgtvt.json",
+      "index": 75
+    },
+    "question": "Hồ sơ đổi giấy phép lái xe của người nước ngoài không thường trú tại Việt Nam được lưu trữ trong bao lâu?",
+    "gold_answer": "Được cơ quan đổi giấy phép lái xe lưu trữ 01 năm,.",
+    "query_type": "PROCEDURE",
+    "expected_refs": [
+      {
+        "doc": "Thông tư 35/2024/TT-BGTVT",
+        "article": "39",
+        "clause": "4",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 4 Điều 39 Thông tư 35/2024/TT-BGTVT"
+      }
+    ],
+    "expected_chunks": [
+      "thông_tư_35/2024/tt-bgtvt_39_0_0_9846cb",
+      "thông_tư_35/2024/tt-bgtvt_39_1_0_9016cc",
+      "thông_tư_35/2024/tt-bgtvt_39_1_a_12e902"
+    ],
+    "acceptable_chunks": [
+      "thông_tư_35/2024/tt-bgtvt_39_1_0_9016cc",
+      "thông_tư_35/2024/tt-bgtvt_39_1_a_12e902"
+    ],
+    "reference_quote": "Hồ sơ đổi giấy phép lái xe của người nước ngoài không thường trú tại Việt Nam do cơ quan đổi giấy phép lái xe lưu trữ 01 năm, gồm các tài liệu quy định tại khoản 2 Điều này.",
+    "expected_numbers": [
+      {
+        "value": "01",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "2",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Được cơ quan đổi giấy phép lái xe lưu trữ 01 năm,.",
+        "support_refs": [
+          {
+            "doc": "Thông tư 35/2024/TT-BGTVT",
+            "article": "39",
+            "clause": "4",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 4 Điều 39 Thông tư 35/2024/TT-BGTVT"
+          }
+        ],
+        "support_quote": "Hồ sơ đổi giấy phép lái xe của người nước ngoài không thường trú tại Việt Nam do cơ quan đổi giấy phép lái xe lưu trữ 01 năm, gồm các tài liệu quy định tại khoản 2 Điều này."
+      }
+    ],
+    "required_citations": [
+      "Khoản 4 Điều 39 Thông tư 35/2024/TT-BGTVT"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_39_0_0_9846cb",
+          "record_id": "TT_BGTVT_39_01_0_9846cb",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "39",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 42,
+            "page_end": 42
+          }
+        },
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_39_1_0_9016cc",
+          "record_id": "DPLX_NN_001_0_9016cc",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "39",
+            "clause": "1",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 42,
+            "page_end": 42
+          }
+        },
+        {
+          "source_chunk_id": "thông_tư_35/2024/tt-bgtvt_39_1_a_12e902",
+          "record_id": "RULE_001_a_12e902",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Thông tư 35/2024/TT-BGTVT",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "39",
+            "clause": "a",
+            "point": "a",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 42,
+            "page_end": 42
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15_tiep_0027",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/36-2024-qh15_tiep.json",
+      "index": 27
+    },
+    "question": "Biển số xe của cơ quan Đảng, Nhà nước có màu sắc như thế nào?",
+    "gold_answer": "Biển số xe nền màu xanh, chữ và số màu trắng.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự ATGT 2024 (Tiếp)",
+        "article": "36",
+        "clause": "2",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 2 Điều 36 Luật số 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": [
+      "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
+      "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3"
+    ],
+    "acceptable_chunks": [
+      "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3"
+    ],
+    "reference_quote": "a) Biển số xe nền màu xanh, chữ và số màu trắng cấp cho xe của cơ quan Đảng, Nhà nước, tổ chức chính trị - xã hội, đơn vị sự nghiệp công lập;",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Biển số xe nền màu xanh, chữ và số màu trắng.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "article": "36",
+            "clause": "2",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 2 Điều 36 Luật số 36/2024/QH15"
+          }
+        ],
+        "support_quote": "a) Biển số xe nền màu xanh, chữ và số màu trắng cấp cho xe của cơ quan Đảng, Nhà nước, tổ chức chính trị - xã hội, đơn vị sự nghiệp công lập;"
+      }
+    ],
+    "required_citations": [
+      "Điểm a Khoản 2 Điều 36 Luật số 36/2024/QH15"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
+          "record_id": "LUAT_TTATGT_2024_D36_TITLE_0_ae5155",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "36",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 9,
+            "page_end": 9
+          }
+        },
+        {
+          "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3",
+          "record_id": "LUAT_TTATGT_2024_A36_C1_0_3b8ca3",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "36",
+            "clause": "1",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 9,
+            "page_end": 9
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15_tiep_0028",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/36-2024-qh15_tiep.json",
+      "index": 28
+    },
+    "question": "Loại xe nào được cấp biển số xe nền màu vàng, chữ và số màu đen?",
+    "gold_answer": "Cấp cho xe hoạt động kinh doanh vận tải.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự ATGT 2024 (Tiếp)",
+        "article": "36",
+        "clause": "2",
+        "point": "c",
+        "section": "",
+        "raw": "Điểm c Khoản 2 Điều 36 Luật số 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": [
+      "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
+      "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3"
+    ],
+    "acceptable_chunks": [
+      "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3"
+    ],
+    "reference_quote": "c) Biển số xe nền màu vàng, chữ và số màu đen cấp cho xe hoạt động kinh doanh vận tải;",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Cấp cho xe hoạt động kinh doanh vận tải.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "article": "36",
+            "clause": "2",
+            "point": "c",
+            "section": "",
+            "raw": "Điểm c Khoản 2 Điều 36 Luật số 36/2024/QH15"
+          }
+        ],
+        "support_quote": "c) Biển số xe nền màu vàng, chữ và số màu đen cấp cho xe hoạt động kinh doanh vận tải;"
+      }
+    ],
+    "required_citations": [
+      "Điểm c Khoản 2 Điều 36 Luật số 36/2024/QH15"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
+          "record_id": "LUAT_TTATGT_2024_D36_TITLE_0_ae5155",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "36",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 9,
+            "page_end": 9
+          }
+        },
+        {
+          "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3",
+          "record_id": "LUAT_TTATGT_2024_A36_C1_0_3b8ca3",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "36",
+            "clause": "1",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 9,
+            "page_end": 9
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "36-2024-qh15_tiep_0029",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/36-2024-qh15_tiep.json",
+      "index": 29
+    },
+    "question": "Chủ xe được giữ lại số biển số định danh trong thời hạn bao lâu khi chuyển quyền sở hữu xe?",
+    "gold_answer": "Chủ xe được giữ lại số biển số xe trong thời hạn 05 năm để đăng ký cho xe khác thuộc sở hữu của mình.",
+    "query_type": "PROCEDURE",
+    "expected_refs": [
+      {
+        "doc": "Luật Trật tự ATGT 2024 (Tiếp)",
+        "article": "36",
+        "clause": "3",
+        "point": "b",
+        "section": "",
+        "raw": "Điểm b Khoản 3 Điều 36 Luật số 36/2024/QH15"
+      }
+    ],
+    "expected_chunks": [
+      "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
+      "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3"
+    ],
+    "acceptable_chunks": [
+      "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3"
+    ],
+    "reference_quote": "b) Trường hợp xe hết niên hạn sử dụng, hư hỏng không sử dụng được hoặc chuyển quyền sở hữu xe, chủ xe được giữ lại số biển số xe trong thời hạn 05 năm để đăng ký cho xe khác thuộc sở hữu của mình...",
+    "expected_numbers": [
+      {
+        "value": "05",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Chủ xe được giữ lại số biển số xe trong thời hạn 05 năm để đăng ký cho xe khác thuộc sở hữu của mình.",
+        "support_refs": [
+          {
+            "doc": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "article": "36",
+            "clause": "3",
+            "point": "b",
+            "section": "",
+            "raw": "Điểm b Khoản 3 Điều 36 Luật số 36/2024/QH15"
+          }
+        ],
+        "support_quote": "b) Trường hợp xe hết niên hạn sử dụng, hư hỏng không sử dụng được hoặc chuyển quyền sở hữu xe, chủ xe được giữ lại số biển số xe trong thời hạn 05 năm để đăng ký cho xe khác thuộc sở hữu của mình..."
+      }
+    ],
+    "required_citations": [
+      "Điểm b Khoản 3 Điều 36 Luật số 36/2024/QH15"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_36_0_0_ae5155",
+          "record_id": "LUAT_TTATGT_2024_D36_TITLE_0_ae5155",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "36",
+            "clause": "",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 9,
+            "page_end": 9
+          }
+        },
+        {
+          "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_36_1_0_3b8ca3",
+          "record_id": "LUAT_TTATGT_2024_A36_C1_0_3b8ca3",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "III",
+            "section": null,
+            "article": "36",
+            "clause": "1",
+            "point": "",
+            "appendix": null,
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 9,
+            "page_end": 9
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0000",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 0
+    },
+    "question": "Tốc độ suất tích lũy 85% (V85) là gì?",
+    "gold_answer": "Tốc độ suất tích lũy 85% (V85) là tốc độ vận hành mà ở đó 85% các lái xe vận hành xe chạy từ tốc độ này trở xuống.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "3.20",
+        "clause": "",
+        "point": "",
+        "section": "3.20",
+        "raw": "Mục 3.20"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "3.20. Tốc độ suất tích lũy 85% (V85) là tốc độ vận hành mà ở đó 85% các lái xe vận hành xe chạy từ tốc độ này trở xuống.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Tốc độ suất tích lũy 85% (V85) là tốc độ vận hành mà ở đó 85% các lái xe vận hành xe chạy từ tốc độ này trở xuống.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "3.20",
+            "clause": "",
+            "point": "",
+            "section": "3.20",
+            "raw": "Mục 3.20"
+          }
+        ],
+        "support_quote": "3.20. Tốc độ suất tích lũy 85% (V85) là tốc độ vận hành mà ở đó 85% các lái xe vận hành xe chạy từ tốc độ này trở xuống."
+      }
+    ],
+    "required_citations": [
+      "Mục 3.20"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0001",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 1
+    },
+    "question": "Tầm nhìn được đo như thế nào?",
+    "gold_answer": "Tầm nhìn là khoảng cách đo dọc theo mặt đường tính từ mũi xe của một chiếc xe đang chạy đến một vật thể ở phía trước.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "3.21",
+        "clause": "",
+        "point": "",
+        "section": "3.21",
+        "raw": "Mục 3.21"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "3.21. Tầm nhìn là khoảng cách đo dọc theo mặt đường tính từ mũi xe của một chiếc xe đang chạy đến một vật thể ở phía trước.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Tầm nhìn là khoảng cách đo dọc theo mặt đường tính từ mũi xe của một chiếc xe đang chạy đến một vật thể ở phía trước.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "3.21",
+            "clause": "",
+            "point": "",
+            "section": "3.21",
+            "raw": "Mục 3.21"
+          }
+        ],
+        "support_quote": "3.21. Tầm nhìn là khoảng cách đo dọc theo mặt đường tính từ mũi xe của một chiếc xe đang chạy đến một vật thể ở phía trước."
+      }
+    ],
+    "required_citations": [
+      "Mục 3.21"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0002",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 2
+    },
+    "question": "Tầm nhìn dừng xe an toàn là gì?",
+    "gold_answer": "Là khoảng cách đo dọc theo đường tính từ mũi xe để một chiếc xe đang chạy có thể dừng lại an toàn trước một vật thể tĩnh bất ngờ xuất hiện trên cùng một làn đường ở phía trước.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "3.22",
+        "clause": "",
+        "point": "",
+        "section": "3.22",
+        "raw": "Mục 3.22"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "3.22. Tầm nhìn dừng xe an toàn là khoảng cách đo dọc theo đường tính từ mũi xe để một chiếc xe đang chạy có thể dừng lại an toàn trước một vật thể tĩnh bất ngờ xuất hiện trên cùng một làn đường ở phía trước.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Là khoảng cách đo dọc theo đường tính từ mũi xe để một chiếc xe đang chạy có thể dừng lại an toàn trước một vật thể tĩnh bất ngờ xuất hiện trên cùng một làn đường ở phía trước.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "3.22",
+            "clause": "",
+            "point": "",
+            "section": "3.22",
+            "raw": "Mục 3.22"
+          }
+        ],
+        "support_quote": "3.22. Tầm nhìn dừng xe an toàn là khoảng cách đo dọc theo đường tính từ mũi xe để một chiếc xe đang chạy có thể dừng lại an toàn trước một vật thể tĩnh bất ngờ xuất hiện trên cùng một làn đường ở phía trước."
+      }
+    ],
+    "required_citations": [
+      "Mục 3.22"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0003",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 3
+    },
+    "question": "Tầm nhìn vượt xe an toàn được tính từ đâu?",
+    "gold_answer": "Tầm nhìn vượt xe an toàn là khoảng cách đo dọc theo mặt đường tính từ mũi xe của chiếc xe đang chạy.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "3.23",
+        "clause": "",
+        "point": "",
+        "section": "3.23",
+        "raw": "Mục 3.23"
+      }
+    ],
+    "expected_chunks": [
+      "tech_qcvn_41:2024_(thông_tư_51/2024)_3_23_5857b9"
+    ],
+    "acceptable_chunks": [],
+    "reference_quote": "3.23. Tầm nhìn vượt xe an toàn là khoảng cách đo dọc theo mặt đường tính từ mũi xe",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Tầm nhìn vượt xe an toàn là khoảng cách đo dọc theo mặt đường tính từ mũi xe của chiếc xe đang chạy.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "3.23",
+            "clause": "",
+            "point": "",
+            "section": "3.23",
+            "raw": "Mục 3.23"
+          }
+        ],
+        "support_quote": "3.23. Tầm nhìn vượt xe an toàn là khoảng cách đo dọc theo mặt đường tính từ mũi xe"
+      }
+    ],
+    "required_citations": [
+      "Mục 3.23"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": [
+        {
+          "source_chunk_id": "tech_qcvn_41:2024_(thông_tư_51/2024)_3_23_5857b9",
+          "record_id": "DEF_3_24_3_5857b9",
+          "score": 2.0,
+          "match_reason": "article",
+          "legal_reference": {
+            "document": "QCVN 41:2024 (Thông tư 51/2024)",
+            "document_id": null,
+            "document_type": null,
+            "document_number": null,
+            "issue_date": null,
+            "effective_date": null,
+            "part": null,
+            "chapter": "",
+            "section": "3.24",
+            "article": "3.23",
+            "clause": "",
+            "point": "",
+            "appendix": "",
+            "item": null,
+            "table": null,
+            "figure": null,
+            "page_start": 4,
+            "page_end": 6
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0004",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 4
+    },
+    "question": "Hệ số kích thước biển báo cấm trên đường cao tốc là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 2.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường cao tốc | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 2",
+    "expected_numbers": [
+      {
+        "value": "2",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 2.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường cao tốc | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 2"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0005",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 5
+    },
+    "question": "Hệ số kích thước biển báo nguy hiểm trên đường đôi ngoài đô thị là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 1,8.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường đôi ngoài đô thị | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 1,8",
+    "expected_numbers": [
+      {
+        "value": "1.8",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 1,8.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường đôi ngoài đô thị | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 1,8"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0006",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 6
+    },
+    "question": "Hệ số kích thước biển hiệu lệnh trên đường ô tô thông thường là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 1,25.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường ô tô thông thường(*) | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 1,25",
+    "expected_numbers": [
+      {
+        "value": "1.25",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 1,25.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường ô tô thông thường(*) | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 1,25"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0007",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 7
+    },
+    "question": "Hệ số kích thước biển báo cấm trên đường đô thị là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 1.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường đô thị(***) | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 1",
+    "expected_numbers": [
+      {
+        "value": "1",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 1.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường đô thị(***) | Biển báo cấm, biển hiệu lệnh, biển báo nguy hiểm và cảnh báo: 1"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0008",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 8
+    },
+    "question": "Hệ số kích thước biển chỉ dẫn trên đường cao tốc là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 2,0.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường cao tốc | Biển chỉ dẫn (**): 2,0",
+    "expected_numbers": [
+      {
+        "value": "2.0",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 2,0.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường cao tốc | Biển chỉ dẫn (**): 2,0"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0009",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 9
+    },
+    "question": "Hệ số kích thước biển chỉ dẫn trên đường đôi ngoài đô thị là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 1,5.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường đôi ngoài đô thị | Biển chỉ dẫn (**): 1,5",
+    "expected_numbers": [
+      {
+        "value": "1.5",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 1,5.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường đôi ngoài đô thị | Biển chỉ dẫn (**): 1,5"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0010",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 10
+    },
+    "question": "Hệ số kích thước biển chỉ dẫn trên đường ô tô thông thường là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 1.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường ô tô thông thường(*) | Biển chỉ dẫn (**): 1",
+    "expected_numbers": [
+      {
+        "value": "1",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 1.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường ô tô thông thường(*) | Biển chỉ dẫn (**): 1"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0011",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 11
+    },
+    "question": "Hệ số kích thước biển chỉ dẫn trên đường đô thị là bao nhiêu?",
+    "gold_answer": "Hệ số kích thước là 1.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 2"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Loại đường: Đường đô thị(***) | Biển chỉ dẫn (**): 1",
+    "expected_numbers": [
+      {
+        "value": "1",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Hệ số kích thước là 1.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 2"
+          }
+        ],
+        "support_quote": "Loại đường: Đường đô thị(***) | Biển chỉ dẫn (**): 1"
+      }
+    ],
+    "required_citations": [
+      "Bảng 2"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0013",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 13
+    },
+    "question": "Theo bảng quy định, chiều cao chữ tiếng Việt tối thiểu trên biển chỉ dẫn loại B (60-80 km/h) là bao nhiêu?",
+    "gold_answer": "Chiều cao chữ tiếng Việt tối thiểu là 30,0 cm.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 4"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ thiết kế, km/h: 60; 80 | Chiều cao chữ tiếng Việt, cm: 30,0",
+    "expected_numbers": [
+      {
+        "value": "30.0",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "60",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "80",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Chiều cao chữ tiếng Việt tối thiểu là 30,0 cm.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 4"
+          }
+        ],
+        "support_quote": "Tốc độ thiết kế, km/h: 60; 80 | Chiều cao chữ tiếng Việt, cm: 30,0"
+      }
+    ],
+    "required_citations": [
+      "Bảng 4"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0014",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 14
+    },
+    "question": "Chiều cao chữ tiếng Anh tối thiểu trên biển chỉ dẫn loại B (60-80 km/h) là bao nhiêu?",
+    "gold_answer": "Chiều cao chữ tiếng Anh tối thiểu là 20,0 cm.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng 4"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ thiết kế, km/h: 60; 80 | Chiều cao chữ tiếng Anh, cm: 20,0",
+    "expected_numbers": [
+      {
+        "value": "20.0",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "60",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "80",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Chiều cao chữ tiếng Anh tối thiểu là 20,0 cm.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng 4"
+          }
+        ],
+        "support_quote": "Tốc độ thiết kế, km/h: 60; 80 | Chiều cao chữ tiếng Anh, cm: 20,0"
+      }
+    ],
+    "required_citations": [
+      "Bảng 4"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0025",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 25
+    },
+    "question": "Biển số P.111b và P.111c báo hiệu đường cấm phương tiện nào?",
+    "gold_answer": "Cấm xe ba bánh loại có động cơ như xe lam, xe xích lô máy, xe lôi máy, v.v...",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.11"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "b) Để báo đường cấm xe ba bánh loại có động cơ như xe lam, xe xích lô máy, xe lôi máy, v.v... đặt biển số P.111b hoặc P.111c \"Cấm xe ba bánh loại có động cơ\".",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Cấm xe ba bánh loại có động cơ như xe lam, xe xích lô máy, xe lôi máy, v.v...",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.11"
+          }
+        ],
+        "support_quote": "b) Để báo đường cấm xe ba bánh loại có động cơ như xe lam, xe xích lô máy, xe lôi máy, v.v... đặt biển số P.111b hoặc P.111c \"Cấm xe ba bánh loại có động cơ\"."
+      }
+    ],
+    "required_citations": [
+      "Mục B.11"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0030",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 30
+    },
+    "question": "Biển số P.117 cấm phương tiện có đặc điểm gì đi qua?",
+    "gold_answer": "Cấm các xe (cơ giới và thô sơ) có chiều cao vượt quá trị số ghi trên biển đi qua (chiều cao tính từ mặt đường, mặt cầu đến điểm cao nhất của xe hoặc hàng).",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.17"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "b) Biển số P.117 có hiệu lực cấm các xe (cơ giới và thô sơ) có chiều cao vượt quá trị số ghi trên biển đi qua",
+    "expected_numbers": [
+      {
+        "value": "117",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Cấm các xe (cơ giới và thô sơ) có chiều cao vượt quá trị số ghi trên biển đi qua (chiều cao tính từ mặt đường, mặt cầu đến điểm cao nhất của xe hoặc hàng).",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.17"
+          }
+        ],
+        "support_quote": "b) Biển số P.117 có hiệu lực cấm các xe (cơ giới và thô sơ) có chiều cao vượt quá trị số ghi trên biển đi qua"
+      }
+    ],
+    "required_citations": [
+      "Mục B.17"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0031",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 31
+    },
+    "question": "Trị số chiều cao ghi trên biển P.117 được tính toán như thế nào?",
+    "gold_answer": "Là khoảng cách từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật trừ đi 0,5 m. Làm tròn số đến 0,1 m theo hướng điều chỉnh tăng.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.17"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "c) Trị số ghi trên biển là khoảng cách từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật vượt trên đường (chiều cao tĩnh không) trừ đi 0,5 m. Cho phép làm tròn số đến 0,1 m theo hướng điều chỉnh tăng",
+    "expected_numbers": [
+      {
+        "value": "0.5",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "0.1",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là khoảng cách từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật trừ đi 0,5 m. Làm tròn số đến 0,1 m theo hướng điều chỉnh tăng.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.17"
+          }
+        ],
+        "support_quote": "c) Trị số ghi trên biển là khoảng cách từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật vượt trên đường (chiều cao tĩnh không) trừ đi 0,5 m. Cho phép làm tròn số đến 0,1 m theo hướng điều chỉnh tăng"
+      }
+    ],
+    "required_citations": [
+      "Mục B.17"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0032",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 32
+    },
+    "question": "Chiều cao tính toán cho biển P.117 được đo từ đâu?",
+    "gold_answer": "Được đo từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật vượt trên đường.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.17"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "khoảng cách từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật vượt trên đường (chiều cao tĩnh không)",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Được đo từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật vượt trên đường.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.17"
+          }
+        ],
+        "support_quote": "khoảng cách từ điểm cao nhất của mặt đường đến điểm thấp nhất của chướng ngại vật vượt trên đường (chiều cao tĩnh không)"
+      }
+    ],
+    "required_citations": [
+      "Mục B.17"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0033",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 33
+    },
+    "question": "Biển số P.117 có cấm các xe được ưu tiên theo quy định không?",
+    "gold_answer": "Có, cấm cả các xe được ưu tiên theo quy định.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.17"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "cấm các xe (cơ giới và thô sơ) có chiều cao vượt quá trị số ghi trên biển đi qua, kể cả các xe được ưu tiên theo quy định",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Có, cấm cả các xe được ưu tiên theo quy định.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.17"
+          }
+        ],
+        "support_quote": "cấm các xe (cơ giới và thô sơ) có chiều cao vượt quá trị số ghi trên biển đi qua, kể cả các xe được ưu tiên theo quy định"
+      }
+    ],
+    "required_citations": [
+      "Mục B.17"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0034",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 34
+    },
+    "question": "Biển số P.120 báo đường cấm loại phương tiện nào?",
+    "gold_answer": "Cấm các loại xe cơ giới kéo theo moóc kể cả ô tô sơ-mi-rơ-moóc và các xe ưu tiên kéo moóc có độ dài toàn bộ lớn hơn trị số ghi trên biển đi qua.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.20"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "a) Để báo đường cấm các loại xe cơ giới kéo theo moóc kể cả ô tô sơ-mi-rơ-moóc và các loại xe được ưu tiên kéo moóc theo quy định, có độ dài toàn bộ kể cả xe, moóc và hàng lớn hơn trị số ghi trên biển đi qua",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Cấm các loại xe cơ giới kéo theo moóc kể cả ô tô sơ-mi-rơ-moóc và các xe ưu tiên kéo moóc có độ dài toàn bộ lớn hơn trị số ghi trên biển đi qua.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.20"
+          }
+        ],
+        "support_quote": "a) Để báo đường cấm các loại xe cơ giới kéo theo moóc kể cả ô tô sơ-mi-rơ-moóc và các loại xe được ưu tiên kéo moóc theo quy định, có độ dài toàn bộ kể cả xe, moóc và hàng lớn hơn trị số ghi trên biển đi qua"
+      }
+    ],
+    "required_citations": [
+      "Mục B.20"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0035",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 35
+    },
+    "question": "Trị số độ dài toàn bộ ghi trên biển P.120 bao gồm những thành phần nào?",
+    "gold_answer": "Độ dài toàn bộ kể cả xe, moóc và hàng.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.20"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "độ dài toàn bộ kể cả xe, moóc và hàng",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Độ dài toàn bộ kể cả xe, moóc và hàng.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.20"
+          }
+        ],
+        "support_quote": "độ dài toàn bộ kể cả xe, moóc và hàng"
+      }
+    ],
+    "required_citations": [
+      "Mục B.20"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0036",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 36
+    },
+    "question": "Đơn vị tính của trị số trên biển P.120 là gì?",
+    "gold_answer": "Đơn vị tính bằng mét (m).",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.20"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "b) Trị số ghi trên biển là chỉ độ dài cho phép lớn nhất tính bằng mét đối với toàn bộ chiều dài đoàn xe kể cả hàng.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Đơn vị tính bằng mét (m).",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.20"
+          }
+        ],
+        "support_quote": "b) Trị số ghi trên biển là chỉ độ dài cho phép lớn nhất tính bằng mét đối với toàn bộ chiều dài đoàn xe kể cả hàng."
+      }
+    ],
+    "required_citations": [
+      "Mục B.20"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0037",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 37
+    },
+    "question": "Biển số P.124a cấm hành vi giao thông nào?",
+    "gold_answer": "Cấm các loại xe quay đầu (theo kiểu chữ U).",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.24"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "a) Để báo cấm các loại xe quay đầu (theo kiểu chữ U), đặt biển số P.124a \"Cấm quay đầu xe\".",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Cấm các loại xe quay đầu (theo kiểu chữ U).",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.24"
+          }
+        ],
+        "support_quote": "a) Để báo cấm các loại xe quay đầu (theo kiểu chữ U), đặt biển số P.124a \"Cấm quay đầu xe\"."
+      }
+    ],
+    "required_citations": [
+      "Mục B.24"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0038",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 38
+    },
+    "question": "Để cấm riêng xe ô tô quay đầu, người ta sử dụng biển báo nào?",
+    "gold_answer": "Đặt biển số P.124b \"Cấm ô tô quay đầu xe\".",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.24"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "b) Để báo cấm xe ô tô quay đầu (theo kiểu chữ U), đặt biển số P.124b \"Cấm ô tô quay đầu xe\".",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Đặt biển số P.124b \"Cấm ô tô quay đầu xe\".",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.24"
+          }
+        ],
+        "support_quote": "b) Để báo cấm xe ô tô quay đầu (theo kiểu chữ U), đặt biển số P.124b \"Cấm ô tô quay đầu xe\"."
+      }
+    ],
+    "required_citations": [
+      "Mục B.24"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0043",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 43
+    },
+    "question": "Biển số P.127 có ý nghĩa gì đối với các loại xe cơ giới?",
+    "gold_answer": "Cấm các loại xe cơ giới chạy với tốc độ tối đa vượt quá trị số ghi trên biển.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.27"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "b) Biển có hiệu lực cấm các loại xe cơ giới chạy với tốc độ tối đa vượt quá trị số ghi trên biển",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Cấm các loại xe cơ giới chạy với tốc độ tối đa vượt quá trị số ghi trên biển.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.27"
+          }
+        ],
+        "support_quote": "b) Biển có hiệu lực cấm các loại xe cơ giới chạy với tốc độ tối đa vượt quá trị số ghi trên biển"
+      }
+    ],
+    "required_citations": [
+      "Mục B.27"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0046",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 46
+    },
+    "question": "Trường hợp đường qua công trường đang thi công, để giới hạn tốc độ thì sử dụng biển báo nào?",
+    "gold_answer": "Sử dụng biển hạn chế tốc độ tối đa cho phép tạm thời.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.27"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "h) Trường hợp đường qua công trường đang thi công... trường hợp cần thiết thì sử dụng biển hạn chế tốc độ tối đa cho phép tạm thời.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Sử dụng biển hạn chế tốc độ tối đa cho phép tạm thời.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.27"
+          }
+        ],
+        "support_quote": "h) Trường hợp đường qua công trường đang thi công... trường hợp cần thiết thì sử dụng biển hạn chế tốc độ tối đa cho phép tạm thời."
+      }
+    ],
+    "required_citations": [
+      "Mục B.27"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0048",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 48
+    },
+    "question": "Biển số R.306 báo hiệu điều gì cho các xe cơ giới?",
+    "gold_answer": "Báo tốc độ tối thiểu cho phép các xe cơ giới chạy.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.30"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "a) Để báo tốc độ tối thiểu cho phép các xe cơ giới chạy, đặt biển số R.306 \"Tốc độ tối thiểu cho phép\".",
+    "expected_numbers": [
+      {
+        "value": "306",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Báo tốc độ tối thiểu cho phép các xe cơ giới chạy.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.30"
+          }
+        ],
+        "support_quote": "a) Để báo tốc độ tối thiểu cho phép các xe cơ giới chạy, đặt biển số R.306 \"Tốc độ tối thiểu cho phép\"."
+      }
+    ],
+    "required_citations": [
+      "Mục B.30"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0049",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 49
+    },
+    "question": "Biển số R.306 có hiệu lực bắt buộc trong điều kiện giao thông như thế nào?",
+    "gold_answer": "Bắt buộc trong điều kiện giao thông thuận lợi và an toàn.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.30"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "b) Biển có hiệu lực bắt buộc các loại xe cơ giới vận hành với tốc độ không nhỏ hơn trị số ghi trên biển trong điều kiện giao thông thuận lợi và an toàn.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Bắt buộc trong điều kiện giao thông thuận lợi và an toàn.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.30"
+          }
+        ],
+        "support_quote": "b) Biển có hiệu lực bắt buộc các loại xe cơ giới vận hành với tốc độ không nhỏ hơn trị số ghi trên biển trong điều kiện giao thông thuận lợi và an toàn."
+      }
+    ],
+    "required_citations": [
+      "Mục B.30"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0050",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 50
+    },
+    "question": "Các xe có tốc độ tối đa của nhà sản xuất nhỏ hơn trị số trên biển R.306 có được đi vào đường đó không?",
+    "gold_answer": "Không được phép đi vào đường này.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.30"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Các loại xe có tốc độ tối đa theo quy định của nhà sản xuất không đạt tốc độ tối thiểu đã ghi trên biển không được phép đi vào đường này.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Không được phép đi vào đường này.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.30"
+          }
+        ],
+        "support_quote": "Các loại xe có tốc độ tối đa theo quy định của nhà sản xuất không đạt tốc độ tối thiểu đã ghi trên biển không được phép đi vào đường này."
+      }
+    ],
+    "required_citations": [
+      "Mục B.30"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0051",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 51
+    },
+    "question": "Trị số ghi trên biển R.306 có được phép lớn hơn trị số tốc độ an toàn không?",
+    "gold_answer": "Không được quy định trị số lớn hơn trị số tốc độ an toàn.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Mục B.30"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "c) Trị số ghi trên biển chỉ tốc độ tối thiểu cho phép... không được quy định trị số lớn hơn trị số tốc độ an toàn.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Không được quy định trị số lớn hơn trị số tốc độ an toàn.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Mục B.30"
+          }
+        ],
+        "support_quote": "c) Trị số ghi trên biển chỉ tốc độ tối thiểu cho phép... không được quy định trị số lớn hơn trị số tốc độ an toàn."
+      }
+    ],
+    "required_citations": [
+      "Mục B.30"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0052",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 52
+    },
+    "question": "Đoạn đường nằm ngoài đô thị phải có chiều dài bao nhiêu trở lên mới được xác định là khu đông dân cư?",
+    "gold_answer": "Có chiều dài từ 500 m trở lên.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Phụ lục C"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Đối với đoạn đường nằm ngoài đô thị: Đoạn đường được xác định là qua khu đông dân cư khi có chiều dài từ 500 m trở lên",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Có chiều dài từ 500 m trở lên.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Phụ lục C"
+          }
+        ],
+        "support_quote": "Đối với đoạn đường nằm ngoài đô thị: Đoạn đường được xác định là qua khu đông dân cư khi có chiều dài từ 500 m trở lên"
+      }
+    ],
+    "required_citations": [
+      "Phụ lục C"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0061",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 61
+    },
+    "question": "Theo Bảng G.1, tầm nhìn vượt xe tối thiểu dùng để xác định vùng cấm vượt đối với tốc độ 30 km/h là bao nhiêu?",
+    "gold_answer": "Là 120 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 30 -> Tầm nhìn vượt xe tối thiểu (m): 120",
+    "expected_numbers": [
+      {
+        "value": "120",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "30",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 120 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 30 -> Tầm nhìn vượt xe tối thiểu (m): 120"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0062",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 62
+    },
+    "question": "Với tốc độ V85 là 40 km/h, chiều dài tầm nhìn vượt xe tối thiểu là bao nhiêu mét?",
+    "gold_answer": "Là 140 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 40 -> Tầm nhìn vượt xe tối thiểu (m): 140",
+    "expected_numbers": [
+      {
+        "value": "140",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "40",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 140 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 40 -> Tầm nhìn vượt xe tối thiểu (m): 140"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0063",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 63
+    },
+    "question": "Tốc độ hạn chế lớn nhất là 50 km/h thì chiều dài tầm nhìn vượt xe tối thiểu được quy định là bao nhiêu?",
+    "gold_answer": "Là 160 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 50 -> Tầm nhìn vượt xe tối thiểu (m): 160",
+    "expected_numbers": [
+      {
+        "value": "160",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "50",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 160 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 50 -> Tầm nhìn vượt xe tối thiểu (m): 160"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0064",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 64
+    },
+    "question": "Tầm nhìn vượt xe tối thiểu để xác định vùng cấm vượt ở tốc độ 60 km/h là bao nhiêu?",
+    "gold_answer": "Là 180 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 60 -> Tầm nhìn vượt xe tối thiểu (m): 180",
+    "expected_numbers": [
+      {
+        "value": "180",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "60",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 180 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 60 -> Tầm nhìn vượt xe tối thiểu (m): 180"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0065",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 65
+    },
+    "question": "Nếu tốc độ xe chạy V85 là 70 km/h, tầm nhìn vượt xe tối thiểu bằng bao nhiêu?",
+    "gold_answer": "Là 210 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 70 -> Tầm nhìn vượt xe tối thiểu (m): 210",
+    "expected_numbers": [
+      {
+        "value": "210",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "70",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 210 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 70 -> Tầm nhìn vượt xe tối thiểu (m): 210"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0066",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 66
+    },
+    "question": "Theo Bảng G.1, tầm nhìn vượt xe tối thiểu tương ứng với tốc độ 80 km/h là bao nhiêu mét?",
+    "gold_answer": "Là 245 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 80 -> Tầm nhìn vượt xe tối thiểu (m): 245",
+    "expected_numbers": [
+      {
+        "value": "245",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "80",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 245 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 80 -> Tầm nhìn vượt xe tối thiểu (m): 245"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0067",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 67
+    },
+    "question": "Tầm nhìn vượt xe tối thiểu dùng để xác định vùng cấm vượt ở tốc độ 90 km/h là bao nhiêu?",
+    "gold_answer": "Là 280 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 90 -> Tầm nhìn vượt xe tối thiểu (m): 280",
+    "expected_numbers": [
+      {
+        "value": "280",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "90",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 280 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 90 -> Tầm nhìn vượt xe tối thiểu (m): 280"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0068",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 68
+    },
+    "question": "Đối với tốc độ hạn chế 100 km/h, tầm nhìn vượt xe tối thiểu là bao nhiêu?",
+    "gold_answer": "Là 320 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 100 -> Tầm nhìn vượt xe tối thiểu (m): 320",
+    "expected_numbers": [
+      {
+        "value": "320",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "100",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 320 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 100 -> Tầm nhìn vượt xe tối thiểu (m): 320"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0069",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 69
+    },
+    "question": "Ở tốc độ 110 km/h, chiều dài tầm nhìn vượt xe tối thiểu là bao nhiêu mét?",
+    "gold_answer": "Là 355 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 110 -> Tầm nhìn vượt xe tối thiểu (m): 355",
+    "expected_numbers": [
+      {
+        "value": "355",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "110",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 355 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 110 -> Tầm nhìn vượt xe tối thiểu (m): 355"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0070",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 70
+    },
+    "question": "Với tốc độ thiết kế hoặc tốc độ V85 bằng 120 km/h, tầm nhìn vượt xe tối thiểu là bao nhiêu?",
+    "gold_answer": "Là 395 m.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 120 -> Tầm nhìn vượt xe tối thiểu (m): 395",
+    "expected_numbers": [
+      {
+        "value": "395",
+        "unit": "",
+        "type": "number"
+      },
+      {
+        "value": "120",
+        "unit": "",
+        "type": "number"
+      }
+    ],
+    "required_claims": [
+      {
+        "claim": "Là 395 m.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "Tốc độ hạn chế lớn nhất hoặc tốc độ V85 (km/h): 120 -> Tầm nhìn vượt xe tối thiểu (m): 395"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0071",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 71
+    },
+    "question": "Điểm kết thúc vùng cấm vượt được xác định dựa trên yếu tố nào?",
+    "gold_answer": "Là điểm mà tầm nhìn thực tế bắt đầu lớn hơn chiều dài tầm nhìn vượt xe tối thiểu tương ứng tốc độ xe chạy V85 hoặc tốc độ thiết kế.",
+    "query_type": "TABLE_LOOKUP",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Bảng G.1"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "+ Điểm kết thúc vùng cấm vượt... là điểm mà tầm nhìn thực tế bắt đầu lớn hơn chiều dài tầm nhìn vượt xe tối thiểu tương ứng tốc độ xe chạy V85 hoặc tốc độ thiết kế",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Là điểm mà tầm nhìn thực tế bắt đầu lớn hơn chiều dài tầm nhìn vượt xe tối thiểu tương ứng tốc độ xe chạy V85 hoặc tốc độ thiết kế.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Bảng G.1"
+          }
+        ],
+        "support_quote": "+ Điểm kết thúc vùng cấm vượt... là điểm mà tầm nhìn thực tế bắt đầu lớn hơn chiều dài tầm nhìn vượt xe tối thiểu tương ứng tốc độ xe chạy V85 hoặc tốc độ thiết kế"
+      }
+    ],
+    "required_citations": [
+      "Bảng G.1"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0095",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 95
+    },
+    "question": "Để mô tả tình trạng nền đường yếu, hệ thống biển báo sử dụng các biển số nào?",
+    "gold_answer": "Biển số I.445c, I.445d, I.445e.",
+    "query_type": "SIGN_MEANING",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Phụ lục M"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "NỀN ĐƯỜNG YẾU\nBiển số I.445c: Biển báo mô tả tình trạng đường\nBiển số I.445d: Biển báo mô tả tình trạng đường\nBiển số I.445e: Biển báo mô tả tình trạng đường",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Biển số I.445c, I.445d, I.445e.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Phụ lục M"
+          }
+        ],
+        "support_quote": "NỀN ĐƯỜNG YẾU\nBiển số I.445c: Biển báo mô tả tình trạng đường\nBiển số I.445d: Biển báo mô tả tình trạng đường\nBiển số I.445e: Biển báo mô tả tình trạng đường"
+      }
+    ],
+    "required_citations": [
+      "Phụ lục M"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0097",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 97
+    },
+    "question": "Biển chỉ dẫn kết thúc đường cao tốc có mã số là gì?",
+    "gold_answer": "Biển số IE.453a.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Phụ lục P"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "P.4 Biển chỉ dẫn kết thúc đường cao tốc\na) Biển số IE.453a:",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Biển số IE.453a.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Phụ lục P"
+          }
+        ],
+        "support_quote": "P.4 Biển chỉ dẫn kết thúc đường cao tốc\na) Biển số IE.453a:"
+      }
+    ],
+    "required_citations": [
+      "Phụ lục P"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  },
+  {
+    "id": "51-bgtvt-kem_0099",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/51-bgtvt-kem.json",
+      "index": 99
+    },
+    "question": "Dấu (+) và dấu (-) trên toán đồ xác định tốc độ hạn chế (Hình B.27a) tượng trưng cho loại độ dốc nào?",
+    "gold_answer": "Dấu \"+\" chỉ đường lên dốc, dấu \"-\" chỉ đường xuống dốc.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+        "article": "",
+        "clause": "",
+        "point": "",
+        "section": "",
+        "raw": "Hình B.27a"
+      }
+    ],
+    "expected_chunks": [],
+    "acceptable_chunks": [],
+    "reference_quote": "Độ dốc dọc đường (dấu \"+\" lên dốc, dấu \"-\" xuống dốc)",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Dấu \"+\" chỉ đường lên dốc, dấu \"-\" chỉ đường xuống dốc.",
+        "support_refs": [
+          {
+            "doc": "QCVN 41:2024 (Thông tư 51/2024)",
+            "article": "",
+            "clause": "",
+            "point": "",
+            "section": "",
+            "raw": "Hình B.27a"
+          }
+        ],
+        "support_quote": "Độ dốc dọc đường (dấu \"+\" lên dốc, dấu \"-\" xuống dốc)"
+      }
+    ],
+    "required_citations": [
+      "Hình B.27a"
+    ],
+    "retrieval_expectation": {
+      "top_k": 8,
+      "must_retrieve_any_expected_chunk": false,
+      "must_include_ref": false
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": true,
+      "matches": []
+    }
+  }
+]

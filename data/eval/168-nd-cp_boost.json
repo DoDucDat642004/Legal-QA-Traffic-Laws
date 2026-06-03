@@ -1,0 +1,475 @@
+[
+  {
+    "id": "168-nd-cp-0001",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 0
+    },
+    "question": "Theo Nghị định 168/2024/NĐ-CP, thời hiệu xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ được quy định là bao lâu?",
+    "gold_answer": "Thời hiệu xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ là 01 năm.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "4",
+        "clause": "1",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 1 Điều 4 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghị_định_168/2024/nđ-cp_4_1_0_abcdef"],
+    "acceptable_chunks": ["nghị_định_168/2024/nđ-cp_4_1_0_abcdef"],
+    "reference_quote": "1. Thời hiệu xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ là 01 năm.",
+    "expected_numbers": ["01"],
+    "required_claims": [
+      {
+        "claim": "Thời hiệu xử phạt vi phạm hành chính là 01 năm.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "4",
+            "clause": "1",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 1 Điều 4 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "Thời hiệu xử phạt vi phạm hành chính về trật tự, an toàn giao thông trong lĩnh vực giao thông đường bộ là 01 năm."
+      }
+    ],
+    "required_citations": ["Khoản 1 Điều 4"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_4_1_0_abcdef",
+          "record_id": "Thoi_hieu_xu_phat_001",
+          "score": 4.9,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "article": "4",
+            "clause": "1"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "168-nd-cp-0002",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 0
+    },
+    "question": "Trường hợp tài xế C vi phạm và bị áp dụng hình thức tước quyền sử dụng Giấy phép lái xe (GPLX) với thời hạn 3 tháng. Tuy nhiên, thời hạn sử dụng còn lại của GPLX của anh C chỉ còn 1 tháng là hết hạn. Trong trường hợp này, người có thẩm quyền có ra quyết định tước quyền sử dụng GPLX của anh C không? Trong thời gian bị tước, anh C có được làm thủ tục cấp đổi giấy phép mới không?",
+    "gold_answer": "Theo Nghị định 168/2024/NĐ-CP, người có thẩm quyền vẫn sẽ ra quyết định xử phạt áp dụng hình thức tước quyền sử dụng GPLX đối với anh C dù thời hạn còn lại ít hơn thời hạn bị tước. Trong thời gian bị tước, anh C không được làm thủ tục cấp mới, đổi, cấp lại GPLX (trừ trường hợp ngoại lệ quy định tại khoản 6 Điều 5).",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "5",
+        "clause": "5",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 5 Điều 5 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghị_định_168/2024/nđ-cp_5_5_0_bcdef1"],
+    "acceptable_chunks": ["nghị_định_168/2024/nđ-cp_5_5_0_bcdef1"],
+    "reference_quote": "5. Trường hợp cá nhân, tổ chức vi phạm hành chính bị áp dụng hình thức xử phạt tước quyền sử dụng giấy phép, chứng chỉ hành nghề nhưng thời hạn sử dụng còn lại của giấy phép, chứng chỉ hành nghề đó ít hơn thời hạn bị tước thì người có thẩm quyền vẫn ra quyết định xử phạt có áp dụng hình thức tước quyền sử dụng giấy phép, chứng chỉ hành nghề... Trong thời gian bị tước quyền sử dụng giấy phép, chứng chỉ hành nghề, cá nhân, tổ chức không được làm thủ tục cấp mới, đổi, cấp lại giấy phép, chứng chỉ hành nghề, trừ trường hợp quy định tại khoản 6 Điều này.",
+    "expected_numbers": ["3", "1", "6"],
+    "required_claims": [
+      {
+        "claim": "Vẫn ra quyết định xử phạt tước quyền sử dụng giấy phép lái xe.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "5",
+            "clause": "5",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 5 Điều 5 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "thời hạn sử dụng còn lại của giấy phép... ít hơn thời hạn bị tước thì người có thẩm quyền vẫn ra quyết định xử phạt có áp dụng hình thức tước quyền sử dụng giấy phép"
+      },
+      {
+        "claim": "Không được làm thủ tục cấp mới, đổi, cấp lại giấy phép trong thời gian bị tước (trừ trường hợp khoản 6 Điều 5).",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "5",
+            "clause": "5",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 5 Điều 5 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "Trong thời gian bị tước quyền sử dụng giấy phép... cá nhân, tổ chức không được làm thủ tục cấp mới, đổi, cấp lại giấy phép... trừ trường hợp quy định tại khoản 6 Điều này"
+      }
+    ],
+    "required_citations": ["Khoản 5 Điều 5"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_5_5_0_bcdef1",
+          "record_id": "Tuoc_GPLX_het_han_168",
+          "score": 4.8,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "article": "5",
+            "clause": "5"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "168-nd-cp-0003",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 0
+    },
+    "question": "Tại một ngã tư, anh M lái xe ô tô và đỗ xe cách mép đường giao nhau 04 mét, đồng thời xe của anh đỗ che khuất một biển báo hiệu đường bộ đang đặt tại đó. Hỏi anh M có vi phạm quy định về dừng, đỗ xe không và mức phạt tiền đối với hành vi này là bao nhiêu?",
+    "gold_answer": "Anh M có vi phạm. Việc đỗ xe trong phạm vi 05 mét tính từ mép đường giao nhau và che khuất biển báo hiệu đường bộ là các hành vi vi phạm pháp luật giao thông. Anh M sẽ bị phạt tiền từ 800.000 đồng đến 1.000.000 đồng đối với hành vi này.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "6",
+        "clause": "3",
+        "point": "đ",
+        "section": "",
+        "raw": "Điểm đ Khoản 3 Điều 6 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghị_định_168/2024/nđ-cp_6_3_đ_cdefg2"],
+    "acceptable_chunks": ["nghị_định_168/2024/nđ-cp_6_3_đ_cdefg2"],
+    "reference_quote": "3. Phạt tiền từ 800.000 đồng đến 1.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây: ... đ) Dừng xe, đỗ xe tại vị trí: nơi đường bộ giao nhau hoặc trong phạm vi 05 mét tính từ mép đường giao nhau; ... che khuất biển báo hiệu đường bộ, đèn tín hiệu giao thông;",
+    "expected_numbers": ["04", "05", "800.000", "1.000.000"],
+    "required_claims": [
+      {
+        "claim": "Đỗ xe cách mép đường giao nhau 04 mét (trong phạm vi 05 mét) và che khuất biển báo là hành vi vi phạm.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "3",
+            "point": "đ",
+            "section": "",
+            "raw": "Điểm đ Khoản 3 Điều 6 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "Dừng xe, đỗ xe tại vị trí: nơi đường bộ giao nhau hoặc trong phạm vi 05 mét tính từ mép đường giao nhau; ... che khuất biển báo hiệu đường bộ"
+      },
+      {
+        "claim": "Mức phạt tiền cho hành vi này là từ 800.000 đồng đến 1.000.000 đồng.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "3",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 3 Điều 6 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "Phạt tiền từ 800.000 đồng đến 1.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây"
+      }
+    ],
+    "required_citations": ["Điểm đ Khoản 3 Điều 6"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_6_3_đ_cdefg2",
+          "record_id": "Do_xe_che_khuat_bien_bao",
+          "score": 4.7,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "3",
+            "point": "đ"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "168-nd-cp-0004",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 0
+    },
+    "question": "Một tài xế ô tô thực hiện cùng lúc nhiều hành vi vi phạm. Trong đó có một hành vi quy định hình thức xử phạt bổ sung là tước quyền sử dụng giấy phép lái xe và một hành vi khác quy định bị trừ điểm giấy phép lái xe. Theo Nghị định 168/2024/NĐ-CP, việc xử lý đối với giấy phép lái xe của tài xế này sẽ ưu tiên áp dụng hình thức nào?",
+    "gold_answer": "Trong trường hợp một cá nhân thực hiện nhiều hành vi vi phạm hành chính mà bị xử phạt trong cùng một lần, nếu có hành vi vi phạm bị tước quyền sử dụng giấy phép lái xe và hành vi vi phạm bị trừ điểm giấy phép lái xe thì cơ quan chức năng chỉ áp dụng hình thức tước quyền sử dụng giấy phép lái xe.",
+    "query_type": "INFERENCE",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "5",
+        "clause": "2",
+        "point": "",
+        "section": "",
+        "raw": "Khoản 2 Điều 5 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghị_định_168/2024/nđ-cp_5_2_0_defgh3"],
+    "acceptable_chunks": ["nghị_định_168/2024/nđ-cp_5_2_0_defgh3"],
+    "reference_quote": "Trường hợp một cá nhân thực hiện nhiều hành vi vi phạm hành chính mà bị xử phạt trong cùng một lần thì bị phạt tiền đối với từng hành vi vi phạm, nếu có hành vi vi phạm bị tước quyền sử dụng giấy phép lái xe và hành vi vi phạm bị trừ điểm giấy phép lái xe thì chỉ áp dụng hình thức tước quyền sử dụng giấy phép lái xe.",
+    "expected_numbers": [],
+    "required_claims": [
+      {
+        "claim": "Chỉ áp dụng hình thức tước quyền sử dụng giấy phép lái xe khi có cả hai hành vi tước quyền và trừ điểm.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "5",
+            "clause": "2",
+            "point": "",
+            "section": "",
+            "raw": "Khoản 2 Điều 5 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "nếu có hành vi vi phạm bị tước quyền sử dụng giấy phép lái xe và hành vi vi phạm bị trừ điểm giấy phép lái xe thì chỉ áp dụng hình thức tước quyền sử dụng giấy phép lái xe."
+      }
+    ],
+    "required_citations": ["Khoản 2 Điều 5"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": false,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_5_2_0_defgh3",
+          "record_id": "Uu_tien_tuoc_GPLX_khi_vi_pham_nhieu",
+          "score": 4.6,
+          "match_reason": "article,clause",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "article": "5",
+            "clause": "2"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "168-nd-cp-0005",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 0
+    },
+    "question": "Anh D điều khiển ô tô trên đường, bị Cảnh sát giao thông dừng xe kiểm tra và phát hiện nồng độ cồn là 65 miligam/100 mililít máu. Căn cứ Nghị định 168/2024/NĐ-CP, hành vi này sẽ bị phạt tiền bao nhiêu và bị trừ bao nhiêu điểm giấy phép lái xe?",
+    "gold_answer": "Anh D có nồng độ cồn là 65 miligam/100 mililít máu, thuộc mức vượt quá 50 miligam đến 80 miligam/100 mililít máu. Căn cứ quy định, anh D sẽ bị phạt tiền từ 18.000.000 đồng đến 20.000.000 đồng. Ngoài ra, anh D còn bị áp dụng hình thức trừ điểm giấy phép lái xe là 10 điểm.",
+    "query_type": "SCENARIO",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "6",
+        "clause": "9",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 9 Điều 6 Nghị định 168/2024/NĐ-CP"
+      },
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "6",
+        "clause": "16",
+        "point": "d",
+        "section": "",
+        "raw": "Điểm d Khoản 16 Điều 6 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": [
+      "nghị_định_168/2024/nđ-cp_6_9_a_efghi4",
+      "nghị_định_168/2024/nđ-cp_6_16_d_fghij5"
+    ],
+    "acceptable_chunks": [
+      "nghị_định_168/2024/nđ-cp_6_9_a_efghi4",
+      "nghị_định_168/2024/nđ-cp_6_16_d_fghij5"
+    ],
+    "reference_quote": "9. Phạt tiền từ 18.000.000 đồng đến 20.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây: a) Điều khiển xe trên đường mà trong máu hoặc hơi thở có nồng độ cồn vượt quá 50 miligam đến 80 miligam/100 mililít máu... \n16. Ngoài việc bị áp dụng hình thức xử phạt, người điều khiển xe thực hiện hành vi vi phạm còn bị trừ điểm giấy phép lái xe như sau: ... d) Thực hiện hành vi quy định tại điểm a khoản 9, khoản 10, điểm đ khoản 11 Điều này bị trừ điểm giấy phép lái xe 10 điểm.",
+    "expected_numbers": ["65", "50", "80", "18.000.000", "20.000.000", "10"],
+    "required_claims": [
+      {
+        "claim": "Bị phạt tiền từ 18.000.000 đồng đến 20.000.000 đồng do nồng độ cồn vượt mức 50 - 80 miligam/100 ml.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "9",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 9 Điều 6"
+          }
+        ],
+        "support_quote": "Phạt tiền từ 18.000.000 đồng đến 20.000.000 đồng... Điều khiển xe trên đường mà trong máu hoặc hơi thở có nồng độ cồn vượt quá 50 miligam đến 80 miligam/100 mililít máu"
+      },
+      {
+        "claim": "Bị trừ 10 điểm giấy phép lái xe.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "16",
+            "point": "d",
+            "section": "",
+            "raw": "Điểm d Khoản 16 Điều 6"
+          }
+        ],
+        "support_quote": "Thực hiện hành vi quy định tại điểm a khoản 9... bị trừ điểm giấy phép lái xe 10 điểm"
+      }
+    ],
+    "required_citations": ["Điểm a Khoản 9 Điều 6", "Điểm d Khoản 16 Điều 6"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_6_9_a_efghi4",
+          "record_id": "Phat_nong_do_con_oto",
+          "score": 4.9,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "9",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "168-nd-cp-0006",
+    "source": {
+      "type": "handmade",
+      "file": "data/processed/handmade/168-nd-cp.signed.json",
+      "index": 0
+    },
+    "question": "Người điều khiển xe ô tô không đủ điều kiện để thu phí theo hình thức điện tử tự động không dừng (xe không gắn thẻ đầu cuối) nhưng vẫn cố tình đi vào làn đường dành riêng thu phí tự động không dừng tại các trạm thu phí thì sẽ bị xử phạt hành chính với số tiền là bao nhiêu?",
+    "gold_answer": "Hành vi điều khiển xe không đủ điều kiện (không gắn thẻ đầu cuối) đi vào làn đường dành riêng thu phí theo hình thức điện tử tự động không dừng tại các trạm thu phí sẽ bị phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng.",
+    "query_type": "DEFINITION",
+    "expected_refs": [
+      {
+        "doc": "Nghị định 168/2024/NĐ-CP",
+        "article": "6",
+        "clause": "4",
+        "point": "a",
+        "section": "",
+        "raw": "Điểm a Khoản 4 Điều 6 Nghị định 168/2024/NĐ-CP"
+      }
+    ],
+    "expected_chunks": ["nghị_định_168/2024/nđ-cp_6_4_a_ghijk6"],
+    "acceptable_chunks": ["nghị_định_168/2024/nđ-cp_6_4_a_ghijk6"],
+    "reference_quote": "4. Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng đối với người điều khiển xe thực hiện một trong các hành vi vi phạm sau đây: a) Điều khiển xe không đủ điều kiện để thu phí theo hình thức điện tử tự động không dừng (xe không gắn thẻ đầu cuối) đi vào làn đường dành riêng thu phí theo hình thức điện tử tự động không dừng tại các trạm thu phí;",
+    "expected_numbers": ["2.000.000", "3.000.000"],
+    "required_claims": [
+      {
+        "claim": "Mức phạt tiền là từ 2.000.000 đồng đến 3.000.000 đồng.",
+        "support_refs": [
+          {
+            "doc": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "4",
+            "point": "a",
+            "section": "",
+            "raw": "Điểm a Khoản 4 Điều 6 Nghị định 168/2024/NĐ-CP"
+          }
+        ],
+        "support_quote": "Phạt tiền từ 2.000.000 đồng đến 3.000.000 đồng... Điều khiển xe không đủ điều kiện để thu phí theo hình thức điện tử tự động không dừng (xe không gắn thẻ đầu cuối) đi vào làn đường dành riêng thu phí theo hình thức điện tử tự động không dừng tại các trạm thu phí"
+      }
+    ],
+    "required_citations": ["Điểm a Khoản 4 Điều 6"],
+    "retrieval_expectation": {
+      "top_k": 3,
+      "must_retrieve_any_expected_chunk": true,
+      "must_include_ref": true
+    },
+    "answer_expectation": {
+      "must_be_faithful_to_context": true,
+      "must_include_required_claims": true,
+      "must_include_numbers": true,
+      "must_cite_legal_basis": true
+    },
+    "match_debug": {
+      "review_required": false,
+      "matches": [
+        {
+          "source_chunk_id": "nghị_định_168/2024/nđ-cp_6_4_a_ghijk6",
+          "record_id": "Phat_loi_ETC",
+          "score": 5.0,
+          "match_reason": "article,clause,point",
+          "legal_reference": {
+            "document": "Nghị định 168/2024/NĐ-CP",
+            "article": "6",
+            "clause": "4",
+            "point": "a"
+          }
+        }
+      ]
+    }
+  }
+]
