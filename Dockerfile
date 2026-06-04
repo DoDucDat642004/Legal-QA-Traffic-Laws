@@ -128,26 +128,8 @@ RUN set -eux; \
       done; \
     fi; \
     if [ "$needs_lfs" = "1" ]; then \
-      echo "Required LFS data missing or unresolved; fetching data, graph, and OpenVINO model artifacts from GitHub LFS"; \
-      git lfs install --skip-repo; \
-      tmp_dir="$(mktemp -d)"; \
-      GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 --filter=blob:none --sparse https://github.com/DoDucDat642004/Legal-QA-Traffic-Laws.git "$tmp_dir"; \
-      git -C "$tmp_dir" sparse-checkout set \
-        data/processed \
-        data/graph \
-        data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder \
-        data/models/openvino/BAAI_bge-reranker-v2-m3; \
-      (while sleep 20; do echo "Still downloading required LFS artifacts..."; done) & \
-      progress_pid="$!"; \
-      GIT_LFS_PROGRESS=/dev/stderr git -C "$tmp_dir" lfs pull --include="data/processed/**,data/graph/**,data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**,data/models/openvino/BAAI_bge-reranker-v2-m3/**" --exclude=""; \
-      kill "$progress_pid" 2>/dev/null || true; \
-      wait "$progress_pid" 2>/dev/null || true; \
-      mkdir -p data/processed data/graph; \
-      cp -a "$tmp_dir/data/processed/." data/processed/; \
-      cp -a "$tmp_dir/data/graph/." data/graph/; \
-      mkdir -p data/models/openvino; \
-      cp -a "$tmp_dir/data/models/openvino/." data/models/openvino/; \
-      rm -rf "$tmp_dir"; \
+      echo "Required LFS data missing or unresolved; fetching data, graph, and OpenVINO model artifacts from Hugging Face Dataset"; \
+      huggingface-cli download doducdat642004/legal-qa-traffic-laws-data --repo-type dataset --local-dir . --local-dir-use-symlinks False; \
     fi; \
     for model_file in \
       data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/openvino_model.bin \
