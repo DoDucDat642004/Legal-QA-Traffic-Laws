@@ -103,6 +103,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=user:user . .
 
+ARG HF_DEPLOY_ARTIFACT_REPO=doducdat642004/legal-qa-traffic-laws-data
+ARG HF_DEPLOY_ARTIFACT_REVISION=ec787b36ad73e708a5e9615bd9ebba1c6caec7c4
+
 USER user
 
 RUN set -eux; \
@@ -128,8 +131,16 @@ RUN set -eux; \
       done; \
     fi; \
     if [ "$needs_lfs" = "1" ]; then \
-      echo "Required LFS data missing or unresolved; fetching data, graph, and OpenVINO model artifacts from Hugging Face Dataset"; \
-      huggingface-cli download doducdat642004/legal-qa-traffic-laws-data --repo-type dataset --local-dir . --local-dir-use-symlinks False; \
+      echo "Required deploy artifacts missing or unresolved; fetching Hugging Face Dataset snapshot $HF_DEPLOY_ARTIFACT_REVISION"; \
+      HF_HUB_OFFLINE=0 hf download "$HF_DEPLOY_ARTIFACT_REPO" \
+        --repo-type dataset \
+        --revision "$HF_DEPLOY_ARTIFACT_REVISION" \
+        --local-dir . \
+        --include \
+          "data/processed/**" \
+          "data/graph/**" \
+          "data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**" \
+          "data/models/openvino/BAAI_bge-reranker-v2-m3/**"; \
     fi; \
     for model_file in \
       data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/openvino_model.bin \
