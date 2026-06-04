@@ -31,6 +31,7 @@ from src.rag.legal_utils import (
     format_reference,
     normalize_sign_code,
     public_asset_path,
+    penalty_summary,
     record_image_paths,
     source_text,
 )
@@ -194,6 +195,164 @@ def _sign_image_query(vision: Dict[str, Any], trusted_codes: List[str], user_que
         f"{structure_hint} "
         f"Câu hỏi người dùng: {user_query}"
     )
+
+def _image_query_needs_penalty(query: str) -> bool:
+    qa = ascii_lower(query)
+    return any(term in qa for term in [
+        "phat",
+        "xu phat",
+        "muc phat",
+        "tru diem",
+        "tước",
+        "tuoc",
+        "bi gi",
+        "xu ly",
+        "hau qua",
+    ])
+
+def _dedupe_docs(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    merged: List[Dict[str, Any]] = []
+    seen = set()
+    for doc in docs:
+        key = doc.get("source_chunk_id") or doc.get("id") or json.dumps(doc.get("legal_reference") or {}, sort_keys=True)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(doc)
+    return merged
+
+def _format_vnd_range(min_value: Any, max_value: Any) -> str:
+    def _fmt(value: Any) -> str:
+        if value in (None, ""):
+            return ""
+        try:
+            return f"{int(value):,}".replace(",", ".") + " đồng"
+        except Exception:
+            return str(value)
+
+    min_text = _fmt(min_value)
+    max_text = _fmt(max_value)
+    if min_text and max_text:
+        return f"{min_text} - {max_text}"
+    return min_text or max_text or ""
+
+def _image_sign_fast_answer(
+    *,
+    vision: Dict[str, Any],
+    trusted_codes: List[str],
+    query: str,
+    docs: List[Dict[str, Any]],
+) -> str:
+    sign_docs = [doc for doc in docs if doc.get("rag_modality") == "sign" or (doc.get("figure") or {}).get("code")]
+    sign_docs = _dedupe_docs(sign_docs)
+    if not sign_docs:
+        return ""
+
+    primary_signs = []
+    seen_codes = set()
+    for doc in sign_docs:
+        info = doc.get("figure") or {}
+        code = str(info.get("code") or "").strip()
+        if not code:
+            match = re.search(r"\b(?:P|W|R|I|S|IE)\.?\d{2,3}[a-zđ]?\b", source_text(doc), flags=re.IGNORECASE)
+            code = match.group(0) if match else ""
+        normalized = normalize_sign_code(code) if code else ""
+        if normalized in seen_codes:
+            continue
+        seen_codes.add(normalized)
+        primary_signs.append((code or normalized or "Không rõ mã", info, doc))
+        if len(primary_signs) >= 3:
+            break
+
+    penalty_docs = [doc for doc in docs if penalty_summary(doc).get("fine_min_vnd") or penalty_summary(doc).get("fine_max_vnd") or penalty_summary(doc).get("point_deduction") or penalty_summary(doc).get("license_suspension")]
+    penalty_docs = _dedupe_docs(penalty_docs)
+    query_penalty = _image_query_needs_penalty(query)
+
+    lines = [
+        "## Trả lời ngắn gọn",
+        "",
+        f"Ảnh này nhiều khả năng là {'biển báo giao thông' if vision.get('is_traffic_sign', True) else 'ảnh chưa đủ rõ để xác nhận biển báo'}; hệ thống đã nhận diện được {', '.join(trusted_codes) if trusted_codes else 'một hoặc nhiều mã biển ứng viên'}.",
+        "",
+        "## Nhận diện ảnh",
+        "",
+    ]
+
+    for code, info, doc in primary_signs:
+        lines.extend([
+            f"### {code}",
+            f"- Tên/ý nghĩa: {info.get('name') or 'Chưa xác định rõ trong bản ghi'}",
+            f"- Hình dạng/đặc điểm: {info.get('visual') or 'Chưa có mô tả hình dạng trong bản ghi'}",
+            f"- Nhóm biển: {info.get('group') or 'Chưa xác định'}",
+            f"- Căn cứ: {format_reference(doc)}",
+        ])
+        images = [public_asset_path(path) for path in record_image_paths(doc)]
+        if images:
+            lines.append(f"- Ảnh/căn cứ trực quan: {', '.join(images[:3])}")
+        lines.append("")
+
+    lines.extend([
+        "## Phân tích ảnh",
+        "",
+        f"- Độ tin cậy của ảnh: {float(vision.get('confidence') or 0):.2f}",
+        f"- Dạng biển/nhóm biển theo ảnh: {vision.get('sign_group') or 'không rõ'}",
+        f"- Ký hiệu nhìn thấy: {vision.get('symbol') or 'không rõ'}",
+        f"- Chữ/số nhìn thấy: {vision.get('text') or 'không rõ'}",
+    ])
+    if vision.get("alternatives"):
+        alternatives = []
+        for item in vision.get("alternatives")[:3]:
+            if not isinstance(item, dict):
+                continue
+            alt_code = item.get("code") or item.get("name") or ""
+            reason = item.get("reason") or ""
+            alternatives.append(f"{alt_code}: {reason}".strip(": "))
+        if alternatives:
+            lines.append(f"- Phương án khác: {' | '.join(alternatives)}")
+
+    lines.extend([
+        "",
+        "## Căn cứ áp dụng",
+        "",
+    ])
+    if trusted_codes:
+        lines.append("- Mã biển đã được ưu tiên theo nhận diện ảnh, rồi đối chiếu với catalog biển và nguồn gốc ảnh.")
+    else:
+        lines.append("- Mã biển chưa đủ chắc chắn, nên câu trả lời chỉ chốt ở mức nhận diện và mô tả đặc điểm nhìn thấy.")
+
+    if query_penalty and penalty_docs:
+        lines.extend([
+            "",
+            "## Tổng hậu quả",
+            "",
+        ])
+        for doc in penalty_docs[:4]:
+            ref = format_reference(doc)
+            penalty = penalty_summary(doc)
+            parts = []
+            if penalty.get("raw_penalty_text"):
+                parts.append(str(penalty.get("raw_penalty_text")))
+            elif penalty.get("fine_min_vnd") or penalty.get("fine_max_vnd"):
+                parts.append(_format_vnd_range(penalty.get("fine_min_vnd"), penalty.get("fine_max_vnd")))
+            if penalty.get("point_deduction"):
+                parts.append(f"trừ điểm GPLX {penalty.get('point_deduction')}")
+            if penalty.get("license_suspension"):
+                parts.append(f"tước/đình chỉ {penalty.get('license_suspension')}")
+            lines.append(f"- {ref}: {', '.join(part for part in parts if part) or 'có căn cứ xử phạt liên quan'}")
+    else:
+        lines.extend([
+            "",
+            "## Tổng hậu quả",
+            "",
+            "Ảnh biển báo tự nó chỉ cho biết nhận diện và ý nghĩa; muốn chốt mức phạt phải biết hành vi cụ thể như đi ngược chiều, vượt đèn đỏ, dừng/đỗ sai quy định hoặc đi vào khu vực cấm.",
+        ])
+
+    lines.extend([
+        "",
+        "## Lưu ý",
+        "",
+        "Nếu ảnh chưa rõ mã biển, hệ thống ưu tiên giải thích theo nhóm biển và đặc điểm nhìn thấy thay vì đoán mã.",
+    ])
+    return "\n".join(lines).strip()
 
 def _references(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Formats source records for API metadata."""
@@ -1123,24 +1282,39 @@ async def chat_image(image: UploadFile = File(...), query: str = Form("")):
             return {"answer": "Không nhận diện được biển báo giao thông trong ảnh.", "references": []}
 
         final_query = _sign_image_query(vision, trusted_codes, query)
-        result = rag.query_adaptive(final_query)
-        docs = result["contexts"]
+        analysis = rag.analyze_query(final_query)
+        fast_docs: List[Dict[str, Any]] = []
         if trusted_codes:
-            exact_sign_docs = rag.retriever.sign_catalog.records_for_codes(trusted_codes, per_code=8)
-            merged_docs: List[Dict[str, Any]] = []
-            seen = set()
-            for doc in [*exact_sign_docs, *docs]:
-                key = doc.get("source_chunk_id") or doc.get("id") or json.dumps(doc.get("legal_reference") or {}, sort_keys=True)
-                if key in seen:
-                    continue
-                seen.add(key)
-                merged_docs.append(doc)
-            docs = merged_docs[:80]
-            ans = rag.generate_answer(final_query, docs)
+            fast_docs.extend(rag.retriever.sign_catalog.records_for_codes(trusted_codes, per_code=6))
+        fast_docs.extend(rag.retrieve_sign(final_query, top_k=6, expand_depth=1))
+        if _image_query_needs_penalty(query):
+            fast_docs.extend(rag.retrieve_penalty(final_query, top_k=4, expand_depth=1))
+        docs = _dedupe_docs(fast_docs)[:24]
+        fast_answer = _image_sign_fast_answer(vision=vision, trusted_codes=trusted_codes, query=query, docs=docs)
+        if fast_answer:
+            ans = fast_answer
+            result = {
+                "contexts": docs,
+                "metadata": {
+                    "route": "image_sign_fast",
+                    "sequential": False,
+                    "fast_path": True,
+                    "trusted_codes": trusted_codes,
+                },
+                "slots": (analysis.get("evidence_slots") or []),
+                "sequential_results": [],
+            }
         else:
-            ans = result["answer"]
+            result = rag.query_adaptive(final_query)
+            docs = result["contexts"]
+            if trusted_codes:
+                exact_sign_docs = rag.retriever.sign_catalog.records_for_codes(trusted_codes, per_code=8)
+                docs = _dedupe_docs([*exact_sign_docs, *docs])[:80]
+                ans = rag.generate_answer(final_query, docs)
+            else:
+                ans = result["answer"]
         images = _context_images(docs, limit=_api_image_limit())
-        analysis = result.get("query_analysis") or {}
+        analysis = result.get("query_analysis") or analysis or {}
         verification = _auto_claim_verification(ans, docs)
         return {
             "answer": ans,

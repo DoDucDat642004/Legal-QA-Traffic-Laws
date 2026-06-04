@@ -16,6 +16,7 @@ from src.rag.query_planner import LegalQueryPlanner, QueryPlan
 from src.rag.sequential_retrieval import SequentialRetrievalOrchestrator
 from frontend.asset_utils import image_source
 from frontend.render_utils import split_markdown_sections, vision_display_rows
+from api.main import _image_query_needs_penalty, _image_sign_fast_answer
 
 
 @contextmanager
@@ -568,6 +569,40 @@ class RenderUtilsTest(unittest.TestCase):
         self.assertIn("Mã tin cậy", labels)
         self.assertIn("Độ tin cậy", labels)
         self.assertIn("Nhóm biển", labels)
+
+
+class ImageSignAnswerTest(unittest.TestCase):
+    def test_image_query_penalty_detector(self):
+        self.assertTrue(_image_query_needs_penalty("Biển này bị phạt thế nào?"))
+        self.assertFalse(_image_query_needs_penalty("Biển này có nghĩa gì?"))
+
+    def test_image_fast_answer_uses_sign_structure(self):
+        answer = _image_sign_fast_answer(
+            vision={
+                "is_traffic_sign": True,
+                "confidence": 0.92,
+                "sign_group": "Biển cấm",
+                "symbol": "vạch trắng ngang",
+                "text": "",
+                "alternatives": [{"code": "P.101", "reason": "gần giống biển cấm"}],
+            },
+            trusted_codes=["P.102"],
+            query="Biển này nghĩa là gì?",
+            docs=[
+                {
+                    "rag_modality": "sign",
+                    "figure": {"code": "P.102", "name": "Cấm đi ngược chiều", "caption": "Biển tròn nền đỏ, có vạch trắng ngang"},
+                    "legal_reference": {"document": "QCVN 41:2024 (Thông tư 51/2024)", "article": "", "clause": ""},
+                    "source_body_exact": "Biển số P.102: Cấm đi ngược chiều",
+                }
+            ],
+        )
+
+        self.assertIn("## Trả lời ngắn gọn", answer)
+        self.assertIn("## Nhận diện ảnh", answer)
+        self.assertIn("## Phân tích ảnh", answer)
+        self.assertIn("P.102", answer)
+        self.assertIn("Cấm đi ngược chiều", answer)
 
 
 class DeterministicPenaltyAnswerTest(unittest.TestCase):
