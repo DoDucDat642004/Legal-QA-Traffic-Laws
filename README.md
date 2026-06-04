@@ -147,8 +147,8 @@ This repository can run on Hugging Face Spaces with `sdk: docker`.
 2. Push the repository, including Git LFS files.
 3. Add secrets in **Settings > Secrets**:
    - `GEMINI_API_KEY`
-   - `QDRANT_URL` and optional `QDRANT_API_KEY`
-4. Use `.env.huggingface.example` as the Space variable template. It keeps the serving path on Qdrant + OpenVINO with 768-dimension vectors and enables AI planner, lexical hybrid search, and reranker.
+4. Use `.env.huggingface.example` as the Space variable template. It keeps the public Space on local graph/vector storage, but still enables OpenVINO embeddings, hard-query reranking, and the AI planner with a controlled retrieval budget.
+5. If you want the full-stack Qdrant/Neo4j mode, use `.env.rag.example` and expose those services in your own infrastructure instead of the public Space defaults.
 
 The OpenVINO model is expected at `data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder`. Set `RAG_OPENVINO_EXPORT=true` only when you intentionally want to export/download a missing model. PostgreSQL is not required for online answering; it is only used by the sync pipeline for canonical record storage.
 
@@ -167,7 +167,7 @@ Then sync stores:
 python -m src.data_pipeline.rag_store_sync
 ```
 
-Qdrant is the default vector store. Neo4j, PostgreSQL, and MinIO remain optional for graph persistence, canonical records, and asset storage.
+Qdrant is the default vector store. Neo4j, PostgreSQL, and MinIO remain optional for graph persistence, canonical records, and asset storage. When you want the full stack, use `.env.rag.example`, which pins Qdrant and Neo4j and keeps both backends strict.
 
 ## Rebuild Rules
 
