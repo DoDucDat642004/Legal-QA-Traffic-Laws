@@ -173,18 +173,25 @@ def _vision_text(vision: Dict[str, Any]) -> str:
 
 def _sign_image_query(vision: Dict[str, Any], trusted_codes: List[str], user_query: str) -> str:
     visual_desc = _vision_text(vision)
+    structure_hint = (
+        "Trả lời theo đúng cấu trúc: ## Trả lời ngắn gọn -> ## Nhận diện ảnh -> "
+        "## Phân tích từng nhánh -> ## Căn cứ áp dụng -> ## Tổng hậu quả -> ## Lưu ý. "
+        "Nếu ảnh không đủ rõ thì nói rõ phần chưa chắc chắn, không suy đoán mã biển."
+    )
     if trusted_codes:
         code_text = " ".join(trusted_codes)
         return (
             f"Biển báo {code_text}. {visual_desc}. "
             "Tra cứu ý nghĩa, hình dạng nhận dạng, phạm vi áp dụng, căn cứ hình ảnh gốc trong QCVN 41:2024 "
             "và nếu đi trái hiệu lệnh biển báo thì mức xử phạt liên quan theo Nghị định 168/2024/NĐ-CP. "
+            f"{structure_hint} "
             f"Câu hỏi người dùng: {user_query}"
         )
     hints = _traffic_sign_query_hints(visual_desc, user_query)
     return (
         f"{hints}. {visual_desc}. "
         "Ảnh biển báo chưa đủ chắc chắn mã số; tra cứu nhóm biển, ý nghĩa, căn cứ gốc và nêu rõ nếu cần xác nhận thêm. "
+        f"{structure_hint} "
         f"Câu hỏi người dùng: {user_query}"
     )
 

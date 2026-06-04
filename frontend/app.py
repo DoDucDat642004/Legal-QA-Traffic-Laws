@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from asset_utils import image_source
+from render_utils import split_markdown_sections, vision_display_rows
 from src.rag.source_catalog import source_catalog_payload, source_info_for_document
 
 
@@ -242,6 +243,133 @@ st.markdown(
         padding-left: 10px;
         margin: 8px 0 12px 4px;
     }
+    .answer-panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin: 10px 0 16px 0;
+        box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    }
+    .answer-title {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 750;
+        margin-bottom: 8px;
+    }
+    .answer-section {
+        margin: 12px 0 4px 0;
+        padding-top: 10px;
+        border-top: 1px solid #eef1f5;
+    }
+    .answer-section:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+    .answer-section-title {
+        color: var(--accent-dark);
+        font-size: 18px;
+        line-height: 1.25;
+        font-weight: 750;
+        margin: 0 0 8px 0;
+        padding-left: 10px;
+        border-left: 4px solid var(--accent);
+    }
+    .answer-subtitle {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 2px;
+    }
+    .vision-panel {
+        background: #f7fbff;
+        border: 1px solid #cfe3ff;
+        border-radius: 12px;
+        padding: 12px 14px;
+        margin: 8px 0 14px 0;
+    }
+    .vision-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+    }
+    .vision-item {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid #d8e8fb;
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+    .vision-label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 3px;
+    }
+    .vision-value {
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.4;
+        font-weight: 600;
+        word-break: break-word;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] {
+        color: var(--text);
+        line-height: 1.62;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] p {
+        margin: 0.35rem 0 0.6rem 0;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] h2,
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] h3,
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] h4 {
+        color: var(--text);
+        margin: 1rem 0 0.55rem 0;
+        line-height: 1.25;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] h2 {
+        font-size: 1.18rem;
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid #e6ebf1;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] h3 {
+        font-size: 1.03rem;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] ul,
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] ol {
+        margin: 0.35rem 0 0.7rem 1.2rem;
+        padding-left: 0.9rem;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] li {
+        margin: 0.2rem 0;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] table {
+        width: 100%;
+        border-collapse: collapse;
+        display: block;
+        overflow-x: auto;
+        margin: 0.5rem 0 0.9rem 0;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] th,
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] td {
+        border: 1px solid #dbe3eb;
+        padding: 0.48rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+        white-space: normal;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] th {
+        background: #f5f8fb;
+        font-weight: 700;
+    }
+    div[data-testid="stChatMessage"] div[data-testid="stMarkdownContainer"] blockquote {
+        border-left: 4px solid var(--accent);
+        background: #f4fbf8;
+        padding: 0.6rem 0.8rem;
+        margin: 0.65rem 0;
+        border-radius: 8px;
+    }
     div[data-testid="stChatMessage"] {
         border-radius: 8px;
     }
@@ -425,6 +553,95 @@ def render_stepper(active_index: int, done_until: int = -1) -> None:
             """
         )
     render_html(f'<div class="stepper">{"".join(rows)}</div>')
+
+
+def render_vision_summary(vision: dict[str, Any] | None) -> None:
+    rows = vision_display_rows(vision)
+    if not rows:
+        return
+
+    trusted_codes = vision.get("trusted_codes") if vision else []
+    if isinstance(trusted_codes, list):
+        trusted_codes = ", ".join(str(code) for code in trusted_codes if code)
+    candidate_codes = vision.get("candidate_codes") if vision else []
+    if isinstance(candidate_codes, list):
+        candidate_codes = ", ".join(str(code) for code in candidate_codes if code)
+    alternatives = vision.get("alternatives") if vision else []
+    alt_text = ""
+    if isinstance(alternatives, list) and alternatives:
+        parts = []
+        for item in alternatives[:3]:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("code") or item.get("name") or ""
+            reason = item.get("reason") or ""
+            parts.append(f"{code}: {reason}".strip(": "))
+        if parts:
+            alt_text = " | ".join(parts)
+
+    raw_description = str((vision or {}).get("raw_description") or "").strip()
+    status_text = "Ảnh có vẻ là biển báo giao thông" if vision.get("is_traffic_sign", True) else "Ảnh chưa đủ tin cậy để xác nhận là biển báo"
+
+    items_html = []
+    for label, value in rows:
+        items_html.append(
+            f"""
+            <div class="vision-item">
+                <div class="vision-label">{html_escape(label)}</div>
+                <div class="vision-value">{html_escape(value)}</div>
+            </div>
+            """
+        )
+
+    extra_bits = []
+    if trusted_codes:
+        extra_bits.append(f"Mã tin cậy: {html_escape(trusted_codes)}")
+    if candidate_codes:
+        extra_bits.append(f"Mã dự đoán: {html_escape(candidate_codes)}")
+    if alt_text:
+        extra_bits.append(f"Phương án khác: {html_escape(alt_text)}")
+    if raw_description:
+        extra_bits.append(f"Mô tả ảnh: {html_escape(raw_description)}")
+
+    render_html(
+        f"""
+        <div class="vision-panel">
+            <div class="source-title">Phân tích ảnh</div>
+            <div class="source-meta">{html_escape(status_text)}</div>
+            <div class="vision-grid">
+                {''.join(items_html)}
+            </div>
+            {f'<div class="small-note" style="margin-top:10px;">{" · ".join(extra_bits)}</div>' if extra_bits else ''}
+        </div>
+        """
+    )
+
+
+def render_answer_markdown(answer: str) -> None:
+    sections = split_markdown_sections(answer)
+    if not sections:
+        st.markdown(answer or "Không có câu trả lời.")
+        return
+
+    render_html('<div class="answer-title">Kết quả trả lời</div>')
+
+    if len(sections) == 1 and sections[0]["title"] == "Mở đầu":
+        st.markdown(sections[0]["body"] or answer)
+        return
+
+    for idx, section in enumerate(sections):
+        title = section.get("title") or ""
+        body = section.get("body") or ""
+        section_class = "answer-section" if idx else "answer-section"
+        render_html(
+            f"""
+            <div class="{section_class}">
+                <div class="answer-section-title">{html_escape(title)}</div>
+            </div>
+            """
+        )
+        if body:
+            st.markdown(body)
 
 
 def render_analysis(analysis: dict[str, Any] | None, *, compact: bool = False) -> None:
@@ -1263,7 +1480,11 @@ def render_chat_history() -> None:
     for idx, message in enumerate(st.session_state.messages):
         message.setdefault("message_id", f"{message.get('role', 'msg')}_{idx}")
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            if message["role"] == "assistant":
+                render_answer_markdown(message["content"])
+                render_vision_summary(message.get("vision"))
+            else:
+                st.markdown(message["content"])
             if message.get("image") is not None:
                 st.image(message["image"], caption="Ảnh bạn đã gửi", width=320)
             if message["role"] == "assistant":
@@ -1387,7 +1608,8 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
             st.caption("Hoàn tất.")
 
         with result_box:
-            st.markdown(answer)
+            render_answer_markdown(answer)
+            render_vision_summary(vision)
             render_message_extras(
                 {
                     "query_analysis": query_analysis,

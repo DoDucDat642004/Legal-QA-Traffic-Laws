@@ -15,6 +15,7 @@ from src.rag.query_preprocessor import missing_data_hints, prepare_chat_query
 from src.rag.query_planner import LegalQueryPlanner, QueryPlan
 from src.rag.sequential_retrieval import SequentialRetrievalOrchestrator
 from frontend.asset_utils import image_source
+from frontend.render_utils import split_markdown_sections, vision_display_rows
 
 
 @contextmanager
@@ -529,6 +530,44 @@ class AssetPathTest(unittest.TestCase):
                 ),
                 "http://127.0.0.1:8002/processed/images/doc/missing.png",
             )
+
+
+class RenderUtilsTest(unittest.TestCase):
+    def test_split_markdown_sections_preserves_section_order(self):
+        answer = (
+            "## Trả lời ngắn gọn\n"
+            "Có.\n\n"
+            "## Phân tích từng nhánh\n"
+            "- Nhánh 1\n\n"
+            "## Căn cứ áp dụng\n"
+            "| a | b |\n"
+        )
+
+        sections = split_markdown_sections(answer)
+
+        self.assertEqual([item["title"] for item in sections], [
+            "Trả lời ngắn gọn",
+            "Phân tích từng nhánh",
+            "Căn cứ áp dụng",
+        ])
+        self.assertIn("Có.", sections[0]["body"])
+        self.assertIn("- Nhánh 1", sections[1]["body"])
+        self.assertIn("| a | b |", sections[2]["body"])
+
+    def test_vision_display_rows_includes_confidence_and_codes(self):
+        rows = vision_display_rows({
+            "is_traffic_sign": True,
+            "trusted_codes": ["P.102"],
+            "confidence": 0.87,
+            "sign_group": "Biển cấm",
+            "dominant_colors": ["đỏ", "trắng"],
+        })
+
+        labels = [label for label, _value in rows]
+        self.assertIn("Nhận diện", labels)
+        self.assertIn("Mã tin cậy", labels)
+        self.assertIn("Độ tin cậy", labels)
+        self.assertIn("Nhóm biển", labels)
 
 
 class DeterministicPenaltyAnswerTest(unittest.TestCase):
