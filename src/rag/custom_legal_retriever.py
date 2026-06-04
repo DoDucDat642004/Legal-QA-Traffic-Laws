@@ -2099,6 +2099,14 @@ class CustomLegalRetriever:
         add_ref(["qua han", "01 nam", "sat hach ly thuyet", "thuc hanh"], "Thông tư 35/2024/TT-BGTVT", "34", clause="2", point="a", reason="topic_tt35_expired_license_retest", boost=44.0)
         add_ref(["qua han", "14 thang", "sat hach"], "Thông tư 35/2024/TT-BGTVT", "34", clause="2", point="a", reason="topic_tt35_expired_license_retest", boost=44.0)
         add_ref(["giay phep lai xe quoc te", "giay phep lai xe tam thoi"], "Thông tư 35/2024/TT-BGTVT", "39", clause="1", point="c", reason="topic_tt35_foreign_temporary_license", boost=36.0)
+        if (
+            "giay phep lai xe quoc te" in qa
+            and any(term in qa for term in ["doi sang", "doi giay phep", "giay phep lai xe viet nam", "nganh giao thong van tai"])
+        ) or (
+            any(term in qa for term in ["co tinh chat tam thoi", "giay phep lai xe tam thoi"])
+            and any(term in qa for term in ["nuoc ngoai", "nuoc so tai", "doi sang", "viet nam"])
+        ):
+            add_ref([], "Thông tư 35/2024/TT-BGTVT", "39", clause="1", point="c", reason="topic_tt35_non_convertible_foreign_license", boost=92.0)
         add_ref(["nang hang", "b len d1", "thoi gian lai xe an toan"], "Thông tư 35/2024/TT-BGTVT", "14", clause="2", point="a", reason="topic_tt35_upgrade_b_d1", boost=44.0)
         add_ref(["nang hang", "b len d2", "thoi gian lai xe an toan"], "Thông tư 35/2024/TT-BGTVT", "14", clause="2", point="b", reason="topic_tt35_upgrade_b_d2", boost=44.0)
         add_ref(["hang b", "hang d1", "thoi gian lai xe an toan"], "Thông tư 35/2024/TT-BGTVT", "14", clause="2", point="a", reason="topic_tt35_upgrade_b_d1", boost=44.0)
@@ -2662,6 +2670,8 @@ class CustomLegalRetriever:
             add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_phone_car_penalty", clause="5", point="h", boost=30.0)
         if "dien thoai" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_phone_motorbike_penalty", clause="4", point="đ", boost=30.0)
+        if "cao toc" in qa and any(term in qa for term in ["lui xe", "nguoc chieu", "quay dau"]) and any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
+            add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_car_reverse_wrong_way_expressway", clause="11", point="đ", boost=72.0)
         if "mu bao hiem" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_helmet_motorbike_penalty", clause="2", point="h", boost=30.0)
         if any(term in qa for term in ["cho theo tu 03", "cho theo 03", "cho 3 nguoi", "cho ba nguoi"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
@@ -2796,6 +2806,8 @@ class CustomLegalRetriever:
             (["giay phep lai xe quan su", "giay kham suc khoe"], "37", "2", "c"),
             (["nguoi nuoc ngoai", "the cu tru"], "39", "1", "a"),
             (["giay phep lai xe quoc te", "doi sang"], "39", "1", "c"),
+            (["giay phep lai xe quoc te", "co tinh chat tam thoi"], "39", "1", "c"),
+            (["giay phep lai xe quoc gia", "co tinh chat tam thoi"], "39", "1", "c"),
             (["thu hoi gplx", "ra quyet dinh"], "40", "1", "a"),
             (["nop lai gplx", "thu hoi"], "40", "1", "b"),
             (["hang xe duoc phep dieu khien", "idp"], "42", "", ""),
@@ -2905,6 +2917,24 @@ class CustomLegalRetriever:
         ]
         add(["giay phep lai xe quoc te", "kich thuoc"], idp_size_chunks, "known_chunk_idp_size", boost=36.0)
         add(["idp", "kich thuoc"], idp_size_chunks, "known_chunk_idp_size", boost=36.0)
+        add(
+            ["giay phep lai xe quoc te", "co tinh chat tam thoi"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_39_1_0_9016cc",
+                "thông_tư_35/2024/tt-bgtvt_39_1_c_9a2f29",
+            ],
+            "known_chunk_tt35_non_convertible_foreign_license",
+            boost=120.0,
+        )
+        add(
+            ["giay phep lai xe quoc gia", "co tinh chat tam thoi"],
+            [
+                "thông_tư_35/2024/tt-bgtvt_39_1_0_9016cc",
+                "thông_tư_35/2024/tt-bgtvt_39_1_c_9a2f29",
+            ],
+            "known_chunk_tt35_non_convertible_foreign_temporary_license",
+            boost=120.0,
+        )
 
         add(
             ["nghi dinh nay", "hinh thuc xu phat chinh"],
@@ -3036,6 +3066,18 @@ class CustomLegalRetriever:
             ["nghị_định_168/2024/nđ-cp_6_2_a_e939c5"],
             "known_chunk_168_car_wrong_lane_change",
             boost=120.0,
+        )
+        add(
+            ["o to", "cao toc", "lui xe"],
+            ["nghị_định_168/2024/nđ-cp_6_11_đ_8f6f1c"],
+            "known_chunk_168_car_reverse_expressway",
+            boost=140.0,
+        )
+        add(
+            ["o to", "cao toc", "nguoc chieu"],
+            ["nghị_định_168/2024/nđ-cp_6_11_đ_8f6f1c"],
+            "known_chunk_168_car_wrong_way_expressway",
+            boost=140.0,
         )
         add(
             ["o to", "khong co coi"],
