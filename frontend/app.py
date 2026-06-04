@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import random
 import re
 import sys
 import threading
@@ -19,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from asset_utils import image_source
+from src.rag.source_catalog import source_catalog_payload, source_info_for_document
 
 
 API_URL = os.getenv("TRAFFIC_LAW_API_URL", "http://localhost:8002").rstrip("/")
@@ -35,7 +37,7 @@ def env_bool(name: str, default: bool = False) -> bool:
 SHOW_ADVANCED_TOOLS = env_bool("SHOW_ADVANCED_TOOLS", False)
 SHOW_RETRIEVAL_DETAILS = env_bool("SHOW_RETRIEVAL_DETAILS", False)
 ENABLE_PRE_ANALYSIS = env_bool("ENABLE_PRE_ANALYSIS", False)
-CHAT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("CHAT_REQUEST_TIMEOUT_SECONDS", "300"))
+CHAT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("CHAT_REQUEST_TIMEOUT_SECONDS", "420"))
 
 st.set_page_config(page_title="Luật Giao Thông AI", layout="wide", page_icon="§")
 
@@ -269,11 +271,27 @@ PROCESSING_STEPS = [
 ]
 
 
-SAMPLE_QUESTIONS = [
+QUESTION_BANK = [
     "Xe máy vượt đèn đỏ bị phạt bao nhiêu và có bị trừ điểm GPLX không?",
     "Biển P.102 có ý nghĩa gì, đi vào đường có biển này bị phạt ra sao?",
     "Người điều khiển xe máy có nồng độ cồn cao thì mức phạt, trừ điểm và tước GPLX thế nào?",
+    "Top 10 hành vi hay vi phạm nhất là gì?",
+    "Các hành vi vi phạm có mức quy định xử phạt cao nhất là gì?",
+    "Hành vi nào bị trừ điểm giấy phép lái xe cao nhất?",
+    "Vượt đèn đỏ nhưng không có công an đứng chốt thì tôi có thoát phạt không?",
+    "Xe tôi đỗ giữa đường cản trở giao thông có ổn không hay chỉ bị nhắc nhở?",
+    "Tôi có bằng A1 chạy xe hơi thì có được không?",
+    "Chủ xe giao ô tô cho người chỉ có bằng A1 lái thì chủ xe có bị phạt không?",
+    "Tôi mượn xe người khác rồi vi phạm bị tạm giữ xe thì trách nhiệm thuộc về ai?",
+    "Cơ sở giáo dục tự tổ chức xe đưa đón học sinh thì phải theo quy định nào?",
+    "Ứng dụng gọi xe bắt tài xế bấm nhiều thao tác nhận chuyến khi xe đang chạy có vi phạm không?",
+    "Hàng hóa ký gửi theo xe khách là gì, hàng hôi thối có được nhận không?",
+    "Dữ liệu DAT trong đào tạo lái xe là dữ liệu gì?",
+    "IDP trong Thông tư 35 là giấy phép gì?",
+    "Theo QCVN 41, gặp đèn đỏ hoặc đèn vàng thì phải dừng ở đâu nếu có vạch dừng?",
+    "Biển cố định cho phép rẽ phải nhưng biển tạm thời ở công trường lại cấm rẽ phải thì theo biển nào?",
 ]
+SUGGESTED_QUESTION_COUNT = 6
 
 
 def ensure_state() -> None:
@@ -284,6 +302,9 @@ def ensure_state() -> None:
     st.session_state.setdefault("saved_cases", [])
     st.session_state.setdefault("source_search_results", [])
     st.session_state.setdefault("source_graph_trace", None)
+    if "suggested_questions" not in st.session_state:
+        sample_size = min(SUGGESTED_QUESTION_COUNT, len(QUESTION_BANK))
+        st.session_state.suggested_questions = random.sample(QUESTION_BANK, sample_size)
 
 
 def api_post(path: str, *, data: dict[str, Any] | None = None, files: dict[str, Any] | None = None, timeout: int = 600) -> requests.Response:
@@ -318,6 +339,52 @@ def ascii_lower(value: str) -> str:
 def render_html(markup: str) -> None:
     compact_markup = "".join(line.strip() for line in markup.splitlines())
     st.markdown(compact_markup, unsafe_allow_html=True)
+
+
+def source_file_text(source: dict[str, Any] | None) -> str:
+    if not source:
+        return ""
+    files = source.get("raw_files") or source.get("processed_files") or []
+    return ", ".join(str(item) for item in files if item)
+
+
+def source_card_markup(source: dict[str, Any]) -> str:
+    title = source.get("name") or "Văn bản pháp luật"
+    number = source.get("document_number") or ""
+    files = source_file_text(source)
+    url = source.get("source_url") or ""
+    note = source.get("note") or ""
+    url_markup = (
+        f' · <a href="{html_escape(url)}" target="_blank" rel="noopener noreferrer">Văn bản gốc</a>'
+        if url else ""
+    )
+    note_markup = f'<div class="small-note">{html_escape(note)}</div>' if note else ""
+    return f"""
+        <div class="source-card">
+            <div class="source-title">{html_escape(title)}</div>
+            <div class="source-meta">{html_escape(number)} · Tệp: {html_escape(files)}{url_markup}</div>
+            {note_markup}
+        </div>
+    """
+
+
+def render_document_sources(sources: list[dict[str, Any]] | None = None, *, compact: bool = False) -> None:
+    sources = sources or source_catalog_payload()
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for source in sources:
+        grouped.setdefault(str(source.get("group") or "Nguồn tài liệu"), []).append(source)
+    for group, items in grouped.items():
+        st.caption(group)
+        for source in items[:3 if compact else len(items)]:
+            render_html(source_card_markup(source))
+
+
+def document_source_for_reference(ref: dict[str, Any]) -> dict[str, Any] | None:
+    source = ref.get("document_source")
+    if isinstance(source, dict) and source.get("name"):
+        return source
+    legal_ref = ref.get("legal_reference") or {}
+    return source_info_for_document(ref.get("doc_name") or legal_ref.get("document"))
 
 
 def render_header() -> None:
@@ -453,14 +520,24 @@ def render_references(references: list[dict[str, Any]]) -> None:
             score_text = f"score={score:.3f}" if isinstance(score, (int, float)) else ""
             images = ref.get("images") or ([ref.get("image")] if ref.get("image") else [])
             image_text = f"{len(images)} ảnh" if images else "không có ảnh"
+            document_source = document_source_for_reference(ref)
+            source_files = source_file_text(document_source)
+            source_url = (document_source or {}).get("source_url") or ""
             detail_text = f"{ref.get('modality') or 'text'} · {image_text}"
+            if source_files:
+                detail_text = f"{detail_text} · tệp {source_files}"
             if SHOW_RETRIEVAL_DETAILS and score_text:
                 detail_text = f"{detail_text} · {score_text}"
+            source_link = (
+                f'<div class="small-note"><a href="{html_escape(source_url)}" target="_blank" rel="noopener noreferrer">Mở văn bản gốc</a></div>'
+                if source_url else ""
+            )
             render_html(
                 f"""
                 <div class="source-card">
                     <div class="source-title">{idx}. {html_escape(reference_label(ref))}</div>
                     <div class="source-meta">{html_escape(detail_text)}</div>
+                    {source_link}
                     {'<div class="small-note">' + html_escape(reasons) + '</div>' if SHOW_RETRIEVAL_DETAILS and reasons else ''}
                 </div>
                 """
@@ -825,7 +902,7 @@ def render_query_inspector() -> None:
         """
     )
 
-    sample_options = [""] + SAMPLE_QUESTIONS
+    sample_options = [""] + list(st.session_state.get("suggested_questions") or QUESTION_BANK[:SUGGESTED_QUESTION_COUNT])
     selected_sample = st.selectbox("Câu hỏi mẫu", sample_options, format_func=lambda x: "Chọn câu hỏi mẫu..." if not x else x)
     if selected_sample:
         st.session_state.inspector_query = selected_sample
@@ -889,16 +966,25 @@ def render_source_result(result: dict[str, Any], idx: int) -> None:
     score = result.get("retrieval_score")
     score_text = f"score={score:.3f}" if isinstance(score, (int, float)) else ""
     ref = reference_label(result)
+    document_source = document_source_for_reference(result)
+    source_files = source_file_text(document_source)
+    source_url = (document_source or {}).get("source_url") or ""
     meta_bits = [
         result.get("modality") or "text",
+        f"tệp {source_files}" if source_files else "",
         f"trang {result.get('page_start')}-{result.get('page_end')}" if result.get("page_start") is not None else "",
         score_text,
     ]
+    source_link = (
+        f'<div class="small-note"><a href="{html_escape(source_url)}" target="_blank" rel="noopener noreferrer">Mở văn bản gốc</a></div>'
+        if source_url else ""
+    )
     render_html(
         f"""
         <div class="source-card">
             <div class="source-title">{idx}. {html_escape(ref)}</div>
             <div class="source-meta">{html_escape(" · ".join(bit for bit in meta_bits if bit))}</div>
+            {source_link}
             <div class="small-note">{html_escape(result.get("excerpt") or "")}</div>
         </div>
         """
@@ -928,6 +1014,9 @@ def render_source_explorer() -> None:
     status = fetch_system_status()
     documents = [""] + [item.get("name", "") for item in (status or {}).get("documents", []) if item.get("name")]
     modalities = [""] + [item.get("name", "") for item in (status or {}).get("modalities", []) if item.get("name")]
+
+    with st.expander("Danh mục tài liệu đang truy xuất", expanded=True):
+        render_document_sources((status or {}).get("document_sources") or source_catalog_payload())
 
     with st.container(border=True):
         col_q, col_doc = st.columns([1.2, 1])
@@ -1058,6 +1147,9 @@ def render_status_page() -> None:
 
     tab_docs, tab_graph, tab_raw = st.tabs(["Văn bản", "Graph", "JSON"])
     with tab_docs:
+        st.subheader("Nguồn tài liệu")
+        st.dataframe(status.get("document_sources") or source_catalog_payload(), use_container_width=True, hide_index=True)
+        st.subheader("Độ phủ corpus")
         st.dataframe(status.get("documents") or [], use_container_width=True, hide_index=True)
         st.dataframe(status.get("modalities") or [], use_container_width=True, hide_index=True)
     with tab_graph:
@@ -1121,6 +1213,9 @@ def render_sidebar() -> tuple[str, Any, bool, bool]:
                     except Exception as exc:
                         st.error(f"Chưa kết nối được backend: {exc}")
 
+        with st.expander("Nguồn tài liệu", expanded=False):
+            render_document_sources(compact=True)
+
         if st.session_state.get("saved_cases"):
             st.divider()
             st.markdown("### Phiên đã lưu")
@@ -1143,7 +1238,7 @@ def render_sidebar() -> tuple[str, Any, bool, bool]:
 
         st.divider()
         st.markdown("### Gợi ý câu hỏi")
-        for idx, sample in enumerate(SAMPLE_QUESTIONS, start=1):
+        for idx, sample in enumerate(st.session_state.get("suggested_questions") or QUESTION_BANK[:SUGGESTED_QUESTION_COUNT], start=1):
             if st.button(sample, key=f"sample_{idx}", use_container_width=True):
                 st.session_state.queued_question = sample
 
@@ -1217,7 +1312,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
             render_stepper(active_index=1, done_until=0)
 
         wait_seconds = int((query_analysis or {}).get("max_wait_seconds") or 90)
-        request_timeout = min(CHAT_REQUEST_TIMEOUT_SECONDS, max(120, wait_seconds + 90))
+        request_timeout = min(CHAT_REQUEST_TIMEOUT_SECONDS, max(330, wait_seconds + 180))
 
         with step_box.container():
             render_stepper(active_index=2, done_until=1)

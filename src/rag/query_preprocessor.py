@@ -130,7 +130,11 @@ def missing_data_hints(query: str) -> List[str]:
     ]
     penalty_like = any(term in qa for term in ["phat", "xu phat", "muc phat", "vi pham", "bi gi", "xu ly", "tru diem", "tuoc"])
     vehicle_like = any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"])
-    if penalty_like and vehicle_like and not any(term in qa for term in vehicle_terms):
+    sanction_catalog = (
+        any(term in qa for term in ["cac hanh vi", "nhung hanh vi", "hanh vi nao", "danh sach hanh vi", "toan bo hanh vi"])
+        and any(term in qa for term in ["tuoc", "tru diem", "tich thu", "tam giu"])
+    )
+    if penalty_like and vehicle_like and not sanction_catalog and not any(term in qa for term in vehicle_terms):
         hints.append("Loại phương tiện chưa rõ: ô tô, mô tô/xe gắn máy, xe máy chuyên dùng, xe đạp/xe thô sơ.")
 
     if any(term in qa for term in ["toc do", "qua toc", "vuot toc", "p127", "p.127"]) and not re.search(r"\d+(?:[.,]\d+)?\s*km/?h", qa):

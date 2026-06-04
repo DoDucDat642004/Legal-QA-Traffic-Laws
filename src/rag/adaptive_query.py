@@ -4,7 +4,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple
 
-from src.rag.legal_utils import SIGN_CODE_RE, ascii_lower, extract_explicit_legal_refs
+from src.rag.legal_utils import (
+    SIGN_CODE_RE,
+    ascii_lower,
+    extract_explicit_legal_refs,
+    looks_like_statutory_fine_cap_query,
+)
 
 # --- Logging Configuration ---
 logger = logging.getLogger("AdaptiveQuestionAnalyzer")
@@ -141,7 +146,12 @@ class AdaptiveQuestionAnalyzer:
         ]
         has_vehicle_scope = any(term in qa for term in vehicle_terms)
         penalty_like = "penalty" in facets or any(term in qa for term in ["phat", "xu phat", "muc phat", "vi pham", "bi gi", "xu ly"])
-        if penalty_like and not has_vehicle_scope and any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"]):
+        if (
+            penalty_like
+            and "aggregation" not in facets
+            and not has_vehicle_scope
+            and any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"])
+        ):
             score += 4
             reasons.append("Câu hỏi xử phạt chưa nêu loại phương tiện nên phải bao phủ nhiều nhóm xe")
 
@@ -175,6 +185,9 @@ class AdaptiveQuestionAnalyzer:
         if "aggregation" in facets:
             score += 3
             reasons.append("Cần thống kê/tổng hợp trên nhiều bản ghi thay vì trả lời một đoạn luật")
+            if self._looks_like_sanction_catalog(qa):
+                score += 2
+                reasons.append("Cần quét danh mục chế tài trên toàn bộ bản ghi phù hợp")
         if "out_of_scope" in facets:
             score = max(score, 1)
             reasons.append("Câu hỏi nằm ngoài phạm vi luật giao thông đường bộ")
@@ -201,6 +214,10 @@ class AdaptiveQuestionAnalyzer:
                 }
             ]
             reasons.append("Câu hỏi xử phạt một hành vi, đã rõ nhóm phương tiện")
+
+        if looks_like_statutory_fine_cap_query(qa):
+            score = min(score, 2)
+            reasons = ["Câu hỏi tra cứu trực tiếp trần phạt tiền được văn bản quy định"]
 
         difficulty_hint = str(getattr(plan, "difficulty_hint", "") or "").lower()
         if difficulty_hint == "hard":
@@ -231,10 +248,10 @@ class AdaptiveQuestionAnalyzer:
         profile = os.getenv("RAG_PROFILE", "balanced").strip().lower()
         if profile in {"fast", "speed", "lite"}:
             if score >= 5:
-                return "hard", "Khó", 60, {"top_k": 24, "expand_depth": 2, "evidence_slot_top_k": 7, "max_contexts": 28, "max_images": 12}
+                return "hard", "Khó", 75, {"top_k": 28, "expand_depth": 2, "evidence_slot_top_k": 8, "max_contexts": 34, "max_images": 12}
             if score >= 3:
-                return "medium", "Trung bình", 35, {"top_k": 16, "expand_depth": 1, "evidence_slot_top_k": 5, "max_contexts": 18, "max_images": 8}
-            return "easy", "Dễ", 20, {"top_k": 10, "expand_depth": 1, "evidence_slot_top_k": 4, "max_contexts": 10, "max_images": 5}
+                return "medium", "Trung bình", 45, {"top_k": 18, "expand_depth": 1, "evidence_slot_top_k": 6, "max_contexts": 22, "max_images": 8}
+            return "easy", "Dễ", 25, {"top_k": 12, "expand_depth": 1, "evidence_slot_top_k": 4, "max_contexts": 12, "max_images": 5}
         if profile in {"deep", "accurate", "accuracy"}:
             if score >= 5:
                 return "hard", "Khó", 90, {"top_k": 64, "expand_depth": 5, "evidence_slot_top_k": 14, "max_contexts": 90, "max_images": 40}
@@ -243,13 +260,21 @@ class AdaptiveQuestionAnalyzer:
             return "easy", "Dễ", 30, {"top_k": 14, "expand_depth": 2, "evidence_slot_top_k": 5, "max_contexts": 16, "max_images": 10}
 
         if score >= 5:
-            return "hard", "Khó", 75, {"top_k": 40, "expand_depth": 3, "evidence_slot_top_k": 10, "max_contexts": 48, "max_images": 24}
+            return "hard", "Khó", 105, {"top_k": 44, "expand_depth": 3, "evidence_slot_top_k": 11, "max_contexts": 60, "max_images": 24}
         if score >= 3:
-            return "medium", "Trung bình", 45, {"top_k": 22, "expand_depth": 2, "evidence_slot_top_k": 6, "max_contexts": 24, "max_images": 12}
-        return "easy", "Dễ", 25, {"top_k": 12, "expand_depth": 1, "evidence_slot_top_k": 4, "max_contexts": 12, "max_images": 6}
+            return "medium", "Trung bình", 60, {"top_k": 24, "expand_depth": 2, "evidence_slot_top_k": 7, "max_contexts": 30, "max_images": 12}
+        return "easy", "Dễ", 30, {"top_k": 14, "expand_depth": 1, "evidence_slot_top_k": 5, "max_contexts": 16, "max_images": 6}
 
     def _decompose(self, q: str, qa: str, plan: Any) -> List[Dict[str, Any]]:
         """Builds evidence slots from the planner, with rule fallback."""
+        if looks_like_statutory_fine_cap_query(qa):
+            return [{
+                "facet": "definition",
+                "query": q,
+                "priority": 1,
+                "reason": "Tra cứu trực tiếp điều khoản quy định trần phạt tiền.",
+                "must_answer": True,
+            }]
         plan_slots = self._sanitize_slots(getattr(plan, "subquestions", None), fallback_query=q)
         rule_slots = self._rule_decompose(q, qa)
         if plan_slots:
@@ -348,6 +373,13 @@ class AdaptiveQuestionAnalyzer:
     def _rule_decompose(self, q: str, qa: str) -> List[Dict[str, Any]]:
         """Rules-based decomposition into evidence slots."""
         slots: List[Dict[str, Any]] = []
+        statutory_fine_cap = looks_like_statutory_fine_cap_query(qa)
+        aggregation_like = self._looks_like_aggregation(qa)
+        has_specific_behavior = any(
+            term in qa
+            for _code, terms, _description, _facet in self._known_behavior_patterns()
+            for term in terms
+        )
 
         if not SIGN_CODE_RE.search(q or "") and self._looks_like_out_of_scope(qa):
             return [{
@@ -367,7 +399,7 @@ class AdaptiveQuestionAnalyzer:
                 "must_answer": True,
             })
 
-        if self._looks_like_aggregation(qa):
+        if aggregation_like:
             slots.append({
                 "facet": "aggregation",
                 "query": f"Thống kê/tổng hợp dữ liệu pháp lý liên quan đến câu hỏi: {q}",
@@ -401,7 +433,7 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Yêu cầu dữ liệu dạng bảng hoặc thông số"
             })
 
-        if any(k in qa for k in ["anh", "hinh anh", "trang goc", "van ban goc", "can cu goc", "file goc", "scan", "crop"]):
+        if self._looks_like_source_image(qa):
             slots.append({
                 "facet": "source_image",
                 "query": f"Tìm ảnh trang gốc, hình, bảng hoặc phụ lục trong văn bản làm căn cứ trực quan cho câu hỏi: {q}",
@@ -433,7 +465,24 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Yêu cầu xác định quy định nền"
             })
 
-        if any(k in qa for k in ["phat", "xu phat", "muc phat", "bao nhieu", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]):
+        if (
+            statutory_fine_cap
+            or any(k in qa for k in ["la gi", "khai niem", "dinh nghia", "nghia la gi"])
+            or self._looks_like_license_points_fact(qa)
+        ):
+            slots.append({
+                "facet": "definition",
+                "query": f"Tra cứu định nghĩa, quy định nền và căn cứ trực tiếp liên quan đến câu hỏi: {q}",
+                "priority": 3,
+                "reason": "Yêu cầu một quy định/khái niệm pháp lý tổng quát.",
+                "must_answer": True,
+            })
+
+        penalty_like = any(
+            k in qa
+            for k in ["phat", "xu phat", "muc phat", "bao nhieu tien", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]
+        )
+        if penalty_like and not statutory_fine_cap and not (aggregation_like and not has_specific_behavior):
             behavior_slots = self._known_behavior_slots(q, qa, start_priority=4)
             if not behavior_slots:
                 behavior_slots = self._compound_penalty_slots(q, qa, start_priority=4)
@@ -709,7 +758,24 @@ class AdaptiveQuestionAnalyzer:
         return bool(re.search(r"\b(?:di|vuot|dung|do|re|quay|chay|uong)\b", qa))
 
     def _looks_like_table_query(self, qa: str) -> bool:
-        if any(term in qa for term in ["bang", "phu luc", "bieu mau", "v85", "he so", "kich thuoc", "tong so gio", "tong thoi gian dao tao"]):
+        if any(term in qa for term in ["phu luc", "bieu mau", "v85", "he so", "kich thuoc", "tong so gio", "tong thoi gian dao tao"]):
+            return True
+        has_table_word = bool(re.search(r"\bbang\b", qa)) and not any(
+            term in qa
+            for term in [
+                "bang lai",
+                "bang a1",
+                "bang a2",
+                "bang b",
+                "bang c",
+                "bang d",
+                "bang e",
+                "tuoc bang",
+                "bang gplx",
+                "bang giay phep lai xe",
+            ]
+        )
+        if has_table_word:
             return True
         if "toc do toi da" in qa and any(term in qa for term in ["cao toc", "ngoai khu dong dan cu", "trong khu dong dan cu", "bang"]):
             return True
@@ -753,6 +819,8 @@ class AdaptiveQuestionAnalyzer:
         return "general"
 
     def _looks_like_aggregation(self, qa: str) -> bool:
+        if looks_like_statutory_fine_cap_query(qa):
+            return False
         if bool(re.search(r"\btop\s*[-_ ]?\s*k\b", qa)) or any(
             term in qa
             for term in ["truy xuat", "he thong chi co top", "chi co top", "top k nho", "top-k nho"]
@@ -788,7 +856,43 @@ class AdaptiveQuestionAnalyzer:
             "vi pham",
             "bien bao",
         ]
-        return any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+        ranking_query = any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+        catalog_terms = [
+            "cac hanh vi",
+            "nhung hanh vi",
+            "hanh vi nao",
+            "danh sach hanh vi",
+            "toan bo hanh vi",
+            "liet ke hanh vi",
+        ]
+        sanction_terms = [
+            "tuoc",
+            "tru diem",
+            "tich thu",
+            "tam giu",
+            "hinh phat bo sung",
+            "hinh thuc xu phat bo sung",
+        ]
+        catalog_query = any(term in qa for term in catalog_terms) and any(term in qa for term in sanction_terms)
+        return ranking_query or catalog_query
+
+    def _looks_like_source_image(self, qa: str) -> bool:
+        if re.search(r"\banh\b", qa):
+            return True
+        return any(
+            term in qa
+            for term in ["hinh anh", "trang goc", "van ban goc", "can cu goc", "file goc", "scan", "crop"]
+        )
+
+    def _looks_like_sanction_catalog(self, qa: str) -> bool:
+        catalog_terms = ["cac hanh vi", "nhung hanh vi", "hanh vi nao", "danh sach hanh vi", "toan bo hanh vi"]
+        sanction_terms = ["tuoc", "tru diem", "tich thu", "tam giu", "hinh phat bo sung"]
+        return any(term in qa for term in catalog_terms) and any(term in qa for term in sanction_terms)
+
+    def _looks_like_license_points_fact(self, qa: str) -> bool:
+        license_terms = ["giay phep lai xe", "gplx", "diem lai xe"]
+        point_terms = ["bao nhieu diem", "so diem", "tong diem", "co may diem"]
+        return any(term in qa for term in license_terms) and any(term in qa for term in point_terms)
 
     def _looks_like_out_of_scope(self, qa: str) -> bool:
         traffic_terms = [

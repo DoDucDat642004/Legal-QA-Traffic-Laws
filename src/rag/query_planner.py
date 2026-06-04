@@ -13,7 +13,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from src.rag.legal_utils import SIGN_CODE_RE, ascii_lower, normalize_sign_code
+from src.rag.legal_utils import (
+    SIGN_CODE_RE,
+    ascii_lower,
+    looks_like_statutory_fine_cap_query,
+    normalize_sign_code,
+)
 from src.rag.model_policy import generate_content_with_fallback
 
 # --- Logging Configuration ---
@@ -93,6 +98,8 @@ class LegalQueryPlanner:
     def plan(self, query: str, client: Any = None) -> QueryPlan:
         """Determines intent and generates a structured plan."""
         fallback = self.rule_plan(query)
+        if looks_like_statutory_fine_cap_query(query):
+            return fallback
         enabled = os.getenv("RAG_ENABLE_AI_PLANNER", "true").lower() in {"1", "true", "yes", "on"}
         if not client or not enabled:
             return fallback
@@ -192,6 +199,8 @@ class LegalQueryPlanner:
             "- Nếu hỏi văn bản có bao nhiêu điều/chương hoặc danh sách điều thì dùng document_overview.\n"
             "- Nếu hỏi chi tiết/toàn văn/nội dung một Điều/Khoản/Điểm cụ thể thì dùng legal_detail.\n"
             "- Nếu hỏi cao nhất/thấp nhất/top/thống kê mức phạt hoặc điều có nhiều chế tài thì dùng aggregation.\n"
+            "- Nếu hỏi danh sách/toàn bộ/các hành vi nào bị tước GPLX, trừ điểm, tịch thu hoặc chịu một chế tài chung thì dùng aggregation.\n"
+            "- Nếu hỏi GPLX có bao nhiêu điểm ban đầu thì dùng definition/rule và tra Điều 58 Luật Trật tự ATGT 2024; không coi đây là câu hỏi xử phạt.\n"
             "- Nếu hỏi 'điều nào hay vi phạm nhất' phải dùng aggregation và ghi rõ chỉ thống kê được theo dữ liệu văn bản, không có dữ liệu vi phạm thực tế nếu nguồn không cung cấp.\n"
             "- Nếu câu hỏi rõ ràng ngoài luật giao thông đường bộ thì dùng out_of_scope, không cố truy xuất văn bản luật giao thông.\n"
             "- Nếu hỏi xử phạt nhưng không nêu loại phương tiện, không được đoán; truy vấn lần lượt ô tô, mô tô/xe gắn máy, xe máy chuyên dùng, và xe thô sơ nếu hành vi có thể liên quan.\n"
@@ -336,7 +345,9 @@ class LegalQueryPlanner:
             return ["out_of_scope"]
         behavior_hits = self._known_behavior_hits(qa)
         penalty_behavior_hits = self._known_behavior_hits(qa, facets={"penalty"})
-        if self._looks_like_aggregation(qa):
+        statutory_fine_cap = looks_like_statutory_fine_cap_query(qa)
+        aggregation_like = self._looks_like_aggregation(qa)
+        if aggregation_like:
             facets.append("aggregation")
         if has_sign_code or any(
             key in qa
@@ -358,7 +369,7 @@ class LegalQueryPlanner:
             facets.append("document_overview")
         if self._looks_like_legal_detail(qa):
             facets.append("legal_detail")
-        if any(key in qa for key in ["anh", "hinh anh", "trang goc", "van ban goc", "can cu goc", "file goc", "scan", "crop"]):
+        if self._looks_like_source_image(qa):
             facets.append("source_image")
         if any(key in qa for key in ["xe uu tien", "quyen uu tien", "uu tien", "nhuong duong", "cuu thuong", "chua chay", "cong an", "quan su", "doan xe"]):
             facets.append("priority")
@@ -379,7 +390,7 @@ class LegalQueryPlanner:
         scenario_like = len(behavior_hits) >= 2 or any(key in qa for key in scenario_markers)
         if scenario_like and not ("sign" in facets and len(behavior_hits) < 2):
             facets.append("scenario")
-        if any(
+        penalty_like = any(
             key in qa
             for key in [
                 "phat",
@@ -393,13 +404,18 @@ class LegalQueryPlanner:
                 "xu ly",
                 "vi pham",
             ]
-        ) or penalty_behavior_hits:
+        ) or penalty_behavior_hits
+        if penalty_like and not statutory_fine_cap and not (aggregation_like and not behavior_hits):
             facets.append("penalty")
         if self._looks_like_procedure_query(qa):
             facets.append("procedure")
-        if any(key in qa for key in ["la gi", "khai niem", "dinh nghia", "nghia la gi"]):
+        if (
+            statutory_fine_cap
+            or any(key in qa for key in ["la gi", "khai niem", "dinh nghia", "nghia la gi"])
+            or self._looks_like_license_points_fact(qa)
+        ):
             facets.append("definition")
-        if any(
+        rule_like = any(
             key in qa
             for key in [
                 "co duoc",
@@ -424,7 +440,8 @@ class LegalQueryPlanner:
                 "mu bao hiem",
                 "tai nan",
             ]
-        ) or behavior_hits:
+        ) or behavior_hits
+        if rule_like and not self._looks_like_license_points_fact(qa):
             facets.append("rule")
         if len(behavior_hits) >= 2 and "source_image" not in facets:
             facets.append("source_image")
@@ -623,7 +640,6 @@ class LegalQueryPlanner:
 
     def _looks_like_table_query(self, qa: str) -> bool:
         table_terms = [
-            "bang",
             "phu luc",
             "bieu mau",
             "v85",
@@ -634,6 +650,23 @@ class LegalQueryPlanner:
             "chuong trinh dao tao",
         ]
         if any(term in qa for term in table_terms):
+            return True
+        has_table_word = bool(re.search(r"\bbang\b", qa)) and not any(
+            term in qa
+            for term in [
+                "bang lai",
+                "bang a1",
+                "bang a2",
+                "bang b",
+                "bang c",
+                "bang d",
+                "bang e",
+                "tuoc bang",
+                "bang gplx",
+                "bang giay phep lai xe",
+            ]
+        )
+        if has_table_word:
             return True
         if "toc do toi da" in qa and any(term in qa for term in ["cao toc", "ngoai khu dong dan cu", "trong khu dong dan cu", "bang"]):
             return True
@@ -867,6 +900,8 @@ class LegalQueryPlanner:
         }
 
     def _looks_like_aggregation(self, qa: str) -> bool:
+        if looks_like_statutory_fine_cap_query(qa):
+            return False
         if bool(re.search(r"\btop\s*[-_ ]?\s*k\b", qa)) or any(
             term in qa
             for term in ["truy xuat", "he thong chi co top", "chi co top", "top k nho", "top-k nho"]
@@ -902,7 +937,38 @@ class LegalQueryPlanner:
             "vi pham",
             "bien bao",
         ]
-        return any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+        ranking_query = any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+        catalog_terms = [
+            "cac hanh vi",
+            "nhung hanh vi",
+            "hanh vi nao",
+            "danh sach hanh vi",
+            "toan bo hanh vi",
+            "liet ke hanh vi",
+        ]
+        sanction_terms = [
+            "tuoc",
+            "tru diem",
+            "tich thu",
+            "tam giu",
+            "hinh phat bo sung",
+            "hinh thuc xu phat bo sung",
+        ]
+        catalog_query = any(term in qa for term in catalog_terms) and any(term in qa for term in sanction_terms)
+        return ranking_query or catalog_query
+
+    def _looks_like_source_image(self, qa: str) -> bool:
+        if re.search(r"\banh\b", qa):
+            return True
+        return any(
+            term in qa
+            for term in ["hinh anh", "trang goc", "van ban goc", "can cu goc", "file goc", "scan", "crop"]
+        )
+
+    def _looks_like_license_points_fact(self, qa: str) -> bool:
+        license_terms = ["giay phep lai xe", "gplx", "diem lai xe"]
+        point_terms = ["bao nhieu diem", "so diem", "tong diem", "co may diem"]
+        return any(term in qa for term in license_terms) and any(term in qa for term in point_terms)
 
     def _looks_like_out_of_scope(self, qa: str) -> bool:
         traffic_terms = [

@@ -36,6 +36,7 @@ from src.rag.legal_utils import (
 )
 from src.rag.model_policy import generate_content_with_fallback
 from src.rag.query_preprocessor import PreparedQuery, prepare_chat_query
+from src.rag.source_catalog import source_catalog_payload, source_info_for_document
 
 # --- Configuration & Initialization ---
 load_dotenv(override=False)
@@ -196,10 +197,13 @@ def _references(docs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for d in docs:
         images = images_for_doc(d)
         ref = d.get("legal_reference") or {}
+        doc_name = d.get("doc_name") or ref.get("document")
+        document_source = source_info_for_document(doc_name)
         references.append({
             "source_chunk_id": d.get("source_chunk_id"),
             "reference_text": format_reference(d),
-            "doc_name": d.get("doc_name") or ref.get("document"),
+            "doc_name": doc_name,
+            "document_source": document_source,
             "modality": d.get("rag_modality"),
             "legal_reference": ref,
             "page_start": ref.get("page_start") or d.get("page_start"),
@@ -252,12 +256,12 @@ def _maybe_graph_trace(rag: LegalGraphRAG, docs: List[Dict[str, Any]], *, depth:
 def _timeout_fallback_result(rag: LegalGraphRAG, query: str) -> Dict[str, Any]:
     plan, profile = rag._build_query_profile(query)
     budget = dict(getattr(profile, "retrieval_budget", None) or {})
-    budget["top_k"] = min(int(budget.get("top_k") or 16), _env_int("RAG_TIMEOUT_FALLBACK_TOP_K", 16, minimum=6, maximum=40))
+    budget["top_k"] = min(int(budget.get("top_k") or 20), _env_int("RAG_TIMEOUT_FALLBACK_TOP_K", 20, minimum=6, maximum=48))
     budget["expand_depth"] = min(int(budget.get("expand_depth") or 1), _env_int("RAG_TIMEOUT_FALLBACK_EXPAND_DEPTH", 1, minimum=0, maximum=2))
-    budget["max_contexts"] = min(int(budget.get("max_contexts") or 12), _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 12, minimum=4, maximum=32))
+    budget["max_contexts"] = min(int(budget.get("max_contexts") or 16), _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 16, minimum=4, maximum=40))
     profile.retrieval_budget = budget
     docs = rag._retrieve_direct(query, plan, profile)
-    docs = docs[: _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 12, minimum=4, maximum=32)]
+    docs = docs[: _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 16, minimum=4, maximum=40)]
     deterministic = rag._deterministic_structured_answer(query, docs)
     answer = deterministic or rag._extractive_answer(query, docs)
     images = rag._context_images(docs, limit=_api_image_limit())
@@ -305,11 +309,13 @@ def _snippet(text: str, limit: int = 800) -> str:
 def _record_payload(record: Dict[str, Any], *, text_limit: int = 1200) -> Dict[str, Any]:
     ref = record.get("legal_reference") or {}
     images = [public_asset_path(path) for path in record_image_paths(record)]
+    doc_name = record.get("doc_name") or ref.get("document")
     return {
         "source_chunk_id": record.get("source_chunk_id") or record.get("id"),
         "record_id": record.get("record_id") or record.get("id"),
         "reference_text": format_reference(record),
-        "doc_name": record.get("doc_name") or ref.get("document"),
+        "doc_name": doc_name,
+        "document_source": source_info_for_document(doc_name),
         "modality": record.get("rag_modality") or record.get("type") or "text",
         "legal_reference": ref,
         "page_start": ref.get("page_start") or record.get("page_start"),
@@ -801,6 +807,7 @@ async def system_status():
             ),
             "vector_record_count": len(records),
             "documents": [{"name": name, "count": count} for name, count in docs.most_common()],
+            "document_sources": source_catalog_payload(),
             "modalities": [{"name": name, "count": count} for name, count in modalities.most_common()],
             "graph": {
                 "loaded": bool(getattr(graph_store, "loaded", False)),
@@ -951,7 +958,7 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
         if prepared.was_preprocessed:
             logger.info("Prepared Search Query: %s", search_query)
 
-        deadline = _env_int("RAG_CHAT_TEXT_DEADLINE_SECONDS", 120, minimum=20, maximum=300)
+        deadline = _env_int("RAG_CHAT_TEXT_DEADLINE_SECONDS", 300, minimum=30, maximum=600)
         try:
             result = await asyncio.wait_for(asyncio.to_thread(rag.query_adaptive, search_query), timeout=deadline)
         except asyncio.TimeoutError:

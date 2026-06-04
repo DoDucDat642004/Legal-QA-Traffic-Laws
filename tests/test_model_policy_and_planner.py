@@ -9,10 +9,11 @@ from src.rag.hybrid_vector_store import _should_load_embedder
 from src.rag.adaptive_query import AdaptiveQuestionAnalyzer
 from src.rag.custom_legal_retriever import CustomLegalRetriever
 from src.rag.legal_graph_rag import LegalGraphRAG
-from src.rag.legal_utils import public_asset_path
+from src.rag.legal_utils import looks_like_table_query, public_asset_path
 from src.rag.model_policy import generate_content_with_fallback, model_candidates
 from src.rag.query_preprocessor import missing_data_hints, prepare_chat_query
 from src.rag.query_planner import LegalQueryPlanner, QueryPlan
+from src.rag.sequential_retrieval import SequentialRetrievalOrchestrator
 from frontend.asset_utils import image_source
 
 
@@ -217,6 +218,218 @@ class QueryPlannerCoverageTest(unittest.TestCase):
             self.assertFalse(retriever._should_model_rerank("Xe máy vượt đèn đỏ bị phạt bao nhiêu?", [{}], easy_plan))
             self.assertTrue(retriever._should_model_rerank("Tình huống nhiều lỗi cần tổng hợp mức phạt", [{}], hard_plan))
 
+    def test_general_legal_questions_use_structured_routes_without_false_facets(self):
+        planner = LegalQueryPlanner()
+        analyzer = AdaptiveQuestionAnalyzer()
+        expected = {
+            "336-2025 nghị định chính phủ có bao nhiêu điều luật?": "document_overview",
+            "Một người thì có số điểm lái xe là bao nhiêu?": "definition",
+            "vi phạm hành vi nào thì bị mức phạt cao nhất?": "aggregation",
+            "Các hành vi vi phạm nào sẽ bị tước bằng lái xe": "aggregation",
+            "điều 40 trong nghị định 168 nói về cái gì": "legal_detail",
+        }
+
+        for query, expected_intent in expected.items():
+            with self.subTest(query=query):
+                plan = planner.rule_plan(query)
+                profile = analyzer.analyze(query, plan)
+                self.assertEqual(plan.intent.value, expected_intent)
+                self.assertEqual(profile.intent, expected_intent)
+                self.assertNotIn("source_image", profile.facets)
+                self.assertNotIn("table", profile.facets)
+
+        overview = analyzer.analyze(
+            "336-2025 nghị định chính phủ có bao nhiêu điều luật?",
+            planner.rule_plan("336-2025 nghị định chính phủ có bao nhiêu điều luật?"),
+        )
+        self.assertNotIn("penalty", overview.facets)
+
+    def test_license_word_bang_does_not_trigger_table_route(self):
+        planner = LegalQueryPlanner()
+        analyzer = AdaptiveQuestionAnalyzer()
+        queries = [
+            "Tôi có bằng A1 chạy xe hơi thì có ok không?",
+            "Tôi có bằng lái xe A2 nhưng muốn chạy xe con có được không?",
+            "Chủ xe giao ô tô cho người chỉ có bằng A1 thì bị xử lý sao?",
+        ]
+
+        for query in queries:
+            with self.subTest(query=query):
+                plan = planner.rule_plan(query)
+                profile = analyzer.analyze(query, plan)
+
+                self.assertFalse(looks_like_table_query(query))
+                self.assertNotEqual(plan.intent.value, "table")
+                self.assertNotIn("table", profile.facets)
+
+    def test_sanction_catalog_does_not_request_vehicle_clarification(self):
+        hints = missing_data_hints("Các hành vi vi phạm nào sẽ bị tước bằng lái xe?")
+        self.assertFalse(any("Loại phương tiện" in hint for hint in hints))
+
+    def test_statutory_fine_cap_is_definition_not_aggregation(self):
+        query = (
+            "Theo Nghị định 336/2025/NĐ-CP, mức phạt tiền tối đa trong hoạt động đường bộ "
+            "đối với cá nhân và tổ chức được quy định là bao nhiêu?"
+        )
+        planner = LegalQueryPlanner()
+        plan = planner.rule_plan(query)
+        profile = AdaptiveQuestionAnalyzer().analyze(query, plan)
+
+        self.assertEqual(plan.intent.value, "definition")
+        self.assertEqual(profile.intent, "definition")
+        self.assertIn("definition", profile.facets)
+        self.assertNotIn("aggregation", profile.facets)
+        self.assertNotIn("penalty", profile.facets)
+        self.assertEqual(len(profile.evidence_slots), 1)
+        self.assertEqual(profile.difficulty, "easy")
+        self.assertLessEqual(profile.difficulty_score, 2)
+
+    def test_aggregation_profile_skips_penalty_followups_and_answer_repair(self):
+        orchestrator = SequentialRetrievalOrchestrator(None, lambda *_args, **_kwargs: "")
+        profile = SimpleNamespace(facets=["aggregation"])
+        query = "Các hành vi vi phạm nào sẽ bị tước bằng lái xe?"
+
+        followups = orchestrator._coverage_followup_slots(
+            query=query,
+            profile=profile,
+            plan=QueryPlan(),
+            results=[],
+            records=[],
+            existing_slots=[],
+            round_idx=0,
+        )
+        repairs = orchestrator._answer_repair_slots(
+            answer="Danh mục hành vi bị tước GPLX.",
+            query=query,
+            profile=profile,
+            plan=QueryPlan(),
+            results=[],
+            records=[],
+            existing_slots=[],
+            repair_idx=0,
+        )
+
+        self.assertEqual(followups, [])
+        self.assertEqual(repairs, [])
+        self.assertFalse(
+            orchestrator._answer_has_unresolved_ambiguity(
+                "Danh mục hành vi bị tước GPLX.",
+                query,
+                profile,
+            )
+        )
+
+
+class StructuredGeneralRetrievalTest(unittest.TestCase):
+    def test_direct_retrieval_honors_structured_facets(self):
+        class RouteSpy:
+            def __getattr__(self, name):
+                if name.startswith("retrieve_"):
+                    return lambda *_args, **_kwargs: [{"route": name}]
+                raise AttributeError(name)
+
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        rag.retriever = RouteSpy()
+        plan = QueryPlan()
+
+        for facet, route in [
+            ("document_overview", "retrieve_document_overview"),
+            ("legal_detail", "retrieve_legal_detail"),
+            ("aggregation", "retrieve_aggregation"),
+        ]:
+            with self.subTest(facet=facet):
+                profile = SimpleNamespace(
+                    retrieval_budget={"top_k": 10, "expand_depth": 1},
+                    facets=[facet],
+                )
+                records = rag._retrieve_direct("query", plan, profile)
+                self.assertEqual(records[0]["route"], route)
+
+    def test_document_overview_counts_only_direct_article_headings(self):
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+        retriever.vector_store = SimpleNamespace(records=[
+            {
+                "source_chunk_id": "d1",
+                "doc_name": "Nghị định 336/2025/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 336/2025/NĐ-CP", "article": "1"},
+                "source_body_exact": "Điều 1. Phạm vi điều chỉnh",
+            },
+            {
+                "source_chunk_id": "d2",
+                "doc_name": "Nghị định 336/2025/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 336/2025/NĐ-CP", "article": "2"},
+                "source_body_exact": "# Điều 2. Đối tượng áp dụng",
+            },
+            {
+                "source_chunk_id": "legacy_80",
+                "doc_name": "Nghị định 336/2025/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 336/2025/NĐ-CP", "article": "80"},
+                "source_body_exact": "Bãi bỏ điểm i khoản 1 Điều 80 của văn bản khác.",
+            },
+        ])
+
+        rows = retriever._document_article_rows(["Nghị định 336/2025/NĐ-CP"])
+        self.assertEqual([row["article"] for row in rows], ["1", "2"])
+        self.assertIn("**2 tiêu đề điều", retriever._format_document_overview("Nghị định 336/2025/NĐ-CP", rows))
+
+    def test_license_suspension_catalog_aggregates_all_matching_actions(self):
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+        records = [
+            {
+                "source_chunk_id": "s1",
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "6", "clause": "7", "point": "a"},
+                "violation_content": "Điều khiển xe chạy quá tốc độ quy định trên 35 km/h",
+                "qa_context": "Hành vi điều khiển xe quá tốc độ trên 35 km/h bị tước GPLX từ 2-4 tháng.",
+                "source_body_exact": "Điều khiển xe chạy quá tốc độ quy định trên 35 km/h bị tước GPLX từ 2-4 tháng.",
+            },
+            {
+                "source_chunk_id": "s2",
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "9", "point": "d"},
+                "violation_content": "Điều khiển xe khi có nồng độ cồn vượt ngưỡng cao nhất",
+                "qa_context": "Hành vi này bị tước quyền sử dụng giấy phép lái xe từ 22 đến 24 tháng.",
+                "source_body_exact": "Điều khiển xe khi có nồng độ cồn vượt ngưỡng cao nhất bị tước quyền sử dụng giấy phép lái xe từ 22 đến 24 tháng.",
+            },
+        ]
+
+        result = retriever._license_suspension_aggregation_records(
+            "Các hành vi nào bị tước GPLX?",
+            records,
+            top_k=8,
+        )
+        summary = result[0]["source_body_exact"]
+        self.assertEqual(result[0]["rag_modality"], "aggregation")
+        self.assertIn("quá tốc độ", summary)
+        self.assertIn("nồng độ cồn", summary)
+        self.assertIn("22 đến 24 tháng", summary)
+        self.assertEqual(len(result), 3)
+
+    def test_license_point_total_has_exact_article_anchor(self):
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+        retriever.vector_store = SimpleNamespace(records=[{
+            "source_chunk_id": "points",
+            "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+            "legal_reference": {
+                "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+                "article": "58",
+                "clause": "1",
+            },
+            "source_body_exact": "Điểm của giấy phép lái xe bao gồm 12 điểm.",
+        }])
+
+        records = retriever._topic_anchor_matches("Một người thì có số điểm lái xe là bao nhiêu?")
+        self.assertEqual(records[0]["source_chunk_id"], "points")
+        self.assertIn("topic_license_points_total", records[0]["retrieval_reasons"])
+
+    def test_license_vehicle_mismatch_detector_is_scoped(self):
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+
+        self.assertTrue(retriever._looks_like_license_vehicle_mismatch_query("Tôi có bằng A1 chạy xe hơi có được không?"))
+        self.assertTrue(retriever._looks_like_license_vehicle_mismatch_query("GPLX A2 lái ô tô thì sao?"))
+        self.assertFalse(retriever._looks_like_license_vehicle_mismatch_query("Tôi có bằng A1 chạy xe máy có được không?"))
+        self.assertFalse(retriever._looks_like_license_vehicle_mismatch_query("Tra bảng thông số xe ô tô trong phụ lục."))
+
 
 class HybridVectorStoreConfigTest(unittest.TestCase):
     def test_disabled_embeddings_skip_existing_local_model_path(self):
@@ -290,6 +503,47 @@ class AssetPathTest(unittest.TestCase):
 
 
 class DeterministicPenaltyAnswerTest(unittest.TestCase):
+    def test_statutory_fine_cap_answers_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Theo Nghị định 336/2025/NĐ-CP, mức phạt tiền tối đa đối với cá nhân và tổ chức là bao nhiêu?",
+            [{
+                "doc_name": "Nghị định 336/2025/NĐ-CP",
+                "legal_reference": {
+                    "document": "Nghị định 336/2025/NĐ-CP",
+                    "article": "3",
+                    "clause": "1",
+                },
+                "source_body_exact": (
+                    "Mức phạt tiền tối đa đối với cá nhân là 75.000.000 đồng "
+                    "và đối với tổ chức là 150.000.000 đồng."
+                ),
+            }],
+        )
+
+        self.assertIn("**75.000.000 đồng**", answer)
+        self.assertIn("**150.000.000 đồng**", answer)
+        self.assertIn("Điều 3", answer)
+
+    def test_license_point_total_answers_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Một người thì có số điểm lái xe là bao nhiêu?",
+            [{
+                "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                "legal_reference": {
+                    "document": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "article": "58",
+                    "clause": "1",
+                },
+                "source_body_exact": "Điểm của giấy phép lái xe bao gồm 12 điểm.",
+            }],
+        )
+
+        self.assertIn("**12 điểm**", answer)
+        self.assertIn("Khoản 1", answer)
+        self.assertIn("Điều 58", answer)
+
     def test_answer_continuation_strips_completion_marker(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         rag.client = FakeClient({
