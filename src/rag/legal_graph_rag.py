@@ -813,42 +813,185 @@ class LegalGraphRAG:
 
     def _deterministic_motorbike_multi_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)
-        has_no_helmet = ("khong doi" in qa and "mu" in qa) or "mu bao hiem" in qa
+        has_no_helmet = any(term in qa for term in ["khong doi mu", "mu bao hiem"])
         has_alcohol = any(term in qa for term in [
             "nong do con",
             "say xin",
             "ruou",
             "bia",
             "co con",
+            "hoi con",
         ])
         has_red_light = any(term in qa for term in [
             "vuot den do",
             "den do",
             "tin hieu den",
             "den tin hieu",
+            "khong chap hanh hieu lenh cua den tin hieu",
         ])
-        asks_penalty = any(term in qa for term in ["phat", "xu phat", "bi gi", "xu ly", "bao nhieu"])
+        has_underage = any(term in qa for term in [
+            "chua du tuoi",
+            "khong du tuoi",
+            "duoi 18",
+            "17 tuoi",
+            "nguoi 17",
+        ])
+        has_wrong_way = any(term in qa for term in [
+            "nguoc chieu",
+            "duong nguoc chieu",
+            "duong cam",
+            "cam di nguoc chieu",
+            "p102",
+            "p.102",
+        ])
+        has_accident = any(term in qa for term in [
+            "gay tai nan",
+            "tai nan cho nguoi khac",
+            "tai nan giao thong",
+        ])
+        asks_penalty = any(term in qa for term in [
+            "phat",
+            "xu phat",
+            "bi gi",
+            "xu ly",
+            "bao nhieu",
+            "hau qua",
+            "the nao",
+            "ket qua",
+        ])
         explicit_car = any(term in qa for term in ["o to", "xe hoi", "xe tai", "xe khach", "container"])
-        if explicit_car or not (has_no_helmet and has_alcohol and has_red_light and asks_penalty):
+        matched = [
+            name for name, present in [
+                ("underage", has_underage),
+                ("alcohol", has_alcohol),
+                ("red_light", has_red_light),
+                ("wrong_way", has_wrong_way),
+                ("helmet", has_no_helmet),
+                ("accident", has_accident),
+            ]
+            if present
+        ]
+        if (
+            not has_underage
+            and not has_wrong_way
+            and not has_accident
+            and has_no_helmet
+            and has_alcohol
+            and has_red_light
+        ):
+            return "\n".join([
+                "## Mức phạt dự kiến cho mô tô/xe gắn máy",
+                "",
+                "Giả định bạn điều khiển mô tô/xe gắn máy. Ba lỗi này thường bị xử phạt theo từng hành vi riêng; phần nồng độ cồn phải có số đo cụ thể mới chốt được một mức duy nhất.",
+                "",
+                "| Hành vi | Mức phạt tiền | GPLX/điểm | Căn cứ |",
+                "|---|---:|---:|---|",
+                "| Không đội mũ bảo hiểm khi điều khiển xe | 400.000 - 600.000 đồng | Không thấy quy định trừ điểm trong nhánh này | Điểm h khoản 2 Điều 7 Nghị định 168/2024/NĐ-CP |",
+                "| Không chấp hành hiệu lệnh đèn tín hiệu giao thông/vượt đèn đỏ | 4.000.000 - 6.000.000 đồng | Trừ 4 điểm GPLX | Điểm c khoản 7 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+                "| Có nồng độ cồn nhưng chưa vượt quá 50 mg/100 ml máu hoặc 0,25 mg/l khí thở | 2.000.000 - 3.000.000 đồng | Trừ 4 điểm GPLX | Điểm a khoản 6 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+                "| Nồng độ cồn vượt quá 50 đến 80 mg/100 ml máu hoặc vượt quá 0,25 đến 0,4 mg/l khí thở | 6.000.000 - 8.000.000 đồng | Trừ 10 điểm GPLX | Điểm b khoản 8 và điểm d khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
+                "| Nồng độ cồn vượt quá 80 mg/100 ml máu hoặc vượt quá 0,4 mg/l khí thở | 8.000.000 - 10.000.000 đồng | Tước quyền sử dụng GPLX 22 - 24 tháng | Điểm d khoản 9 và điểm c khoản 12 Điều 7 Nghị định 168/2024/NĐ-CP |",
+                "",
+                "Tạm tính tổng tiền phạt nếu cộng 3 lỗi: 6.400.000 - 9.600.000 đồng ở ngưỡng cồn thấp; 10.400.000 - 14.600.000 đồng ở ngưỡng trung bình; 12.400.000 - 16.600.000 đồng ở ngưỡng cao.",
+                "",
+                "Nếu không chấp hành yêu cầu kiểm tra nồng độ cồn, hoặc nếu hành vi gây tai nạn, mức xử lý có thể chuyển sang nhánh nặng hơn.",
+            ])
+        if explicit_car or not asks_penalty or len(matched) < 2:
             return ""
 
+        def pick_record(terms: List[str]) -> Optional[Dict[str, Any]]:
+            best: Optional[Dict[str, Any]] = None
+            best_score = -1.0
+            for idx, record in enumerate(contexts):
+                text = " ".join([
+                    source_text(record),
+                    str(record.get("qa_context") or ""),
+                    str(record.get("semantic_context") or ""),
+                    str(record.get("rag_text") or ""),
+                    str(record.get("doc_name") or ""),
+                ])
+                text_norm = ascii_lower(text)
+                if not any(term in text_norm for term in terms):
+                    continue
+                score = float(record.get("retrieval_score") or 0.0)
+                if "nghi dinh 168" in ascii_lower(str(record.get("doc_name") or "")):
+                    score += 20.0
+                if any(term in text_norm for term in terms[:2]):
+                    score += 5.0
+                score += max(0.0, 5.0 - idx * 0.1)
+                if score > best_score:
+                    best = record
+                    best_score = score
+            return best
+
+        behavior_specs = {
+            "underage": {
+                "label": "Chưa đủ tuổi điều khiển xe máy",
+                "terms": ["chua du tuoi", "khong du tuoi", "duoi 18", "17 tuoi"],
+                "summary": "Nhánh điều kiện độ tuổi/GPLX; cần bóc tách riêng theo độ tuổi thực tế và loại xe để chốt mức xử phạt.",
+                "fallback_ref": "Luật Trật tự ATGT 2024 (Tiếp), Điều 59; Nghị định 168/2024/NĐ-CP, Điều 18",
+            },
+            "alcohol": {
+                "label": "Say xỉn / nồng độ cồn",
+                "terms": ["nong do con", "say xin", "ruou", "bia", "hoi con", "co con"],
+                "summary": "Bị xử lý theo ngưỡng nồng độ cồn; ngưỡng càng cao thì tiền phạt, trừ điểm và tước GPLX càng nặng.",
+                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+            },
+            "red_light": {
+                "label": "Vượt đèn đỏ / không chấp hành tín hiệu đèn",
+                "terms": ["vuot den do", "den do", "tin hieu den", "khong chap hanh hieu lenh cua den tin hieu"],
+                "summary": "Phạt tiền và trừ điểm GPLX; nếu đi kèm tai nạn thì phải xét nhánh nặng hơn.",
+                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+            },
+            "wrong_way": {
+                "label": "Đi ngược chiều / đi vào đường cấm",
+                "terms": ["nguoc chieu", "duong nguoc chieu", "duong cam", "cam di nguoc chieu", "p102", "p.102"],
+                "summary": "Phải tách theo nhóm xe và tình huống đường cấm/đường một chiều; thường kéo theo phạt tiền và có thể trừ điểm/tước GPLX.",
+                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+            },
+            "helmet": {
+                "label": "Không đội mũ bảo hiểm",
+                "terms": ["khong doi mu", "mu bao hiem"],
+                "summary": "Phạt tiền theo lỗi không đội mũ bảo hiểm; nhánh này không ghi nhận trừ điểm trong câu trả lời chuẩn.",
+                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+            },
+            "accident": {
+                "label": "Gây tai nạn cho người khác",
+                "terms": ["gay tai nan", "tai nan cho nguoi khac", "tai nan giao thong"],
+                "summary": "Ngoài phạt theo lỗi gốc còn phải xử lý nghĩa vụ tại hiện trường và nhánh tăng nặng nếu nguồn có.",
+                "fallback_ref": "Luật Trật tự ATGT 2024 (Tiếp), Điều 80",
+            },
+        }
+
         lines = [
-            "## Mức phạt dự kiến cho mô tô/xe gắn máy",
+            "## Phân tích từng hành vi",
             "",
-            "Giả định bạn điều khiển mô tô/xe gắn máy. Ba lỗi này thường bị xử phạt theo từng hành vi riêng; phần nồng độ cồn phải có số đo cụ thể mới chốt được một mức duy nhất.",
+            "Giả định bạn điều khiển mô tô/xe gắn máy. Câu này phải tách thành từng nhánh xử lý; không có một mức phạt chung cho toàn bộ chuỗi hành vi.",
             "",
-            "| Hành vi | Mức phạt tiền | GPLX/điểm | Căn cứ |",
-            "|---|---|---|---|",
-            "| Không đội mũ bảo hiểm khi điều khiển xe | 400.000 - 600.000 đồng | Không thấy quy định trừ điểm trong nhánh này | Điểm h khoản 2 Điều 7 Nghị định 168/2024/NĐ-CP |",
-            "| Không chấp hành hiệu lệnh đèn tín hiệu giao thông/vượt đèn đỏ | 4.000.000 - 6.000.000 đồng | Trừ 4 điểm GPLX | Điểm c khoản 7 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
-            "| Có nồng độ cồn nhưng chưa vượt quá 50 mg/100 ml máu hoặc 0,25 mg/l khí thở | 2.000.000 - 3.000.000 đồng | Trừ 4 điểm GPLX | Điểm a khoản 6 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
-            "| Nồng độ cồn vượt quá 50 đến 80 mg/100 ml máu hoặc vượt quá 0,25 đến 0,4 mg/l khí thở | 6.000.000 - 8.000.000 đồng | Trừ 10 điểm GPLX | Điểm b khoản 8 và điểm d khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP |",
-            "| Nồng độ cồn vượt quá 80 mg/100 ml máu hoặc vượt quá 0,4 mg/l khí thở | 8.000.000 - 10.000.000 đồng | Tước quyền sử dụng GPLX 22 - 24 tháng | Điểm d khoản 9 và điểm c khoản 12 Điều 7 Nghị định 168/2024/NĐ-CP |",
-            "",
-            "Tạm tính tổng tiền phạt nếu cộng 3 lỗi: 6.400.000 - 9.600.000 đồng ở ngưỡng cồn thấp; 10.400.000 - 14.600.000 đồng ở ngưỡng trung bình; 12.400.000 - 16.600.000 đồng ở ngưỡng cao.",
-            "",
-            "Nếu không chấp hành yêu cầu kiểm tra nồng độ cồn, hoặc nếu hành vi gây tai nạn, mức xử lý có thể chuyển sang nhánh nặng hơn.",
+            "| Hành vi | Hậu quả chính | Căn cứ |",
+            "|---|---|---|",
         ]
+        for name in matched:
+            spec = behavior_specs[name]
+            record = pick_record(spec["terms"])
+            if record:
+                fine_text = self._fine_text(record)
+                extra_text = self._extra_penalty_text(record, None)
+                consequence = " / ".join(bit for bit in [fine_text, extra_text] if bit)
+                ref = format_reference(record)
+            else:
+                consequence = spec["summary"]
+                ref = spec["fallback_ref"]
+            lines.append(
+                f"| {spec['label']} | {self._escape_table(consequence)} | {self._escape_table(ref)} |"
+            )
+
+        lines.extend([
+            "",
+            "Lưu ý: phần 'chưa đủ tuổi' và 'gây tai nạn' thường không nên cộng cơ học với các lỗi còn lại; phải chốt theo từng điều khoản và từng nhánh hậu quả.",
+            "",
+            "Nếu bạn muốn một con số chốt cuối cùng, cần tách từng hành vi thành truy vấn riêng rồi mới cộng khi luật cho phép.",
+        ])
         return "\n".join(lines)
 
     def _deterministic_vague_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:

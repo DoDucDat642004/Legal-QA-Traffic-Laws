@@ -603,6 +603,41 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("12.400.000 - 16.600.000 đồng", answer)
         self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
 
+    def test_motorbike_compound_penalty_question_answers_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi chưa đủ tuổi chạy xe máy, say xỉn, vượt đèn đỏ, đi ngược chiều, không đội mũ bảo hiểm, gây tai nạn cho người khác thì hậu quả như thế nào?",
+            [
+                {
+                    "rag_modality": "text",
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "c"},
+                    "source_body_exact": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông; vượt đèn đỏ.",
+                    "penalties": {
+                        "main_penalty": {"individual_min_vnd": 4000000, "individual_max_vnd": 6000000},
+                        "point_deduction": 4,
+                    },
+                    "retrieval_score": 10.0,
+                },
+                {
+                    "rag_modality": "text",
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "59", "clause": "1"},
+                    "source_body_exact": "Người điều khiển xe mô tô phải đủ tuổi theo quy định.",
+                    "retrieval_score": 9.0,
+                },
+            ],
+        )
+
+        self.assertIn("Phân tích từng hành vi", answer)
+        self.assertIn("Chưa đủ tuổi điều khiển xe máy", answer)
+        self.assertIn("Say xỉn / nồng độ cồn", answer)
+        self.assertIn("Vượt đèn đỏ / không chấp hành tín hiệu đèn", answer)
+        self.assertIn("Đi ngược chiều / đi vào đường cấm", answer)
+        self.assertIn("Không đội mũ bảo hiểm", answer)
+        self.assertIn("Gây tai nạn cho người khác", answer)
+        self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
+
     def test_signal_light_question_answers_without_model(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         answer = rag._deterministic_structured_answer(
