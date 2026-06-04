@@ -405,6 +405,35 @@ class StructuredGeneralRetrievalTest(unittest.TestCase):
         self.assertIn("22 đến 24 tháng", summary)
         self.assertEqual(len(result), 3)
 
+    def test_point_aggregation_returns_highest_deduction_table(self):
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+        records = [
+            {
+                "source_chunk_id": "p1",
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "8", "point": "d"},
+                "source_body_exact": "Đây là một hành vi vi phạm có hình thức xử phạt: trừ 10 điểm GPLX.",
+                "qa_context": "Hành vi vi phạm bị trừ 10 điểm GPLX.",
+                "penalties": {"point_deduction": 10},
+            },
+            {
+                "source_chunk_id": "p2",
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "6", "clause": "7", "point": "b"},
+                "source_body_exact": "Hành vi vi phạm khác bị trừ 4 điểm GPLX.",
+                "qa_context": "Hành vi vi phạm bị trừ 4 điểm GPLX.",
+                "penalties": {"point_deduction": 4},
+            },
+        ]
+
+        result = retriever._point_aggregation_records("Hành vi nào bị trừ điểm GPLX cao nhất?", records, top_k=5)
+        summary = result[0]["source_body_exact"]
+        self.assertEqual(result[0]["rag_modality"], "aggregation")
+        self.assertIn("## Thống kê mức trừ điểm cao nhất", summary)
+        self.assertIn("10", summary)
+        self.assertIn("4", summary)
+        self.assertEqual(len(result), 3)
+
     def test_license_point_total_has_exact_article_anchor(self):
         retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
         retriever.vector_store = SimpleNamespace(records=[{
@@ -544,6 +573,19 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Khoản 1", answer)
         self.assertIn("Điều 58", answer)
 
+    def test_owner_gives_car_to_a1_driver_answers_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Chủ xe giao ô tô cho người chỉ có bằng A1 lái thì chủ xe có bị phạt không?",
+            [],
+        )
+
+        self.assertIn("Có. Nếu chủ xe giao ô tô", answer)
+        self.assertIn("## Phân tích từng nhánh", answer)
+        self.assertIn("## Tổng hậu quả", answer)
+        self.assertIn("Điều 32", answer)
+        self.assertIn("Điều 18", answer)
+
     def test_answer_continuation_strips_completion_marker(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         rag.client = FakeClient({
@@ -637,6 +679,30 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Không đội mũ bảo hiểm", answer)
         self.assertIn("Gây tai nạn cho người khác", answer)
         self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
+
+    def test_extractive_penalty_answer_uses_standard_sections(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._extractive_answer(
+            "Xe máy vượt đèn đỏ bị phạt bao nhiêu?",
+            [
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "c"},
+                    "source_body_exact": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông.",
+                    "penalties": {
+                        "main_penalty": {"individual_min_vnd": 4000000, "individual_max_vnd": 6000000},
+                        "point_deduction": 4,
+                    },
+                    "retrieval_score": 10.0,
+                }
+            ],
+        )
+
+        self.assertIn("## Trả lời ngắn gọn", answer)
+        self.assertIn("## Phân tích từng nhánh", answer)
+        self.assertIn("## Căn cứ áp dụng", answer)
+        self.assertIn("## Tổng hậu quả", answer)
+        self.assertIn("Trừ điểm GPLX: 4", answer)
 
     def test_signal_light_question_answers_without_model(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)

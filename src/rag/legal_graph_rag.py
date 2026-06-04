@@ -739,6 +739,9 @@ class LegalGraphRAG:
             return source_text(first)
         if modality == "aggregation":
             return source_text(first)
+        license_mismatch_answer = self._deterministic_license_vehicle_mismatch_answer(query, contexts)
+        if license_mismatch_answer:
+            return license_mismatch_answer
         license_points_answer = self._deterministic_license_points_answer(query, contexts)
         if license_points_answer:
             return license_points_answer
@@ -767,6 +770,74 @@ class LegalGraphRAG:
         if sign_answer:
             return sign_answer
         return ""
+
+    def _deterministic_license_vehicle_mismatch_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        mentions_a1 = any(term in qa for term in ["a1", "hang a1", "giay phep lai xe a1"])
+        mentions_car = any(term in qa for term in ["o to", "xe hoi", "xe oto", "xe con", "xe tai", "xe khach"])
+        asks_liability = any(term in qa for term in [
+            "co bi phat khong",
+            "bi phat khong",
+            "xu ly sao",
+            "hau qua",
+            "phat khong",
+            "co bi phat",
+            "chu xe",
+            "giao xe",
+            "co duoc",
+            "duoc khong",
+            "co ok",
+            "ok khong",
+            "hop le khong",
+        ])
+        if not (mentions_a1 and mentions_car and asks_liability):
+            return ""
+
+        owner_record = None
+        driver_record = None
+        for record in contexts:
+            ref = normalized_legal_reference(record)
+            article = str(ref.get("article") or "")
+            doc = ascii_lower(ref.get("document") or record.get("doc_name") or "")
+            text = ascii_lower(" ".join([
+                source_text(record),
+                str(record.get("qa_context") or ""),
+                str(record.get("semantic_context") or ""),
+                str(record.get("rag_text") or ""),
+            ]))
+            if not owner_record and article == "32" and "nghi dinh 168" in doc and any(term in text for term in ["giao xe", "khong du dieu kien", "khong du điều kiện", "không đủ điều kiện"]):
+                owner_record = record
+            if not driver_record and article == "18" and "nghi dinh 168" in doc and any(term in text for term in ["khong phu hop voi loai xe", "khong co giay phep lai xe", "khong du dieu kien"]):
+                driver_record = record
+
+        owner_ref = format_reference(owner_record) if owner_record else "Nghị định 168/2024/NĐ-CP, Điều 32"
+        driver_ref = format_reference(driver_record) if driver_record else "Nghị định 168/2024/NĐ-CP, Điều 18"
+        owner_penalty = self._penalty_sentence(owner_record) if owner_record else "Chủ xe có thể bị xử phạt vì giao xe cho người không đủ điều kiện."
+        driver_penalty = self._penalty_sentence(driver_record) if driver_record else "Người lái có thể bị xử phạt vì điều khiển ô tô bằng GPLX không phù hợp với loại xe."
+
+        return "\n".join([
+            "## Trả lời ngắn gọn",
+            "",
+            "Có. Nếu chủ xe giao ô tô cho người chỉ có bằng A1, chủ xe có thể bị phạt vì đã giao xe cho người không đủ điều kiện điều khiển ô tô.",
+            "",
+            "## Phân tích từng nhánh",
+            "",
+            f"1. **Người lái**: {driver_penalty} **Căn cứ:** {driver_ref}.",
+            f"2. **Chủ xe**: {owner_penalty} **Căn cứ:** {owner_ref}.",
+            "",
+            "## Căn cứ áp dụng",
+            "",
+            "- Bằng A1 không phù hợp để điều khiển ô tô.",
+            "- Hành vi giao xe cho người không đủ điều kiện là nhánh xử lý riêng của chủ xe.",
+            "",
+            "## Tổng hậu quả",
+            "",
+            "Hai hành vi là hai nhánh riêng: người lái bị xử lý theo lỗi điều khiển xe không đúng hạng GPLX; chủ xe bị xử lý theo lỗi giao xe cho người không đủ điều kiện.",
+            "",
+            "## Lưu ý",
+            "",
+            "Nếu cần chốt đúng mức tiền phạt, phải xác định chủ xe là cá nhân hay tổ chức và tách riêng lỗi của chủ xe với lỗi của người điều khiển.",
+        ])
 
     def _deterministic_statutory_fine_cap_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         if not looks_like_statutory_fine_cap_query(query):
@@ -1540,8 +1611,15 @@ class LegalGraphRAG:
             self._fallback_lead(query, rows),
             "",
         ]
-        for bullet in self._fallback_key_points(rows):
-            lines.append(f"- {bullet}")
+        key_points = self._fallback_key_points(rows)
+        if key_points:
+            lines.extend([
+                "## Phân tích từng nhánh",
+                "",
+            ])
+            for bullet in key_points:
+                lines.append(f"- {bullet}")
+            lines.append("")
 
         lines.extend([
             "",
@@ -1560,6 +1638,12 @@ class LegalGraphRAG:
                     summary=self._escape_table(summary),
                     ref=self._escape_table(row["ref"]),
                 )
+            )
+
+        if self._looks_like_penalty_query_text(query) or len(rows) > 1:
+            lines.extend(["", "## Tổng hậu quả", ""])
+            lines.append(
+                "Các nhánh trên là những hậu quả pháp lý tách riêng theo hành vi; nếu cùng lúc có nhiều lỗi thì cần ghép theo từng điều khoản, không cộng cơ học khi luật không cho phép."
             )
 
         notes = self._fallback_notes(query, rows)
@@ -1787,11 +1871,25 @@ class LegalGraphRAG:
             term in qa for term in ["o to", "xe hoi", "xe tai", "xe khach", "xe may", "mo to", "gan may", "xe dap", "may chuyen dung"]
         ):
             notes.append("Cần biết loại phương tiện để chốt đúng điều/khoản xử phạt.")
+        qa = ascii_lower(query)
+        if any(term in qa for term in ["a1", "bang a1", "gplx a1", "giay phep lai xe a1"]) and any(
+            term in qa for term in ["o to", "xe hoi", "xe oto", "xe con", "xe tai", "xe khach"]
+        ):
+            notes.append("Nếu người lái chỉ có A1 mà điều khiển ô tô, phải tách riêng lỗi của người lái và lỗi của chủ xe.")
         if any(term in qa for term in ["toc do", "qua toc", "vuot toc"]) and not re.search(r"\d+(?:[.,]\d+)?\s*km/?h", qa):
             notes.append("Cần tốc độ thực tế, tốc độ cho phép và nhóm xe để chốt ngưỡng vượt tốc độ.")
         if "nong do con" in qa and not re.search(r"\d+(?:[.,]\d+)?\s*(?:mg|miligrams?|ml|lit)", qa):
             notes.append("Cần chỉ số nồng độ cồn trong máu hoặc khí thở để chọn đúng ngưỡng xử phạt.")
         return notes
+
+    def _penalty_sentence(self, record: Optional[Dict[str, Any]]) -> str:
+        if not record:
+            return "Nhánh này có thể bị xử phạt."
+        sentence = self._fallback_penalty_text(record)
+        if sentence:
+            return sentence
+        summary = self._clean_snippet(source_text(record))
+        return summary or "Nhánh này có thể bị xử phạt."
 
     def _fallback_context_limit(self) -> int:
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
