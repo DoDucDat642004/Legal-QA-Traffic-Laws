@@ -17,6 +17,7 @@ from src.rag.legal_utils import (
     SIGN_CODE_RE,
     ascii_lower,
     format_reference,
+    looks_like_statutory_fine_cap_query,
     normalize_sign_code,
     normalized_legal_reference,
     penalty_summary,
@@ -293,6 +294,12 @@ class LegalGraphRAG:
             top_k = min(top_k, self._env_int("RAG_FAST_TOP_K", 10, minimum=4, maximum=64))
             expand_depth = min(expand_depth, self._env_int("RAG_FAST_EXPAND_DEPTH", 1, minimum=0, maximum=3))
         facets = set(profile.facets or [])
+        if "document_overview" in facets:
+            return self.retriever.retrieve_document_overview(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "legal_detail" in facets:
+            return self.retriever.retrieve_legal_detail(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+        if "aggregation" in facets:
+            return self.retriever.retrieve_aggregation(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if "sign" in facets:
             return self.retriever.retrieve_sign(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if "table" in facets:
@@ -506,6 +513,7 @@ class LegalGraphRAG:
             "17. Với biển P.127/tốc độ tối đa, cấu trúc tối thiểu gồm: ý nghĩa biển; phạm vi/ngoại lệ; bảng xử phạt theo nhóm phương tiện và mốc vượt tốc độ; trừ điểm/tước GPLX nếu có; căn cứ từng dòng.\n"
             "18. Trước khi kết luận, tự đối chiếu [BẢNG KIỂM BAO PHỦ CĂN CỨ THEO NHÁNH]; nhánh nào có record thì phải xuất hiện trong câu trả lời, nhánh nào miss thì ghi 'chưa tìm thấy căn cứ trong nguồn được cung cấp'.\n"
             "19. Với câu hỏi thống kê cao nhất/thấp nhất/top, chỉ kết luận theo dữ liệu đã trích xuất; nếu hỏi tần suất vi phạm ngoài thực tế mà không có dataset vụ việc thì phải nói rõ không có dữ liệu thực tế.\n"
+            "19a. Với câu hỏi danh sách/toàn bộ hành vi cùng chịu một chế tài như tước GPLX, phải dùng danh mục tổng hợp từ toàn bộ bản ghi phù hợp; không trả lời bằng vài kết quả top-k rời rạc.\n"
             "20. Với câu hỏi ngoài phạm vi luật giao thông đường bộ, từ chối ngắn gọn và hướng người dùng hỏi lại trong phạm vi hệ thống.\n"
             "21. Cấu trúc mặc định: Trả lời ngắn gọn -> Phân tích từng vấn đề/hành vi -> Căn cứ áp dụng -> Lưu ý/thiếu dữ kiện nếu có.\n"
             "22. Không bắt người dùng tự ghép nguồn: mỗi kết luận quan trọng phải đi kèm căn cứ ngay trong cùng dòng hoặc cùng đoạn.\n"
@@ -731,6 +739,12 @@ class LegalGraphRAG:
             return source_text(first)
         if modality == "aggregation":
             return source_text(first)
+        license_points_answer = self._deterministic_license_points_answer(query, contexts)
+        if license_points_answer:
+            return license_points_answer
+        fine_cap_answer = self._deterministic_statutory_fine_cap_answer(query, contexts)
+        if fine_cap_answer:
+            return fine_cap_answer
         multi_penalty_answer = self._deterministic_motorbike_multi_penalty_answer(query, contexts)
         if multi_penalty_answer:
             return multi_penalty_answer
@@ -752,6 +766,49 @@ class LegalGraphRAG:
         sign_answer = self._deterministic_sign_answer(query, contexts)
         if sign_answer:
             return sign_answer
+        return ""
+
+    def _deterministic_statutory_fine_cap_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        if not looks_like_statutory_fine_cap_query(query):
+            return ""
+        for record in contexts:
+            body = ascii_lower(source_text(record))
+            individual = re.search(r"ca nhan la\s+([\d.]+)\s+dong", body)
+            organization = re.search(r"to chuc la\s+([\d.]+)\s+dong", body)
+            if not individual and not organization:
+                continue
+            lines = ["## Trả lời ngắn gọn", ""]
+            if individual:
+                lines.append(f"- Cá nhân: **{individual.group(1)} đồng**.")
+            if organization:
+                lines.append(f"- Tổ chức: **{organization.group(1)} đồng**.")
+            lines.extend(["", f"**Căn cứ:** {format_reference(record)}."])
+            return "\n".join(lines)
+        return ""
+
+    def _deterministic_license_points_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        asks_initial_total = (
+            any(term in qa for term in ["so diem lai xe", "diem giay phep lai xe", "diem gplx"])
+            and any(term in qa for term in ["bao nhieu", "bao gom", "co may diem", "so diem"])
+            and not any(term in qa for term in ["tru diem", "bi tru", "con lai", "phuc hoi", "tru het"])
+        )
+        if not asks_initial_total:
+            return ""
+
+        for record in contexts:
+            body = source_text(record)
+            body_ascii = ascii_lower(body)
+            if not re.search(r"\b(?:bao gom|co)\s+12\s+diem\b", body_ascii):
+                continue
+            reference = format_reference(record)
+            return "\n".join([
+                "## Trả lời ngắn gọn",
+                "",
+                "Mỗi giấy phép lái xe có **12 điểm**.",
+                "",
+                f"**Căn cứ:** {reference}.",
+            ])
         return ""
 
     def _deterministic_motorbike_multi_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:

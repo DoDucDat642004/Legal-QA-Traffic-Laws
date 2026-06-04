@@ -21,6 +21,24 @@ def ascii_lower(value: str) -> str:
     without_marks = without_marks.replace("đ", "d").replace("Đ", "D")
     return re.sub(r"\s+", " ", without_marks.lower()).strip()
 
+def looks_like_statutory_fine_cap_query(query: str) -> bool:
+    """Distinguishes a stated legal fine cap from a ranking of high-fine violations."""
+    qa = ascii_lower(query)
+    if "muc phat tien toi da" not in qa:
+        return False
+    if not any(term in qa for term in ["ca nhan", "to chuc", "doi tuong"]):
+        return False
+    ranking_terms = [
+        "hanh vi nao",
+        "cao nhat",
+        "nang nhat",
+        "top",
+        "xep hang",
+        "thong ke",
+        "tong hop",
+    ]
+    return not any(term in qa for term in ranking_terms)
+
 def normalize_sign_code(value: str) -> str:
     """Canonicalizes sign codes for uniform lookup."""
     if not value: return ""
@@ -164,8 +182,38 @@ def looks_like_sign_query(query: str) -> bool:
 
 def looks_like_table_query(query: str) -> bool:
     """Heuristic check for technical table-related queries."""
-    q = query.lower()
-    return "bảng" in q and not any(k in q for k in ["bảng hiệu", "bảng tên"])
+    q = ascii_lower(query)
+    if any(k in q for k in ["bang hieu", "bang ten"]):
+        return False
+    if any(
+        k in q
+        for k in [
+            "bang lai",
+            "bang a1",
+            "bang a2",
+            "bang b",
+            "bang c",
+            "bang d",
+            "bang e",
+            "bang gplx",
+            "bang giay phep lai xe",
+            "tuoc bang",
+        ]
+    ):
+        return False
+    table_terms = [
+        "bang phu luc",
+        "bang trong phu luc",
+        "tra bang",
+        "bang thong so",
+        "bang quy chuan",
+        "dong cot",
+        "dong du lieu",
+        "cot du lieu",
+        "tong so gio",
+        "tong thoi gian dao tao",
+    ]
+    return any(term in q for term in table_terms) or bool(re.search(r"\bbang\b", q))
 
 def format_reference(record: Dict[str, Any]) -> str:
     """Formats a legal citation (e.g., 'Khoản 1 Điều 5 Nghị định 168/2024/NĐ-CP')."""
@@ -196,6 +244,8 @@ def source_chunk_ref(source_chunk_id: str) -> Dict[str, str]:
 def normalized_legal_reference(record: Dict[str, Any]) -> Dict[str, Any]:
     """Ensures consistent legal metadata across sources, prioritizing ID-based structure."""
     ref = dict(record.get("legal_reference") or {})
+    if record.get("prefer_legal_reference"):
+        return ref
     source_ref = source_chunk_ref(record.get("source_chunk_id") or record.get("id") or "")
     if not source_ref: return ref
     if source_ref.get("article"): ref["article"] = source_ref["article"]

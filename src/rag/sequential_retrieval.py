@@ -141,7 +141,7 @@ class SequentialRetrievalOrchestrator:
         accumulated_records = accumulated_records[:max_contexts]
         final_answer = self.generator_fn(query, accumulated_records, sequential_results=results)
         for repair_idx in range(answer_repair_rounds):
-            if not self._answer_has_unresolved_ambiguity(final_answer, query):
+            if not self._answer_has_unresolved_ambiguity(final_answer, query, profile):
                 break
             repair_slots = self._answer_repair_slots(
                 answer=final_answer,
@@ -298,7 +298,8 @@ class SequentialRetrievalOrchestrator:
         qa = ascii_lower(query)
         facets = set(profile.facets or [])
         followups: List[SequentialEvidenceSlot] = []
-        is_penalty = "penalty" in facets or self._looks_like_penalty_query(qa)
+        aggregation_only = "aggregation" in facets and "penalty" not in facets
+        is_penalty = not aggregation_only and ("penalty" in facets or self._looks_like_penalty_query(qa))
         needs_vehicle_breakdown = is_penalty and self._needs_vehicle_breakdown(query)
         needs_speed_thresholds = is_penalty and self._looks_like_speed_query(qa)
 
@@ -356,11 +357,19 @@ class SequentialRetrievalOrchestrator:
 
         return followups[:8]
 
-    def _answer_has_unresolved_ambiguity(self, answer: str, query: str) -> bool:
+    def _answer_has_unresolved_ambiguity(
+        self,
+        answer: str,
+        query: str,
+        profile: Optional[AdaptiveQueryProfile] = None,
+    ) -> bool:
         qa = ascii_lower(query)
         aa = ascii_lower(answer)
         if not aa.strip():
             return True
+        facets = set(getattr(profile, "facets", None) or [])
+        if "aggregation" in facets and "penalty" not in facets:
+            return False
         penalty_like = self._looks_like_penalty_query(qa)
         vague_patterns = [
             "phat tien theo quy dinh",
@@ -396,6 +405,9 @@ class SequentialRetrievalOrchestrator:
         existing_slots: List[SequentialEvidenceSlot],
         repair_idx: int,
     ) -> List[SequentialEvidenceSlot]:
+        facets = set(profile.facets or [])
+        if "aggregation" in facets and "penalty" not in facets:
+            return []
         followups = self._coverage_followup_slots(
             query=query,
             profile=profile,

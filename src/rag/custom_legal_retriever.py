@@ -12,6 +12,7 @@ from src.rag.legal_utils import (
     extract_explicit_legal_refs,
     format_reference,
     looks_like_sign_query,
+    looks_like_statutory_fine_cap_query,
     looks_like_table_query,
     merge_record_assets,
     normalize_sign_code,
@@ -118,6 +119,8 @@ class CustomLegalRetriever:
         """General hybrid retrieval flow."""
         plan = self.query_planner.rule_plan(query)
         intent = plan.intent
+        if looks_like_statutory_fine_cap_query(query):
+            return self._retrieve_statutory_fine_cap(query, top_k=top_k)
         aggregation_blocked = self._blocks_aggregation_route(query)
         if (
             not aggregation_blocked
@@ -158,11 +161,14 @@ class CustomLegalRetriever:
         seed_records.extend(self._exact_ref_matches(search_query))
         seed_records.extend(self._known_legal_ref_matches(search_query))
         seed_records.extend(self._known_chunk_matches(search_query))
-        seed_records.extend(self._topic_anchor_matches(search_query))
+        topic_anchors = self._topic_anchor_matches(search_query)
+        if self._looks_like_license_vehicle_mismatch_query(query) and topic_anchors:
+            return self._rerank(query, self._dedupe(topic_anchors), limit=top_k, plan=plan)
+        seed_records.extend(topic_anchors)
         seed_records.extend(self._lexical_evidence_matches(search_query, limit=max(top_k * 2, 24)))
         
         # Phase 2: Hybrid vector search
-        vector_multiplier = self._env_int("RAG_VECTOR_SEARCH_MULTIPLIER", 2, minimum=1, maximum=6)
+        vector_multiplier = self._env_int("RAG_VECTOR_SEARCH_MULTIPLIER", 3, minimum=1, maximum=6)
         seed_records.extend(self.vector_store.search(search_query, top_k=max(top_k * vector_multiplier, 12)))
         seed_records = self._dedupe(seed_records)
 
@@ -182,7 +188,7 @@ class CustomLegalRetriever:
 
     def retrieve_penalty(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Penalty-specialized retrieval that bypasses sign rerouting."""
-        scoped_docs = self._matching_documents(query)
+        scoped_docs = self._query_document_scope(query)
         doc_hint = " ".join(scoped_docs) if scoped_docs else "Nghị định 168/2024/NĐ-CP"
         penalty_query = " ".join([
             query,
@@ -278,6 +284,10 @@ class CustomLegalRetriever:
         return self._rerank(query, records, limit=top_k, plan=plan)
 
     def retrieve_definition(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
+        if self._looks_like_license_points_fact(ascii_lower(query)):
+            return self._retrieve_license_points_fact(top_k=top_k)
+        if looks_like_statutory_fine_cap_query(query):
+            return self._retrieve_statutory_fine_cap(query, top_k=top_k)
         definition_query = " ".join([
             query,
             "định nghĩa khái niệm được hiểu là giải thích từ ngữ phạm vi áp dụng điều khoản",
@@ -411,7 +421,8 @@ class CustomLegalRetriever:
             supporting_records.extend(row["record"] for row in article_rows if row.get("record"))
 
         records = self._dedupe(synthetic_records + supporting_records)
-        return records[:max(top_k, len(synthetic_records))]
+        support_limit = self._env_int("RAG_OVERVIEW_SUPPORT_MAX", 64, minimum=8, maximum=160)
+        return records[:max(top_k, len(synthetic_records) + support_limit)]
 
     def retrieve_legal_detail(self, query: str, top_k: int = 8, expand_depth: int = 1, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Returns all extracted chunks under a requested Article/Clause/Point."""
@@ -457,7 +468,8 @@ class CustomLegalRetriever:
             },
             image_paths=images,
         )
-        return [synthetic] + records[:max(top_k - 1, 0)]
+        support_limit = self._env_int("RAG_LEGAL_DETAIL_SUPPORT_MAX", 40, minimum=8, maximum=120)
+        return [synthetic] + records[:max(top_k - 1, support_limit)]
 
     def retrieve_aggregation(self, query: str, top_k: int = 8, expand_depth: int = 1, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Returns deterministic corpus-level aggregations such as max/min fines and dense provisions."""
@@ -473,6 +485,9 @@ class CustomLegalRetriever:
 
         if self._looks_like_frequency_question(qa):
             return self._frequency_aggregation_records(query, records, top_k=top_k)
+
+        if self._looks_like_license_suspension_catalog(qa):
+            return self._license_suspension_aggregation_records(query, records, top_k=top_k)
 
         if any(term in qa for term in ["tru diem", "diem gplx", "diem giay phep"]):
             return self._point_aggregation_records(query, records, top_k=top_k)
@@ -495,8 +510,25 @@ class CustomLegalRetriever:
 
     # --- Internal Logic Paths ---
 
+    def _looks_like_license_vehicle_mismatch_query(self, query: str) -> bool:
+        qa = ascii_lower(query)
+        license_terms = [
+            "bang a1",
+            "bang a2",
+            "gplx a1",
+            "gplx a2",
+            "giay phep lai xe a1",
+            "giay phep lai xe a2",
+            "giay phep lai xe hang a1",
+            "giay phep lai xe hang a2",
+        ]
+        vehicle_terms = ["xe hoi", "o to", "xe oto", "xe con", "xe tai", "xe khach"]
+        return any(term in qa for term in license_terms) and any(term in qa for term in vehicle_terms)
+
     def _looks_like_aggregation_query(self, query: str) -> bool:
         qa = ascii_lower(query)
+        if looks_like_statutory_fine_cap_query(qa):
+            return False
         if self._looks_like_authority_limit_query(query):
             return False
         if self._looks_like_retrieval_meta_query(qa):
@@ -533,7 +565,25 @@ class CustomLegalRetriever:
             "vi pham",
             "bien bao",
         ]
-        return any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+        ranking_query = any(term in qa for term in ranking_terms) and any(term in qa for term in target_terms)
+        catalog_terms = [
+            "cac hanh vi",
+            "nhung hanh vi",
+            "hanh vi nao",
+            "danh sach hanh vi",
+            "toan bo hanh vi",
+            "liet ke hanh vi",
+        ]
+        sanction_terms = [
+            "tuoc",
+            "tru diem",
+            "tich thu",
+            "tam giu",
+            "hinh phat bo sung",
+            "hinh thuc xu phat bo sung",
+        ]
+        catalog_query = any(term in qa for term in catalog_terms) and any(term in qa for term in sanction_terms)
+        return ranking_query or catalog_query
 
     def _blocks_aggregation_route(self, query: str) -> bool:
         qa = ascii_lower(query)
@@ -593,7 +643,7 @@ class CustomLegalRetriever:
         for idx, item in enumerate(ranked, start=1):
             lines.append(
                 f"| {idx} | {self._format_vnd(item['amount_min'])} | {self._format_vnd(item['amount_max'])} | "
-                f"{self._escape_table(format_reference(item['record']))} | {self._escape_table(item['snippet'])} |"
+                f"{self._escape_table(self._direct_reference(item['record']))} | {self._escape_table(item['snippet'])} |"
             )
         synthetic = self._synthetic_record(
             record_id=f"synthetic_aggregation:fine:{'min' if lowest else 'max'}",
@@ -603,8 +653,9 @@ class CustomLegalRetriever:
             reason="aggregation_route",
             score=140.0,
         )
-        support = [item["record"] for item in ranked]
+        support = [dict(item["record"]) for item in ranked]
         for record in support:
+            record["prefer_legal_reference"] = True
             record["retrieval_reasons"] = sorted(set(record.get("retrieval_reasons", []) + ["aggregation_support"]))
         return [synthetic] + support[:max(top_k - 1, 0)]
 
@@ -655,7 +706,7 @@ class CustomLegalRetriever:
         ]
         for idx, item in enumerate(ranked, start=1):
             lines.append(
-                f"| {idx} | {item['points']} | {self._escape_table(format_reference(item['record']))} | {self._escape_table(item['snippet'])} |"
+                f"| {idx} | {item['points']} | {self._escape_table(self._direct_reference(item['record']))} | {self._escape_table(item['snippet'])} |"
             )
         synthetic = self._synthetic_record(
             record_id=f"synthetic_aggregation:points:{'min' if lowest else 'max'}",
@@ -665,14 +716,16 @@ class CustomLegalRetriever:
             reason="aggregation_route",
             score=135.0,
         )
-        support = [item["record"] for item in ranked]
+        support = [dict(item["record"]) for item in ranked]
+        for record in support:
+            record["prefer_legal_reference"] = True
         return [synthetic] + support[:max(top_k - 1, 0)]
 
     def _frequency_aggregation_records(self, query: str, records: List[Dict[str, Any]], *, top_k: int) -> List[Dict[str, Any]]:
         del query
         buckets: Dict[Tuple[str, str], Dict[str, Any]] = {}
         for record in records:
-            ref = normalized_legal_reference(record)
+            ref = record.get("legal_reference") if isinstance(record.get("legal_reference"), dict) else normalized_legal_reference(record)
             document = ref.get("document") or record.get("doc_name") or ""
             article = str(ref.get("article") or "")
             if not document or not article:
@@ -707,8 +760,292 @@ class CustomLegalRetriever:
         )
         support: List[Dict[str, Any]] = []
         for item in ranked:
-            support.extend(item["records"])
+            for record in item["records"]:
+                tagged = dict(record)
+                tagged["prefer_legal_reference"] = True
+                support.append(tagged)
         return [synthetic] + support[:max(top_k - 1, 0)]
+
+    def _license_suspension_aggregation_records(
+        self,
+        query: str,
+        records: List[Dict[str, Any]],
+        *,
+        top_k: int,
+    ) -> List[Dict[str, Any]]:
+        items = self._license_suspension_items(records)
+        if not items:
+            return [self._synthetic_record(
+                record_id="synthetic_aggregation:license_suspension:none",
+                doc_name="Dữ liệu pháp luật giao thông",
+                modality="aggregation",
+                text=(
+                    "Chưa tìm thấy bản ghi mô tả rõ hành vi kèm hình thức tước giấy phép lái xe "
+                    "trong phạm vi dữ liệu đã trích xuất."
+                ),
+                reason="aggregation_route",
+                score=95.0,
+            )]
+
+        max_rows = self._env_int("RAG_AGGREGATION_CATALOG_MAX_ROWS", 120, minimum=12, maximum=160)
+        displayed = items[:max_rows]
+        matched_records = [item["record"] for item in items]
+        lines = [
+            "## Danh mục hành vi có hình thức tước giấy phép lái xe",
+            "",
+            f"**Phạm vi tính:** {self._aggregation_scope_text(query, matched_records)}.",
+            (
+                f"**Kết quả:** nhận diện {len(items)} hành vi/căn cứ riêng biệt có nội dung tước GPLX "
+                "trong dữ liệu đã trích xuất."
+            ),
+            (
+                "**Lưu ý:** chỉ sử dụng các đoạn luật gốc có ghi rõ hình thức tước GPLX; tham chiếu "
+                "điểm/khoản được giải sang hành vi tương ứng khi dữ liệu cấu trúc cho phép."
+            ),
+            "",
+            "| STT | Hành vi/nhóm hành vi | Hình thức tước | Căn cứ |",
+            "|---:|---|---|---|",
+        ]
+        for idx, item in enumerate(displayed, start=1):
+            lines.append(
+                f"| {idx} | {self._escape_table(self._snippet(item['action'], 300))} | "
+                f"{self._escape_table(self._snippet(item['suspension'], 220))} | "
+                f"{self._escape_table(item['reference'])} |"
+            )
+        if len(items) > len(displayed):
+            lines.extend([
+                "",
+                f"Còn {len(items) - len(displayed)} bản ghi phù hợp chưa hiển thị do giới hạn danh mục.",
+            ])
+
+        synthetic = self._synthetic_record(
+            record_id="synthetic_aggregation:license_suspension",
+            doc_name="Dữ liệu pháp luật giao thông",
+            modality="aggregation",
+            text="\n".join(lines),
+            reason="aggregation_route",
+            score=145.0,
+        )
+        support: List[Dict[str, Any]] = []
+        seen = set()
+        for item in displayed:
+            for record in [item.get("action_record"), item.get("record")]:
+                if not record:
+                    continue
+                key = record.get("source_chunk_id") or record.get("id") or self._direct_reference(record)
+                if key in seen:
+                    continue
+                seen.add(key)
+                tagged = dict(record)
+                tagged["prefer_legal_reference"] = True
+                tagged["retrieval_reasons"] = sorted(set(tagged.get("retrieval_reasons", []) + ["aggregation_support"]))
+                support.append(tagged)
+        support_limit = self._env_int("RAG_AGGREGATION_SUPPORT_MAX", 56, minimum=8, maximum=80)
+        return [synthetic] + support[:max(top_k - 1, support_limit)]
+
+    def _license_suspension_items(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        items: List[Dict[str, Any]] = []
+        seen = set()
+        seen_sanctions = set()
+        for sanction_record in records:
+            direct_ref = sanction_record.get("legal_reference") if isinstance(sanction_record.get("legal_reference"), dict) else {}
+            document = ascii_lower(direct_ref.get("document") or sanction_record.get("doc_name") or "")
+            if "nghi dinh 168" not in document:
+                continue
+            article = str(direct_ref.get("article") or "")
+            if not article.isdigit():
+                continue
+            source = source_text(sanction_record)
+            normalized = ascii_lower(source)
+            if "tuoc" not in normalized:
+                continue
+            if "giay phep lai xe" not in normalized and "gplx" not in normalized:
+                continue
+            if self._is_non_action_suspension_rule(normalized):
+                continue
+            sanction_key = (
+                self._direct_reference(sanction_record),
+                ascii_lower(source)[:500],
+            )
+            if sanction_key in seen_sanctions:
+                continue
+            seen_sanctions.add(sanction_key)
+
+            suspension = self._license_suspension_text(sanction_record)
+            resolved_actions = self._resolve_suspension_actions(sanction_record, records)
+            if not resolved_actions:
+                action = self._license_suspension_action(sanction_record)
+                if action:
+                    resolved_actions = [(action, sanction_record)]
+
+            for action, action_record in resolved_actions:
+                action_ref = self._direct_reference(action_record)
+                sanction_ref = self._direct_reference(sanction_record)
+                reference = sanction_ref if action_ref == sanction_ref else f"{action_ref}; hình thức tước tại {sanction_ref}"
+                key = (
+                    ascii_lower(action)[:360],
+                    ascii_lower(suspension)[:220],
+                    reference,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                items.append({
+                    "action": action,
+                    "suspension": suspension,
+                    "reference": reference,
+                    "action_record": action_record,
+                    "record": sanction_record,
+                })
+        items.sort(key=lambda item: (self._direct_article_sort_key(item["action_record"]), ascii_lower(item["action"])))
+        return items
+
+    def _resolve_suspension_actions(
+        self,
+        sanction_record: Dict[str, Any],
+        records: List[Dict[str, Any]],
+    ) -> List[Tuple[str, Dict[str, Any]]]:
+        sanction_ref = sanction_record.get("legal_reference") if isinstance(sanction_record.get("legal_reference"), dict) else {}
+        document = str(sanction_ref.get("document") or sanction_record.get("doc_name") or "")
+        article = str(sanction_ref.get("article") or "")
+        source_norm = ascii_lower(source_text(sanction_record))
+        specs: List[Tuple[str, Set[str]]] = []
+        previous_end = 0
+        for match in re.finditer(r"\bkhoan\s+(\d+)\b", source_norm):
+            delimiter = max(source_norm.rfind(";", previous_end, match.start()), source_norm.rfind("\n", previous_end, match.start()))
+            segment = source_norm[(delimiter + 1 if delimiter >= 0 else previous_end) : match.start()]
+            points = set(re.findall(r"\bdiem\s+([a-z])\b", segment))
+            specs.append((match.group(1), points))
+            previous_end = match.end()
+        if not specs:
+            return []
+
+        resolved: List[Tuple[str, Dict[str, Any]]] = []
+        seen = set()
+        for candidate in records:
+            if candidate is sanction_record:
+                continue
+            candidate_ref = candidate.get("legal_reference") if isinstance(candidate.get("legal_reference"), dict) else {}
+            if str(candidate_ref.get("document") or candidate.get("doc_name") or "") != document:
+                continue
+            if str(candidate_ref.get("article") or "") != article:
+                continue
+            candidate_source_norm = ascii_lower(source_text(candidate))
+            if "tuoc" in candidate_source_norm and (
+                "giay phep lai xe" in candidate_source_norm or "gplx" in candidate_source_norm
+            ):
+                continue
+            clause = str(candidate_ref.get("clause") or "")
+            point = ascii_lower(str(candidate_ref.get("point") or ""))
+            if not any(clause == target_clause and (not points or point in points) for target_clause, points in specs):
+                continue
+            action = self._license_suspension_action(candidate)
+            if not action:
+                continue
+            key = (ascii_lower(action), self._direct_reference(candidate))
+            if key in seen:
+                continue
+            seen.add(key)
+            resolved.append((action, candidate))
+        return resolved
+
+    def _is_non_action_suspension_rule(self, source_norm: str) -> bool:
+        return any(
+            term in source_norm
+            for term in [
+                "trinh tu, thu tuc tuoc",
+                "nguyen tac tru diem",
+                "tham quyen tru diem",
+                "giay phep lai xe tich hop",
+                "neu co hanh vi vi pham bi tuoc",
+            ]
+        )
+
+    def _license_suspension_action(self, record: Dict[str, Any]) -> str:
+        action = re.sub(r"\s+", " ", str(record.get("violation_content") or "")).strip(" .;:")
+        action_norm = ascii_lower(action)
+        excluded = [
+            "trinh tu",
+            "thu tuc",
+            "nguyen tac",
+            "tham quyen",
+            "quy dinh ve cac loai giay phep",
+            "giay phep lai xe tich hop",
+            "ca nhan thuc hien nhieu hanh vi",
+            "truong hop co hanh vi bi tuoc",
+            "quy dinh ve viec ap dung hinh thuc tuoc",
+        ]
+        if action and not any(term in action_norm for term in excluded) and self._looks_like_violation_action(action_norm):
+            return action
+
+        qa_context = re.sub(r"\s+", " ", str(record.get("qa_context") or "")).strip(" .;:")
+        if not qa_context:
+            return ""
+        action = re.split(
+            r"\s+(?:bị|sẽ bị|chịu|còn bị|được áp dụng)\s+",
+            qa_context,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0].strip(" .;:")
+        action_norm = ascii_lower(action)
+        if (
+            len(action.split()) < 4
+            or any(term in action_norm for term in excluded)
+            or not self._looks_like_violation_action(action_norm)
+        ):
+            return ""
+        return action
+
+    def _looks_like_violation_action(self, action_norm: str) -> bool:
+        markers = [
+            "dieu khien",
+            "nguoi dieu khien",
+            "khong ",
+            "thuc hien hanh vi",
+            "hanh vi vi pham",
+            "vi pham tai",
+            "lui xe",
+            "quay dau",
+            "di vao",
+            "di nguoc",
+            "chay qua",
+            "vuot ",
+            "dung xe",
+            "do xe",
+            "cho nguoi",
+            "lang lach",
+            "lap them",
+            "su dung",
+        ]
+        return any(marker in action_norm for marker in markers)
+
+    def _license_suspension_text(self, record: Dict[str, Any]) -> str:
+        values = [
+            source_text(record),
+            str((record.get("penalties") or {}).get("license_suspension") or ""),
+        ]
+        for value in values:
+            compact = re.sub(r"\s+", " ", value or "").strip()
+            match = re.search(
+                r"((?:có thể\s+)?(?:bị\s+|áp dụng\s+)?tước[^.;\n]{0,180})",
+                compact,
+                flags=re.IGNORECASE,
+            )
+            if match:
+                return re.sub(r"\s+", " ", match.group(1)).strip(" .;:")
+        return "Có áp dụng hình thức tước GPLX; bản ghi chưa nêu rõ thời hạn."
+
+    def _looks_like_license_suspension_catalog(self, qa: str) -> bool:
+        catalog_terms = [
+            "cac hanh vi",
+            "nhung hanh vi",
+            "hanh vi nao",
+            "danh sach hanh vi",
+            "toan bo hanh vi",
+            "liet ke hanh vi",
+        ]
+        license_terms = ["bang lai", "gplx", "giay phep lai xe"]
+        return "tuoc" in qa and any(term in qa for term in catalog_terms) and any(term in qa for term in license_terms)
 
     def _penalty_amount_items(self, records: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
         qa = ascii_lower(query)
@@ -718,11 +1055,26 @@ class CustomLegalRetriever:
         for record in records:
             summary = penalty_summary(record)
             text = source_text(record)
+            text_norm = ascii_lower(text)
             text_values = self._money_values(text)
             structured_values = [
                 value for value in [summary.get("fine_min_vnd"), summary.get("fine_max_vnd")]
                 if isinstance(value, (int, float)) and value > 0
             ]
+            has_fine_language = any(term in text_norm for term in ["phat tien", "muc phat tien"])
+            if not has_fine_language and not structured_values:
+                continue
+            generic_limit = any(
+                term in text_norm
+                for term in [
+                    "muc phat tien toi da",
+                    "tham quyen phat tien",
+                    "co quyen phat tien den",
+                    "gia tri khong vuot qua",
+                ]
+            )
+            if generic_limit and not any(term in text_norm for term in ["hanh vi", "thuc hien", "vi pham sau"]):
+                continue
             values = structured_values if only_individual and structured_values else (text_values or structured_values)
             values = [int(value) for value in values if value and value > 0]
             if not values:
@@ -907,6 +1259,68 @@ class CustomLegalRetriever:
                 matches.extend(documents)
         return list(dict.fromkeys(matches))
 
+    def _query_document_scope(self, query: str) -> List[str]:
+        explicit = self._matching_documents(query)
+        if explicit:
+            return explicit
+        return self._inferred_document_scope(query)
+
+    def _inferred_document_scope(self, query: str) -> List[str]:
+        qa = ascii_lower(query)
+        penalty_context = self._looks_like_penalty_query(query) or any(
+            term in qa
+            for term in [
+                "hinh thuc xu phat",
+                "tham quyen xu phat",
+                "quyet dinh xu phat",
+                "lap bien ban",
+                "tuoc quyen su dung giay phep",
+            ]
+        )
+        if not penalty_context:
+            return []
+
+        nd336_terms = [
+            "hoat dong duong bo",
+            "hanh lang an toan duong bo",
+            "dat danh cho ket cau ha tang",
+            "ket cau ha tang duong bo",
+            "pham vi bao ve ket cau",
+            "duong bo dang khai thac",
+            "ham duong bo",
+            "gam cau",
+            "mai duong",
+            "tram thu phi",
+            "thu phi dien tu",
+            "tai khoan giao thong",
+            "the dau cuoi",
+            "he thong thanh toan dien tu giao thong",
+            "xe taxi",
+            "xe buyt",
+            "phan mem ket noi van tai",
+            "cho thue phuong tien tu lai",
+            "co so dao tao",
+            "giang vien",
+            "tham tra an toan giao thong",
+            "thi cong tren duong bo",
+            "lap thiet bi canh bao",
+            "den canh bao",
+            "ban giao ho so hoan thanh cong trinh",
+            "chan tha gia suc",
+            "dot lua",
+            "cong chao",
+            "bien quang cao",
+            "thao do, di chuyen",
+            "lam sai lech bien bao",
+            "chu tich uy ban nhan dan cap xa",
+            "ubnd cap xa",
+            "giam doc cong an cap tinh",
+            "tien hanh cac hoat dong ghi trong giay phep",
+        ]
+        if any(term in qa for term in nd336_terms):
+            return ["Nghị định 336/2025/NĐ-CP"]
+        return []
+
     def _documents_from_records(self, records: List[Dict[str, Any]]) -> List[str]:
         documents: List[str] = []
         for record in records:
@@ -959,6 +1373,8 @@ class CustomLegalRetriever:
             text = source_text(record).strip()
             if not text:
                 continue
+            if not self._is_direct_article_heading(article, text):
+                continue
             score = self._article_heading_score(record, article)
             current = by_article.get(article)
             if current is None or score > float(current.get("score") or 0):
@@ -970,6 +1386,10 @@ class CustomLegalRetriever:
                     "chapter": ref.get("chapter") or "",
                 }
         return sorted(by_article.values(), key=lambda row: self._article_number_key(str(row.get("article") or "")))
+
+    def _is_direct_article_heading(self, article: str, text: str) -> bool:
+        normalized = ascii_lower(re.sub(r"\s+", " ", text or "").strip())
+        return bool(re.match(rf"^#?\s*dieu\s+{re.escape(ascii_lower(article))}\b", normalized))
 
     def _article_heading_score(self, record: Dict[str, Any], article: str) -> float:
         ref = normalized_legal_reference(record)
@@ -994,11 +1414,29 @@ class CustomLegalRetriever:
     def _format_document_overview(self, display_doc: str, article_rows: List[Dict[str, Any]]) -> str:
         chapters = [str(row.get("chapter") or "") for row in article_rows if row.get("chapter")]
         chapters = list(dict.fromkeys(chapters))
+        numeric_articles = sorted({
+            int(str(row.get("article") or ""))
+            for row in article_rows
+            if str(row.get("article") or "").isdigit()
+        })
+        missing_articles: List[int] = []
+        if numeric_articles and numeric_articles[0] == 1:
+            missing_articles = sorted(set(range(1, numeric_articles[-1] + 1)) - set(numeric_articles))
         lines = [
             f"## Tổng quan {display_doc}",
             "",
-            f"**Kết luận:** trong dữ liệu đã trích xuất, `{display_doc}` có **{len(article_rows)} điều**.",
+            (
+                f"**Kết luận:** trong dữ liệu đã trích xuất, `{display_doc}` có "
+                f"**{len(article_rows)} tiêu đề điều được nhận diện trực tiếp**."
+            ),
         ]
+        if missing_articles:
+            lines.append(
+                "**Cảnh báo độ phủ:** chuỗi số điều đang thiếu "
+                + ", ".join(f"Điều {article}" for article in missing_articles[:20])
+                + ("..." if len(missing_articles) > 20 else "")
+                + "; cần kiểm tra lại tài liệu gốc trước khi coi số trên là tổng số điều chính thức."
+            )
         if chapters:
             lines.append(f"**Metadata chương/mục:** {len(chapters)} nhóm ({', '.join(chapters)}).")
         lines.extend([
@@ -1091,8 +1529,9 @@ class CustomLegalRetriever:
     ) -> Dict[str, Any]:
         ref = dict(legal_reference or {"document": doc_name})
         ref.setdefault("document", doc_name)
+        source_chunk_id = record_id.replace("_", "-")
         record = {
-            "source_chunk_id": record_id,
+            "source_chunk_id": source_chunk_id,
             "id": record_id,
             "doc_name": doc_name,
             "legal_reference": ref,
@@ -1119,7 +1558,7 @@ class CustomLegalRetriever:
         return images
 
     def _document_scope_filter_boost(self, query: str, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        scoped_docs = set(self._matching_documents(query))
+        scoped_docs = set(self._query_document_scope(query))
         if not scoped_docs:
             return records
         scoped: List[Dict[str, Any]] = []
@@ -1145,6 +1584,33 @@ class CustomLegalRetriever:
             self._point_sort_key(str(ref.get("point") or "")),
             str(record.get("source_chunk_id") or record.get("id") or ""),
         )
+
+    def _direct_article_sort_key(self, record: Dict[str, Any]) -> Tuple[Any, ...]:
+        ref = record.get("legal_reference") if isinstance(record.get("legal_reference"), dict) else {}
+        return (
+            self._article_number_key(str(ref.get("article") or "")),
+            self._number_or_high(ref.get("clause")),
+            self._point_sort_key(str(ref.get("point") or "")),
+            str(record.get("source_chunk_id") or record.get("id") or ""),
+        )
+
+    def _direct_reference(self, record: Dict[str, Any]) -> str:
+        ref = record.get("legal_reference") if isinstance(record.get("legal_reference"), dict) else {}
+        if not ref:
+            return format_reference(record)
+        parts = []
+        if ref.get("point"):
+            parts.append(f"Điểm {ref.get('point')}")
+        if ref.get("clause"):
+            parts.append(f"Khoản {ref.get('clause')}")
+        if ref.get("article"):
+            parts.append(f"Điều {ref.get('article')}")
+        if ref.get("section"):
+            parts.append(f"Mục {ref.get('section')}")
+        if ref.get("chapter"):
+            parts.append(f"Chương {ref.get('chapter')}")
+        parts.append(record.get("doc_name") or ref.get("document") or "Văn bản pháp luật")
+        return ", ".join(str(part) for part in parts if part)
 
     def _article_number_key(self, value: str) -> Tuple[int, str]:
         match = re.match(r"(\d+)([a-z]?)", ascii_lower(value))
@@ -1418,6 +1884,17 @@ class CustomLegalRetriever:
                 boost=30.0,
             )
 
+        if looks_like_statutory_fine_cap_query(qa):
+            for document in target_docs(["Nghị định 336/2025/NĐ-CP"]):
+                out.extend(self._records_by_ref_prefix(
+                    document,
+                    "3",
+                    clause="1",
+                    reason="topic_statutory_fine_cap",
+                    boost=96.0,
+                    limit=12,
+                ))
+
         for document in target_docs(["Nghị định 168/2024/NĐ-CP", "Nghị định 336/2025/NĐ-CP"]):
             if "hinh thuc xu phat chinh" in qa:
                 clause = "1" if document == "Nghị định 168/2024/NĐ-CP" else "2"
@@ -1463,8 +1940,28 @@ class CustomLegalRetriever:
         add_ref(["dong ho bao quang duong"], "Luật Trật tự ATGT 2024", "9", clause="11", reason="topic_odometer_tampering")
         add_ref(["quy tac chung", "huong di"], "Luật Trật tự ATGT 2024", "10", clause="1", reason="topic_general_direction_rule")
         add_ref(["nguoi dieu khien giao thong", "tin hieu den", "tuan theo"], "Luật Trật tự ATGT 2024", "11", clause="2", reason="topic_signal_priority_controller")
+        if (
+            any(term in qa for term in ["den tin hieu", "den giao thong", "tin hieu giao thong"])
+            and any(term in qa for term in ["nut giao", "duong giao nhau", "bien bao", "vach son", "theo cai nao", "tuan theo"])
+        ):
+            out.extend(self._records_by_source_chunk_ids(
+                ["tech_qcvn_41:2024_(thông_tư_51/2024)_7_4_6df176"],
+                reason="topic_qcvn_signal_over_signs_markings",
+                boost=96.0,
+                limit=4,
+            ))
+            add_ref([], "Luật Trật tự ATGT 2024", "11", clause="2", reason="topic_signal_priority_controller_broad", boost=44.0)
         if any(term in qa for term in ["vuot den do", "den do", "tin hieu den"]):
             add_ref([], "Luật Trật tự ATGT 2024", "11", reason="topic_traffic_light_signal_rule", boost=34.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "6", clause="9", point="b", reason="topic_car_red_light_penalty", boost=58.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "7", clause="7", point="c", reason="topic_motorbike_red_light_penalty", boost=58.0)
+        if (
+            any(term in qa for term in ["vuot den do", "den do", "tin hieu den"])
+            and any(term in qa for term in ["khong co cong an", "cong an", "camera", "thiet bi ky thuat", "phat nguoi", "thoat phat"])
+        ):
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "4", clause="2", reason="topic_technical_evidence_validity", boost=74.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "4", clause="3", point="b", reason="topic_technical_evidence_violation_time", boost=74.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "47", clause="8", reason="topic_camera_detected_violation_process", boost=60.0)
         if any(term in qa for term in ["nong do con", "hoi con", "uong ruou", "ruou"]):
             add_ref([], "Luật Trật tự ATGT 2024", "9", clause="2", reason="topic_alcohol_forbidden_rule", boost=34.0)
         if "dien thoai" in qa:
@@ -1474,6 +1971,15 @@ class CustomLegalRetriever:
         add_ref(["vuot xe", "ben nao"], "Luật Trật tự ATGT 2024", "14", clause="2", reason="topic_overtake_left_rule")
         add_ref(["chuyen huong", "tin hieu bao huong"], "Luật Trật tự ATGT 2024", "15", clause="2", reason="topic_turn_signal_rule")
         add_ref(["dung", "do xe", "truoc cong co quan"], "Luật Trật tự ATGT 2024", "18", clause="4", point="k", reason="topic_no_parking_agency_gate")
+        if any(term in qa for term in ["do giua duong", "do xe giua duong", "dung giua duong", "dung xe giua duong"]) or (
+            any(term in qa for term in ["dung xe", "do xe", "dung do", "long duong"])
+            and any(term in qa for term in ["can tro giao thong", "un tac", "nguy hiem"])
+        ):
+            add_ref([], "Luật Trật tự ATGT 2024", "18", clause="6", reason="topic_parking_must_not_obstruct", boost=72.0)
+            add_ref([], "Luật Trật tự ATGT 2024", "18", clause="7", reason="topic_breakdown_parking_warning", boost=56.0)
+            add_ref([], "Luật Trật tự ATGT 2024 (Tiếp)", "69", clause="1", reason="topic_obstructing_parked_vehicle_removal", boost=72.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "7", clause="2", point="d", reason="topic_motorbike_parking_obstruction_penalty", boost=78.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "6", clause="5", point="k", reason="topic_car_parking_congestion_penalty", boost=70.0)
         add_ref(["mo cua xe"], "Luật Trật tự ATGT 2024", "19", clause="1", reason="topic_open_vehicle_door")
         add_ref(["ham duong bo", "su dung den"], "Luật Trật tự ATGT 2024 (Tiếp)", "26", clause="1", reason="topic_tunnel_lights")
         add_ref(["xe dang bi keo", "cho nguoi"], "Luật Trật tự ATGT 2024 (Tiếp)", "29", clause="3", reason="topic_towed_vehicle_no_passenger")
@@ -1493,11 +1999,39 @@ class CustomLegalRetriever:
             any(term in qa for term in ["bien bao tam thoi", "bien tam thoi", "tam thoi"])
             and any(term in qa for term in ["bien bao co dinh", "bien co dinh", "co dinh"])
         ):
+            out.extend(self._records_by_source_chunk_ids(
+                ["luật_trật_tự_atgt_2024_11_12_0_312d24"],
+                reason="topic_temporary_fixed_signal_order_exact",
+                boost=110.0,
+                limit=4,
+            ))
             add_ref([], "Luật Trật tự ATGT 2024", "11", reason="topic_temporary_fixed_signal_order_broad", boost=44.0)
+        if (
+            any(term in qa for term in ["khan cap", "truong hop khan cap"])
+            and any(term in qa for term in ["cam duong", "ngan cam duong", "bien cam duong", "tin hieu"])
+        ):
+            out.extend(self._records_by_source_chunk_ids(
+                ["tech_qcvn_41:2024_(thông_tư_51/2024)_75_2_2_807d9c"],
+                reason="topic_qcvn_emergency_road_closure",
+                boost=100.0,
+                limit=4,
+            ))
         add_ref(["xe may dien"], "Luật Trật tự ATGT 2024", "2", reason="topic_electric_motorbike_classification", boost=20.0)
         add_ref(["xe dap dien"], "Luật Trật tự ATGT 2024", "2", reason="topic_electric_bicycle_classification", boost=20.0)
         add_ref(["kich thuoc thung xe", "ban dem", "bao hieu"], "Luật Trật tự ATGT 2024 (Tiếp)", "49", clause="1", point="e", reason="topic_oversize_load_night_warning", boost=28.0)
         add_ref(["giam sat hanh trinh", "camera cabin"], "Luật Trật tự ATGT 2024 (Tiếp)", "71", clause="2", reason="topic_trip_camera_data_system", boost=26.0)
+        if (
+            any(term in qa for term in ["bang a1", "gplx a1", "hang a1", "giay phep lai xe a1", "giay phep lai xe hang a1"])
+            and any(term in qa for term in ["xe hoi", "o to", "xe con", "xe oto"])
+        ):
+            add_ref([], "Luật Trật tự ATGT 2024 (Tiếp)", "56", clause="1", reason="topic_license_must_match_vehicle", boost=360.0)
+            add_ref([], "Luật Trật tự ATGT 2024 (Tiếp)", "56", clause="1", point="b", reason="topic_license_must_match_vehicle_point", boost=380.0)
+            out.extend(self._records_by_source_chunk_ids(
+                ["nghị_định_168/2024/nđ-cp_18_2_0_28fd6d"],
+                reason="topic_car_license_mismatch_penalty",
+                boost=360.0,
+                limit=4,
+            ))
         if "dua don hoc sinh" in qa or ("hoc sinh" in qa and "co so giao duc" in qa):
             add_ref([], "Luật Đường bộ 2024", "70", clause="2", point="a", reason="topic_school_transport_education_unit", boost=72.0)
             add_ref([], "Luật Đường bộ 2024", "70", reason="topic_school_transport_article", boost=58.0)
@@ -1520,6 +2054,15 @@ class CustomLegalRetriever:
         add_ref(["gplx", "phuc hoi", "12 diem"], "Luật Trật tự ATGT 2024 (Tiếp)", "58", clause="2", reason="topic_license_points_restore")
         add_ref(["tru het diem"], "Luật Trật tự ATGT 2024 (Tiếp)", "58", clause="3", reason="topic_license_points_exhausted")
         add_ref(["diem giay phep lai xe", "phuc hoi"], "Luật Trật tự ATGT 2024 (Tiếp)", "58", reason="topic_license_points_article")
+        if self._looks_like_license_points_fact(qa):
+            add_ref(
+                [],
+                "Luật Trật tự ATGT 2024 (Tiếp)",
+                "58",
+                clause="1",
+                reason="topic_license_points_total",
+                boost=72.0,
+            )
         add_ref(["hang b", "cho toi da"], "Luật Trật tự ATGT 2024 (Tiếp)", "57", clause="1", point="d", reason="topic_license_b_capacity")
         add_ref(["hoc van", "nang hang", "d1"], "Luật Trật tự ATGT 2024 (Tiếp)", "60", clause="4", reason="topic_license_upgrade_education")
         add_ref(["tuoi toi da", "hang d", "giuong nam"], "Luật Trật tự ATGT 2024 (Tiếp)", "59", clause="1", point="e", reason="topic_driver_age_d_sleeper_bus", boost=40.0)
@@ -1531,6 +2074,8 @@ class CustomLegalRetriever:
         add_ref(["quan ly nha nuoc", "bo giao thong van tai"], "Luật Trật tự ATGT 2024 (Tiếp)", "87", clause="3", reason="topic_transport_ministry_state_management")
 
         add_ref(["du lieu dat"], "Thông tư 35/2024/TT-BGTVT", "3", clause="3", reason="topic_tt35_dat_definition", boost=44.0)
+        if "idp" in qa or "giay phep lai xe quoc te" in qa:
+            add_ref([], "Thông tư 35/2024/TT-BGTVT", "3", clause="6", reason="topic_tt35_idp_definition", boost=92.0)
         add_synthetic_text(
             ["du lieu dat"],
             record_id="synthetic_tt35_article_3_clause_3_dat_definition",
@@ -1952,7 +2497,52 @@ class CustomLegalRetriever:
         if "tai nạn" in q or "tai nan" in qa: exp.append("gây tai nạn giao thông trách nhiệm người điều khiển phương tiện")
         if "p.102" in q or "p102" in qa:
             exp.append("cấm đi ngược chiều đi vào đường cấm")
+        if self._looks_like_license_points_fact(qa):
+            exp.append("Điều 58 điểm của giấy phép lái xe bao gồm 12 điểm")
         return " ".join([query, *exp]).strip()
+
+    def _looks_like_license_points_fact(self, qa: str) -> bool:
+        license_terms = ["giay phep lai xe", "gplx", "diem lai xe"]
+        point_terms = ["bao nhieu diem", "so diem", "tong diem", "co may diem"]
+        return any(term in qa for term in license_terms) and any(term in qa for term in point_terms)
+
+    def _retrieve_license_points_fact(self, *, top_k: int) -> List[Dict[str, Any]]:
+        records = self._records_by_ref_prefix(
+            "Luật Trật tự ATGT 2024 (Tiếp)",
+            "58",
+            clause="1",
+            reason="topic_license_points_total",
+            boost=72.0,
+            limit=40,
+        )
+        records.sort(
+            key=lambda record: (
+                "bao gom 12 diem" not in ascii_lower(source_text(record)),
+                -float(record.get("retrieval_score") or 0),
+            )
+        )
+        return records[:max(top_k, 8)]
+
+    def _retrieve_statutory_fine_cap(self, query: str, *, top_k: int) -> List[Dict[str, Any]]:
+        documents = self._matching_documents(query) or ["Nghị định 336/2025/NĐ-CP"]
+        records: List[Dict[str, Any]] = []
+        for document in documents:
+            records.extend(self._records_by_ref_prefix(
+                document,
+                "3",
+                clause="1",
+                reason="topic_statutory_fine_cap",
+                boost=96.0,
+                limit=24,
+            ))
+        records = self._dedupe(records)
+        records.sort(
+            key=lambda record: (
+                "muc phat tien toi da" not in ascii_lower(source_text(record)),
+                -float(record.get("retrieval_score") or 0),
+            )
+        )
+        return records[:max(top_k, 8)]
 
     def _sign_group_description_records(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         """Finds high-level definitions for sign categories."""
@@ -2317,6 +2907,197 @@ class CustomLegalRetriever:
         add(["idp", "kich thuoc"], idp_size_chunks, "known_chunk_idp_size", boost=36.0)
 
         add(
+            ["nghi dinh nay", "hinh thuc xu phat chinh"],
+            [
+                "nghị_định_336/2025/nđ-cp_3_2_0_dc1182",
+                "nghị_định_336/2025/nđ-cp_3_2_a_0b5941",
+                "nghị_định_336/2025/nđ-cp_3_2_b_f47217",
+            ],
+            "known_chunk_336_main_sanctions",
+            boost=96.0,
+        )
+        add(
+            ["nghi dinh", "hinh thuc xu phat bo sung"],
+            [
+                "nghị_định_336/2025/nđ-cp_3_3_0_493262",
+                "nghị_định_336/2025/nđ-cp_3_3_a_af9e2c",
+                "nghị_định_336/2025/nđ-cp_3_3_b_767e3f",
+                "nghị_định_336/2025/nđ-cp_3_3_c_d1b437",
+                "nghị_định_336/2025/nđ-cp_3_3_d_7ad191",
+            ],
+            "known_chunk_336_supplemental_sanctions",
+            boost=96.0,
+        )
+        add(
+            ["do rac thai", "duong bo"],
+            ["nghị_định_336/2025/nđ-cp_5_2_d_451945"],
+            "known_chunk_336_dump_waste_on_road",
+            boost=120.0,
+        )
+        add(
+            ["dung rap", "ham duong bo"],
+            ["nghị_định_336/2025/nđ-cp_5_4_d_3b5b89"],
+            "known_chunk_336_illegal_tent_tunnel",
+            boost=120.0,
+        )
+        add(
+            ["leu quan", "ham duong bo"],
+            ["nghị_định_336/2025/nđ-cp_5_4_d_3b5b89"],
+            "known_chunk_336_illegal_tent_tunnel",
+            boost=120.0,
+        )
+        add(
+            ["chiem dung dat", "xay dung nha"],
+            ["nghị_định_336/2025/nđ-cp_5_6_a_c4e04a"],
+            "known_chunk_336_road_land_house",
+            boost=120.0,
+        )
+        add(
+            ["tham tra", "khong doc lap", "thi cong"],
+            ["nghị_định_336/2025/nđ-cp_7_3_a_77f6e1"],
+            "known_chunk_336_audit_not_independent",
+            boost=120.0,
+        )
+        add(
+            ["vat lieu", "phuong tien thi cong", "can tro giao thong"],
+            [
+                "nghị_định_336/2025/nđ-cp_8_2_b_ac3466",
+                "nghị_định_336/2025/nđ-cp_16_2_b_e44820",
+            ],
+            "known_chunk_336_construction_material_obstruction",
+            boost=120.0,
+        )
+        add(
+            ["chan tha gia suc", "mai duong"],
+            ["nghị_định_336/2025/nđ-cp_9_1_a_533cae"],
+            "known_chunk_336_grazing_on_road_slope",
+            boost=120.0,
+        )
+        add(
+            ["thao do", "di chuyen", "sai lech", "bien bao"],
+            [
+                "nghị_định_336/2025/nđ-cp_9_4_b_3b73fa",
+                "nghị_định_336/2025/nđ-cp_9_4_b_949ab3",
+            ],
+            "known_chunk_336_remove_move_traffic_sign",
+            boost=140.0,
+        )
+        add(
+            ["khoan", "dao mat duong", "he pho"],
+            [
+                "nghị_định_336/2025/nđ-cp_9_5_a_203c45",
+                "nghị_định_336/2025/nđ-cp_9_5_a_ab8394",
+            ],
+            "known_chunk_336_drill_dig_road_sidewalk",
+            boost=120.0,
+        )
+        add(
+            ["no min", "cong trinh duong bo"],
+            ["nghị_định_336/2025/nđ-cp_9_5_d_ef548a"],
+            "known_chunk_336_blasting_road_work",
+            boost=120.0,
+        )
+        add(
+            ["ban ve", "soat ve", "sach nhieu"],
+            ["nghị_định_336/2025/nđ-cp_10_2_b_8ade5f"],
+            "known_chunk_336_ticketing_harassment",
+            boost=120.0,
+        )
+        add(
+            ["08 cho", "taxi"],
+            [
+                "nghị_định_336/2025/nđ-cp_12_3_a_1e4e05",
+                "nghị_định_336/2025/nđ-cp_16_2_e_f59593",
+            ],
+            "known_chunk_336_taxi_over_8_seats",
+            boost=120.0,
+        )
+        add(
+            ["quyet dinh xu phat", "gui truc tiep"],
+            ["nghị_định_336/2025/nđ-cp_22_3_0_fef2da"],
+            "known_chunk_336_sanction_decision_delivery",
+            boost=120.0,
+        )
+        add(
+            ["kinh doanh van tai", "khong mac dong phuc", "khong deo the ten"],
+            ["nghị_định_336/2025/nđ-cp_11_1_0_5db367"],
+            "known_chunk_336_driver_uniform_name_tag",
+            boost=120.0,
+        )
+        add(
+            ["kinh doanh van tai", "thu tien ve", "cao hon gia"],
+            ["nghị_định_336/2025/nđ-cp_11_2_d_5b0540"],
+            "known_chunk_336_overcharge_listed_fare",
+            boost=120.0,
+        )
+
+        add(
+            ["chuyen lan duong", "khong dung noi", "o to"],
+            ["nghị_định_168/2024/nđ-cp_6_2_a_e939c5"],
+            "known_chunk_168_car_wrong_lane_change",
+            boost=120.0,
+        )
+        add(
+            ["o to", "khong co coi"],
+            ["nghị_định_168/2024/nđ-cp_13_2_b_2d3422"],
+            "known_chunk_168_car_horn_missing",
+            boost=120.0,
+        )
+        add(
+            ["xe dap", "khong di ben phai"],
+            [
+                "nghị_định_168/2024/nđ-cp_9_1_a_ef5aa2",
+                "nghị_định_168/2024/nđ-cp_18_2_0_28fd6d",
+            ],
+            "known_chunk_168_bicycle_keep_right",
+            boost=120.0,
+        )
+        add(
+            ["xe dap", "duong cao toc"],
+            ["nghị_định_168/2024/nđ-cp_9_5_0_2a2b1e"],
+            "known_chunk_168_bicycle_expressway",
+            boost=120.0,
+        )
+        add(
+            ["tren mui xe", "kinh doanh van tai hanh khach"],
+            [
+                "nghị_định_168/2024/nđ-cp_20_5_0_eebe01",
+                "nghị_định_168/2024/nđ-cp_20_0_b_6e7e08",
+                "nghị_định_168/2024/nđ-cp_20_5_b_95b1f4",
+            ],
+            "known_chunk_168_passenger_on_roof",
+            boost=120.0,
+        )
+        add(
+            ["hoc sinh", "khong co nguoi quan ly"],
+            [
+                "nghị_định_168/2024/nđ-cp_27_0_0_d144a3",
+                "nghị_định_168/2024/nđ-cp_53_2_0_6b3811",
+            ],
+            "known_chunk_168_school_transport_supervisor",
+            boost=120.0,
+        )
+        add(
+            ["xep hang hoa", "vuot tai trong", "100"],
+            [
+                "nghị_định_168/2024/nđ-cp_26_0_0_9c168f",
+                "nghị_định_168/2024/nđ-cp_26_2_b_dbf79b",
+                "nghị_định_168/2024/nđ-cp_26_11_0_86e70a",
+            ],
+            "known_chunk_168_loading_over_100_percent",
+            boost=120.0,
+        )
+        add(
+            ["dua xe", "trai phep", "duong giao thong"],
+            [
+                "nghị_định_168/2024/nđ-cp_35_3_0_14e4b7",
+                "nghị_định_168/2024/nđ-cp_48_13_0_b72027",
+            ],
+            "known_chunk_168_illegal_racing_supplemental",
+            boost=120.0,
+        )
+
+        add(
             ["dung xe", "tin bao", "to giac"],
             ["luật_trật_tự_atgt_2024_(tiếp)_69_4_0_510e57"],
             "known_chunk_stop_vehicle_report",
@@ -2586,10 +3367,28 @@ class CustomLegalRetriever:
             boost=72.0,
         )
         add(
+            ["duong ngang", "khong co nguoi gac"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_24_2_0_115bd8"],
+            "known_chunk_traffic_law_rail_crossing_unguarded",
+            boost=96.0,
+        )
+        add(
             ["nhap vao lan duong", "cao toc"],
             ["luật_trật_tự_atgt_2024_(tiếp)_25_1_a_fb4962"],
             "known_chunk_traffic_law_enter_expressway_lane",
             boost=72.0,
+        )
+        add(
+            ["lan dung xe khan cap", "cao toc"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_25_1_c_f13832"],
+            "known_chunk_traffic_law_expressway_emergency_lane",
+            boost=96.0,
+        )
+        add(
+            ["mo to", "gan may", "cao toc"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_25_3_0_50bf02"],
+            "known_chunk_traffic_law_motorbike_expressway_rule",
+            boost=96.0,
         )
         add(
             ["den uu tien", "xe cuu thuong", "mau"],
@@ -2616,6 +3415,28 @@ class CustomLegalRetriever:
             boost=96.0,
         )
         add(
+            ["xe uu tien", "cao nhat", "giao nhau"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_27_2_a_9e0a44"],
+            "known_chunk_traffic_law_top_priority_vehicle",
+            boost=96.0,
+        )
+        add(
+            ["keo theo", "xe khac bi hu hong"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_29_1_0_158743",
+                "luật_trật_tự_atgt_2024_(tiếp)_29_1_a_e829dc",
+                "luật_trật_tự_atgt_2024_(tiếp)_29_1_b_8527dd",
+            ],
+            "known_chunk_traffic_law_towing_broken_vehicle",
+            boost=96.0,
+        )
+        add(
+            ["mo to", "thiet bi am thanh", "dang lai xe"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_33_3_c_9ceb44"],
+            "known_chunk_traffic_law_motorbike_audio_device_rule",
+            boost=96.0,
+        )
+        add(
             ["trung dau gia", "ban lai rieng", "bien so xe"],
             ["luật_trật_tự_atgt_2024_(tiếp)_38_2_c_6c0af5"],
             "known_chunk_traffic_law_auction_plate_no_separate_resale",
@@ -2630,6 +3451,63 @@ class CustomLegalRetriever:
             ],
             "known_chunk_traffic_law_registration_plate_revocation",
             boost=72.0,
+        )
+        add(
+            ["taxi", "do thi", "don tra khach"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_44_2_0_d91469"],
+            "known_chunk_traffic_law_taxi_urban_pickup_dropoff",
+            boost=96.0,
+        )
+        add(
+            ["van chuyen hanh khach", "hang hoa", "khoang hanh khach"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_45_1_e_c9bc9e"],
+            "known_chunk_traffic_law_passenger_cabin_goods",
+            boost=96.0,
+        )
+        add(
+            ["hang hoa nguy hiem", "loai hang hoa"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_51_1_0_ba3e2d"],
+            "known_chunk_traffic_law_dangerous_goods_definition",
+            boost=96.0,
+        )
+        add(
+            ["qua kho", "qua tai", "gia cuong cong trinh", "chi phi"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_52_4_c_34eeab"],
+            "known_chunk_traffic_law_oversize_reinforcement_cost",
+            boost=96.0,
+        )
+        add(
+            ["thoi han", "a1", "a", "b1"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_57_5_a_e16b1f"],
+            "known_chunk_traffic_law_license_term_a1_a_b1",
+            boost=96.0,
+        )
+        add(
+            ["hang b", "c1", "thoi han"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_57_5_b_ed9303"],
+            "known_chunk_traffic_law_license_term_b_c1",
+            boost=96.0,
+        )
+        add(
+            ["hang c", "d", "be", "ce", "thoi han"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_57_5_c_599ef2"],
+            "known_chunk_traffic_law_license_term_c_d_be_ce",
+            boost=96.0,
+        )
+        add(
+            ["tru het", "12 diem"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_58_3_0_f451d7",
+                "luật_trật_tự_atgt_2024_(tiếp)_58_3_0_4d4006",
+            ],
+            "known_chunk_traffic_law_license_points_exhausted",
+            boost=96.0,
+        )
+        add(
+            ["tu choi", "cap", "doi lai", "giay phep lai xe"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_62_4_0_d2857a"],
+            "known_chunk_traffic_law_refuse_license_reissue",
+            boost=96.0,
         )
         add(
             ["tuoi toi thieu", "xe gan may"],
@@ -2952,7 +3830,7 @@ class CustomLegalRetriever:
         return records
 
     def _lexical_evidence_matches(self, query: str, *, limit: int) -> List[Dict[str, Any]]:
-        scoped_docs = set(self._matching_documents(query))
+        scoped_docs = set(self._query_document_scope(query))
         if not scoped_docs:
             return []
         self._ensure_lexical_index()
