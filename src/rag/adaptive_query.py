@@ -463,7 +463,26 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Cần bóc tách diễn biến thực tế trước khi kết luận"
             })
 
-        if any(k in qa for k in ["co duoc", "duoc phep", "quy dinh", "lan duong", "den do", "nguoc chieu"]):
+        if any(
+            k in qa
+            for k in [
+                "co duoc",
+                "duoc phep",
+                "quy dinh",
+                "lan duong",
+                "sai lan",
+                "khong dung lan",
+                "phan duong",
+                "sai phan duong",
+                "khong dung phan duong",
+                "lan xe cam",
+                "lan cam",
+                "cam xe may",
+                "long le duong",
+                "den do",
+                "nguoc chieu",
+            ]
+        ):
             slots.append({
                 "facet": "rule",
                 "query": f"Tra cứu quy tắc pháp lý và điều kiện áp dụng cho câu hỏi: {q}",
@@ -644,6 +663,38 @@ class AdaptiveQuestionAnalyzer:
                 "wrong_way",
                 ["nguoc chieu", "duong nguoc chieu", "duong cam", "cam di nguoc chieu", "p102", "p.102"],
                 "đi vào đường ngược chiều, đường một chiều hoặc đường cấm",
+                "penalty",
+            ),
+            (
+                "wrong_lane_or_prohibited_lane",
+                [
+                    "di sai lan",
+                    "chay sai lan",
+                    "sai lan",
+                    "khong dung lan",
+                    "di khong dung lan",
+                    "chay khong dung lan",
+                    "di sai phan duong",
+                    "chay sai phan duong",
+                    "sai phan duong",
+                    "khong dung phan duong",
+                    "di khong dung phan duong",
+                    "chay khong dung phan duong",
+                    "lan xe cam",
+                    "lan cam",
+                    "lan cam xe",
+                    "lan xe cam xe may",
+                    "lan cam xe may",
+                    "cam xe may",
+                    "cam mo to",
+                    "cam xe gan may",
+                    "di vao lan cam",
+                    "chay vao lan cam",
+                    "long le duong",
+                    "giua long le duong",
+                    "chay giua long le duong",
+                ],
+                "đi sai làn đường, sai phần đường hoặc đi vào làn/đường cấm theo loại phương tiện",
                 "penalty",
             ),
             (

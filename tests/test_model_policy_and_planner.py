@@ -148,6 +148,33 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIn("vỉa hè", profile_queries)
         self.assertIn("Nghị định 168/2024/NĐ-CP", profile_queries)
 
+    def test_prohibited_lane_motorbike_question_routes_to_specific_penalty(self):
+        query = "Tôi chạy xe máy giữa lòng lề đường ở làn xe cấm xe máy."
+        planner = LegalQueryPlanner()
+        plan = planner.rule_plan(query)
+        profile = AdaptiveQuestionAnalyzer().analyze(query, plan)
+        facets = [slot["facet"] for slot in plan.subquestions]
+        profile_queries = "\n".join(slot["query"] for slot in profile.evidence_slots)
+
+        self.assertIsNone(route_conversational_query(query))
+        self.assertEqual(plan.intent.value, "penalty")
+        self.assertIn("penalty", facets)
+        self.assertIn("rule", facets)
+        self.assertNotIn("general", facets)
+        self.assertIn("xe máy", profile_queries)
+        self.assertIn("làn", profile_queries)
+        self.assertIn("Nghị định 168/2024/NĐ-CP", profile_queries)
+
+    def test_specific_lane_and_parking_queries_do_not_use_vague_penalty_fallback(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+
+        for query in [
+            "Tôi chạy xe máy giữa lòng lề đường ở làn xe cấm xe máy bị gì?",
+            "Đỗ xe tải lề đường bị phạt không?",
+        ]:
+            with self.subTest(query=query):
+                self.assertEqual(rag._deterministic_vague_penalty_answer(query, []), "")
+
     def test_llm_query_understanding_converts_colloquial_legality_to_retrieval_slots(self):
         payload = json.dumps({
             "in_scope": True,

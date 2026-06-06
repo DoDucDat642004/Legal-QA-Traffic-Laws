@@ -1996,8 +1996,51 @@ class CustomLegalRetriever:
         add_ref(["co so dang kiem", "chua nop phat"], "Luật Trật tự ATGT 2024 (Tiếp)", "43", clause="1", reason="topic_registration_unpaid_penalty")
         add_ref(["lan duong"], "Luật Trật tự ATGT 2024", "13", reason="topic_lane_rule_article", boost=18.0)
         add_ref(["di dung lan"], "Luật Trật tự ATGT 2024", "13", reason="topic_keep_lane_rule", boost=24.0)
-        if any(term in qa for term in ["r.412", "r412", "r.415", "r415", "di sai lan", "lan rieng", "lan duong"]):
+        lane_violation_terms = [
+            "r.412",
+            "r412",
+            "r.415",
+            "r415",
+            "di sai lan",
+            "chay sai lan",
+            "sai lan",
+            "khong dung lan",
+            "di khong dung lan",
+            "chay khong dung lan",
+            "di sai phan duong",
+            "chay sai phan duong",
+            "sai phan duong",
+            "khong dung phan duong",
+            "di khong dung phan duong",
+            "chay khong dung phan duong",
+            "lan rieng",
+            "lan xe cam",
+            "lan cam",
+            "lan cam xe",
+            "lan xe cam xe may",
+            "lan cam xe may",
+            "cam xe may",
+            "cam mo to",
+            "cam xe gan may",
+            "di vao lan cam",
+            "chay vao lan cam",
+            "long le duong",
+            "giua long le duong",
+            "chay giua long le duong",
+        ]
+        lane_violation_like = any(term in qa for term in lane_violation_terms)
+        if lane_violation_like or any(term in qa for term in ["lan rieng", "lan duong"]):
             add_ref([], "Luật Trật tự ATGT 2024", "13", reason="topic_qcvn_lane_rule_bridge", boost=42.0)
+        if lane_violation_like:
+            add_ref([], "Luật Trật tự ATGT 2024", "13", reason="topic_lane_violation_rule_article", boost=68.0)
+            vehicle_scope = self._vehicle_scope(query)
+            if vehicle_scope == "motorbike":
+                add_ref([], "Nghị định 168/2024/NĐ-CP", "7", clause="4", point="đ", reason="topic_lane_violation_penalty_motorbike", boost=92.0)
+            elif vehicle_scope == "car":
+                add_ref([], "Nghị định 168/2024/NĐ-CP", "6", clause="3", point="g", reason="topic_lane_violation_penalty_car", boost=92.0)
+            else:
+                add_ref([], "Nghị định 168/2024/NĐ-CP", "6", clause="3", point="g", reason="topic_lane_violation_penalty_car_unspecified_vehicle", boost=62.0)
+                add_ref([], "Nghị định 168/2024/NĐ-CP", "7", clause="4", point="đ", reason="topic_lane_violation_penalty_motorbike_unspecified_vehicle", boost=62.0)
         add_ref(["vach mui ten"], "Luật Trật tự ATGT 2024", "11", reason="topic_road_marking_signal_rule", boost=24.0)
         add_ref(["bien bao tam thoi", "bien bao co dinh"], "Luật Trật tự ATGT 2024", "11", clause="2", reason="topic_temporary_fixed_signal_order", boost=28.0)
         if (
@@ -2669,6 +2712,48 @@ class CustomLegalRetriever:
                 add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_red_light_car_penalty", clause="9", point="b", boost=30.0)
             if any(term in qa for term in ["mo to", "xe may", "gan may"]):
                 add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_red_light_motorbike_penalty", clause="7", point="c", boost=30.0)
+        lane_violation_terms = [
+            "r.412",
+            "r412",
+            "r.415",
+            "r415",
+            "di sai lan",
+            "chay sai lan",
+            "sai lan",
+            "khong dung lan",
+            "di khong dung lan",
+            "chay khong dung lan",
+            "di sai phan duong",
+            "chay sai phan duong",
+            "sai phan duong",
+            "khong dung phan duong",
+            "di khong dung phan duong",
+            "chay khong dung phan duong",
+            "lan rieng",
+            "lan xe cam",
+            "lan cam",
+            "lan cam xe",
+            "lan xe cam xe may",
+            "lan cam xe may",
+            "cam xe may",
+            "cam mo to",
+            "cam xe gan may",
+            "di vao lan cam",
+            "chay vao lan cam",
+            "long le duong",
+            "giua long le duong",
+            "chay giua long le duong",
+        ]
+        if any(term in qa for term in lane_violation_terms):
+            add("Luật Trật tự ATGT 2024", "13", "known_ref_lane_rule", boost=30.0)
+            vehicle_scope = self._vehicle_scope(query)
+            if vehicle_scope == "motorbike":
+                add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_lane_violation_motorbike", clause="4", point="đ", boost=34.0)
+            elif vehicle_scope == "car":
+                add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_lane_violation_car", clause="3", point="g", boost=34.0)
+            else:
+                add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_lane_violation_car_unspecified", clause="3", point="g", boost=24.0)
+                add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_lane_violation_motorbike_unspecified", clause="4", point="đ", boost=24.0)
         if any(term in qa for term in ["nong do con", "hoi con", "say xin", "uong ruou"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_penalty", boost=28.0)
         if "dien thoai" in qa and any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
@@ -3701,7 +3786,7 @@ class CustomLegalRetriever:
             return "specialized"
         if any(term in q for term in ["xe máy", "mô tô", "gắn máy"]) or any(term in qa for term in ["xe may", "mo to", "gan may"]):
             return "motorbike"
-        if any(term in q for term in ["ô tô", "xe hơi", "xe con"]) or any(term in qa for term in ["o to", "xe hoi", "xe con"]):
+        if any(term in q for term in ["ô tô", "xe hơi", "xe con", "xe tải", "xe khách", "xe buýt"]) or any(term in qa for term in ["o to", "xe hoi", "xe con", "xe tai", "xe khach", "xe buyt", "container"]):
             return "car"
         if "xe đạp" in q or "xe dap" in qa:
             return "bicycle"
