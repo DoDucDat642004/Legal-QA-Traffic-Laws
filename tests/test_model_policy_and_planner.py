@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -146,6 +147,62 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIn("rule", facets)
         self.assertIn("vỉa hè", profile_queries)
         self.assertIn("Nghị định 168/2024/NĐ-CP", profile_queries)
+
+    def test_llm_query_understanding_converts_colloquial_legality_to_retrieval_slots(self):
+        payload = json.dumps({
+            "in_scope": True,
+            "intent": "penalty",
+            "confidence": 0.86,
+            "difficulty_hint": "easy",
+            "user_tone": "colloquial",
+            "facets": ["rule", "penalty"],
+            "entities": {
+                "vehicle": "xe tải",
+                "action": "để xe trên vỉa hè",
+                "location": "vỉa hè",
+                "sign_codes": [],
+                "asks_legality": True,
+                "asks_penalty": True,
+                "missing_facts": [],
+            },
+            "retrieval_queries": [
+                {
+                    "facet": "rule",
+                    "query": "quy định xe tải dừng đỗ trên vỉa hè, hè phố hoặc lòng đường",
+                    "priority": 1,
+                    "reason": "Người dùng hỏi có được/có sao không.",
+                    "must_answer": True,
+                },
+                {
+                    "facet": "penalty",
+                    "query": "mức phạt xe tải dừng đỗ trên vỉa hè theo Nghị định 168/2024/NĐ-CP",
+                    "priority": 2,
+                    "reason": "Cần truy xuất chế tài tương ứng.",
+                    "must_answer": True,
+                },
+            ],
+            "notes": ["Câu có lời chào nhưng vẫn là truy vấn pháp luật giao thông."],
+        }, ensure_ascii=False)
+        client = FakeClient({"gemini-3.1-flash-lite": payload})
+
+        with patched_env(RAG_ENABLE_LLM_QUERY_UNDERSTANDING="true", RAG_ENABLE_AI_PLANNER="false"):
+            plan = LegalQueryPlanner().plan("Alo tôi để xe tải lên vỉa hè có sao không?", client=client)
+
+        self.assertEqual(plan.plan_source, "llm_understanding")
+        self.assertEqual(plan.intent.value, "penalty")
+        self.assertEqual(client.models.calls[0], "gemini-3.1-flash-lite")
+        queries = "\n".join(slot["query"] for slot in plan.subquestions)
+        self.assertIn("vỉa hè", queries)
+        self.assertIn("Nghị định 168/2024/NĐ-CP", queries)
+        self.assertIn("llm_understanding_entities", plan.filters)
+
+    def test_llm_query_understanding_invalid_payload_keeps_rule_fallback(self):
+        client = FakeClient({"gemini-3.1-flash-lite": "not json"})
+
+        with patched_env(RAG_ENABLE_LLM_QUERY_UNDERSTANDING="true", RAG_ENABLE_AI_PLANNER="true"):
+            plan = LegalQueryPlanner().plan("Alo tôi để xe tải lên vỉa hè có sao không?", client=client)
+
+        self.assertEqual(plan.plan_source, "rule")
 
     def test_generated_question_practicality_filter_rejects_lan_man_prompts(self):
         self.assertEqual(question_practicality_issue("Top 10 hành vi hay vi phạm nhất là gì?"), "broad_or_statistical_question")

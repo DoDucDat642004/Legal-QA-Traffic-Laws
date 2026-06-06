@@ -34,6 +34,7 @@ TASK_DEFAULT_MODELS: dict[str, tuple[str, ...]] = {
     "extraction": DEEP_TEXT_MODELS,
     "qa_generation": DEEP_TEXT_MODELS,
     "planner": FAST_TEXT_MODELS,
+    "query_understanding": FAST_TEXT_MODELS,
     "condense": FAST_TEXT_MODELS,
     "sign_probe": FAST_TEXT_MODELS,
     "vision": ALLOWED_VISION_MODELS,

@@ -20,6 +20,13 @@ from src.rag.legal_utils import (
     normalize_sign_code,
 )
 from src.rag.model_policy import generate_content_with_fallback
+from src.rag.query_understanding import (
+    looks_like_colloquial_traffic_query,
+    retrieval_queries_to_subquestions,
+    sanitized_facets,
+    sanitized_sign_codes,
+    understand_query_with_llm,
+)
 
 # --- Logging Configuration ---
 logger = logging.getLogger("LegalQueryPlanner")
@@ -100,8 +107,15 @@ class LegalQueryPlanner:
         fallback = self.rule_plan(query)
         if looks_like_statutory_fine_cap_query(query):
             return fallback
+        if not client:
+            return fallback
+        understanding = self.llm_understanding_plan(query, client, fallback=fallback)
+        if understanding and not self._should_escalate_to_ai(query, understanding):
+            return understanding
+        if understanding:
+            fallback = understanding
         enabled = os.getenv("RAG_ENABLE_AI_PLANNER", "true").lower() in {"1", "true", "yes", "on"}
-        if not client or not enabled:
+        if not enabled:
             return fallback
         always = os.getenv("RAG_AI_PLANNER_ALWAYS", "false").lower() in {"1", "true", "yes", "on"}
         min_rule_confidence = self._env_float("RAG_AI_PLANNER_MIN_RULE_CONFIDENCE", 0.72)
@@ -112,6 +126,42 @@ class LegalQueryPlanner:
         ):
             return fallback
         return self.ai_plan(query, client, fallback=fallback) or fallback
+
+    def llm_understanding_plan(self, query: str, client: Any, *, fallback: QueryPlan) -> Optional[QueryPlan]:
+        if not self._should_use_llm_understanding(query, fallback):
+            return None
+        try:
+            payload = understand_query_with_llm(
+                client,
+                query,
+                fallback.public_summary(),
+                logger=logger,
+            )
+            return self._plan_from_understanding_payload(payload, fallback=fallback)
+        except Exception as exc:
+            logger.warning("LLM query understanding failed; using planner fallback: %s", exc)
+            return None
+
+    def _should_use_llm_understanding(self, query: str, fallback: QueryPlan) -> bool:
+        enabled = os.getenv("RAG_ENABLE_LLM_QUERY_UNDERSTANDING", "true").lower() in {"1", "true", "yes", "on"}
+        if not enabled:
+            return False
+        if os.getenv("RAG_QUERY_UNDERSTANDING_ALWAYS", "false").lower() in {"1", "true", "yes", "on"}:
+            return True
+        if fallback.intent == QueryIntent.OUT_OF_SCOPE:
+            return False
+        qa = ascii_lower(query)
+        facets = {str(slot.get("facet") or "general") for slot in fallback.subquestions}
+        if looks_like_colloquial_traffic_query(query):
+            return True
+        if fallback.confidence < self._env_float("RAG_QUERY_UNDERSTANDING_LOW_CONFIDENCE", 0.7):
+            return True
+        if fallback.intent == QueryIntent.GENERAL:
+            return True
+        everyday_legality = any(term in qa for term in ["co on", "co sao", "co duoc", "duoc khong", "thi sao", "bi gi"])
+        if everyday_legality and facets <= {"general", "rule"}:
+            return True
+        return False
 
     def _should_escalate_to_ai(self, query: str, fallback: QueryPlan) -> bool:
         facets = {str(slot.get("facet") or "general") for slot in fallback.subquestions}
@@ -296,6 +346,73 @@ class LegalQueryPlanner:
             plan_source="ai",
             difficulty_hint=difficulty_hint,
             analysis_notes=["ai_decomposition", *fallback.analysis_notes],
+        )
+
+    def _plan_from_understanding_payload(self, data: Dict[str, Any], *, fallback: QueryPlan) -> Optional[QueryPlan]:
+        if not data:
+            return None
+        in_scope = data.get("in_scope")
+        confidence = self._bounded_float(data.get("confidence"), default=0.0)
+        if in_scope is False and confidence >= 0.78 and fallback.intent == QueryIntent.GENERAL:
+            return QueryPlan(
+                intent=QueryIntent.OUT_OF_SCOPE,
+                confidence=max(confidence, fallback.confidence),
+                filters={"documents": [], "search_queries": []},
+                expected_modalities=[],
+                subquestions=[],
+                plan_source="llm_understanding",
+                difficulty_hint="easy",
+                analysis_notes=["llm_query_understanding_out_of_scope", *fallback.analysis_notes],
+            )
+
+        subquestions = retrieval_queries_to_subquestions(data.get("retrieval_queries"))
+        if not subquestions:
+            subquestions = self._sanitize_subquestions(data.get("subquestions"))
+        if not subquestions:
+            return None
+
+        for slot in fallback.subquestions:
+            facet = slot.get("facet")
+            if facet and facet != "general" and not self._has_similar_slot(slot, subquestions):
+                subquestions.append(dict(slot))
+
+        facets = sanitized_facets(data.get("facets")) or [slot.get("facet", "general") for slot in subquestions]
+        if "sign" in facets and "source_image" not in facets:
+            facets.append("source_image")
+        max_queries = int(os.getenv("RAG_MAX_PLANNED_QUERIES", "12"))
+        subquestions = sorted(subquestions, key=lambda item: int(item.get("priority") or 1))[:max_queries]
+        intent = self._intent_from_value(data.get("intent")) or self._primary_intent(facets) or fallback.intent
+        if intent == QueryIntent.OUT_OF_SCOPE and fallback.intent != QueryIntent.OUT_OF_SCOPE and in_scope is not False:
+            intent = fallback.intent
+        difficulty_hint = str(data.get("difficulty_hint") or "").lower()
+        if difficulty_hint not in {"easy", "medium", "hard"}:
+            difficulty_hint = fallback.difficulty_hint or None
+        sign_codes = sanitized_sign_codes((data.get("entities") or {}).get("sign_codes") if isinstance(data.get("entities"), dict) else None)
+        sign_codes = list(dict.fromkeys([*fallback.sign_codes, *sign_codes]))
+        modalities = self._modalities_for_facets(facets)
+        documents = self._documents_for_facets([slot.get("facet", "general") for slot in subquestions])
+        model_note = data.get("_model") or ""
+        notes = [str(item)[:180] for item in (data.get("notes") or []) if str(item or "").strip()][:4]
+
+        return QueryPlan(
+            intent=intent,
+            confidence=max(confidence, fallback.confidence),
+            sign_codes=sign_codes,
+            filters={
+                "documents": documents,
+                "search_queries": [slot["query"] for slot in subquestions],
+                "llm_understanding_entities": data.get("entities") if isinstance(data.get("entities"), dict) else {},
+            },
+            expected_modalities=modalities,
+            subquestions=subquestions,
+            plan_source="llm_understanding",
+            difficulty_hint=difficulty_hint,
+            analysis_notes=[
+                "llm_query_understanding",
+                *( [f"model:{model_note}"] if model_note else [] ),
+                *notes,
+                *fallback.analysis_notes,
+            ],
         )
 
     def _has_similar_slot(self, candidate: Dict[str, Any], slots: List[Dict[str, Any]]) -> bool:

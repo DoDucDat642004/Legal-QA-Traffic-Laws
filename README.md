@@ -112,6 +112,7 @@ RAG_AGGREGATION_SUPPORT_MAX=56
 RAG_INCLUDE_ANSWER_TRACE=true
 RAG_AUTO_VERIFY_CLAIMS=true
 QDRANT_COLLECTION=legal_traffic_records_vi
+RAG_ENABLE_LLM_QUERY_UNDERSTANDING=true
 RAG_ANSWER_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
 RAG_VISION_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
 RAG_PLANNER_MODEL=gemini-3.1-flash-lite,gemini-2.5-flash-lite
