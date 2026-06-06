@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 from src.rag.hybrid_vector_store import _should_load_embedder
 from src.rag.adaptive_query import AdaptiveQuestionAnalyzer
+from src.rag.conversation_guard import route_conversational_query
 from src.rag.custom_legal_retriever import CustomLegalRetriever
+from src.data_pipeline.qa_generator import deterministic_fallback_qa, question_practicality_issue
 from src.rag.legal_graph_rag import LegalGraphRAG
 from src.rag.legal_utils import looks_like_table_query, public_asset_path
 from src.rag.model_policy import generate_content_with_fallback, model_candidates
@@ -100,6 +102,58 @@ class ModelPolicyTest(unittest.TestCase):
 
 
 class QueryPlannerCoverageTest(unittest.TestCase):
+    def test_conversation_guard_handles_greeting_without_retrieval(self):
+        routed = route_conversational_query("Hello")
+
+        self.assertIsNotNone(routed)
+        self.assertEqual(routed.intent, "greeting")
+        self.assertIn("pháp luật giao thông đường bộ", routed.answer)
+        self.assertTrue(routed.metadata()["retrieval_skipped"])
+
+    def test_conversation_guard_introduces_capabilities_and_sources(self):
+        routed = route_conversational_query("Bạn có thể giúp gì cho tôi và truy xuất từ đâu?")
+
+        self.assertIsNotNone(routed)
+        self.assertEqual(routed.intent, "capability_intro")
+        self.assertIn("Nghị định 168/2024/NĐ-CP", routed.answer)
+        self.assertIn("QCVN 41:2024", routed.answer)
+        self.assertIn("mức phạt", routed.answer)
+
+    def test_conversation_guard_rejects_clear_off_topic_questions(self):
+        routed = route_conversational_query("Hôm nay thời tiết ở Hà Nội thế nào?")
+
+        self.assertIsNotNone(routed)
+        self.assertEqual(routed.intent, "out_of_scope")
+        self.assertIn("chỉ hỗ trợ", routed.answer)
+        self.assertIn("giao thông đường bộ", routed.answer)
+
+    def test_conversation_guard_does_not_block_traffic_law_questions(self):
+        self.assertIsNone(route_conversational_query("Xe máy vượt đèn đỏ bị phạt bao nhiêu?"))
+        self.assertIsNone(route_conversational_query("Hello, xe máy vượt đèn đỏ bị phạt bao nhiêu?"))
+        self.assertIsNone(route_conversational_query("Tôi bị phạt bao nhiêu?"))
+
+    def test_generated_question_practicality_filter_rejects_lan_man_prompts(self):
+        self.assertEqual(question_practicality_issue("Top 10 hành vi hay vi phạm nhất là gì?"), "broad_or_statistical_question")
+        self.assertEqual(question_practicality_issue("Quy định này nói gì theo cách dễ hiểu?"), "abstract_heading_like_question")
+        self.assertEqual(question_practicality_issue("Xe máy vượt đèn đỏ bị phạt bao nhiêu?"), "")
+
+    def test_deterministic_qa_fallback_uses_real_world_question(self):
+        qa_pairs = deterministic_fallback_qa({
+            "source_chunk_id": "test_chunk",
+            "doc_name": "Nghị định 168/2024/NĐ-CP",
+            "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "4"},
+            "source_body_exact": (
+                "Người điều khiển xe không chấp hành hiệu lệnh của đèn tín hiệu giao thông "
+                "bị phạt tiền và bị trừ điểm giấy phép lái xe."
+            ),
+        })
+
+        self.assertTrue(qa_pairs)
+        question = qa_pairs[0]["question"]
+        self.assertIn("đèn", question.lower())
+        self.assertNotIn("Quy định này", question)
+        self.assertEqual(question_practicality_issue(question), "")
+
     def test_query_preprocessor_compacts_long_query_without_llm(self):
         long_background = " ".join(["thong tin ngoai le khong lien quan"] * 240)
         query = (

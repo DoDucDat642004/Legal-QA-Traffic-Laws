@@ -21,7 +21,7 @@ logger = logging.getLogger("ExpertQA")
 EXHAUSTED_MODELS = set()
 ALLOWED_INTENTS = {"DEFINITION", "PENALTY", "SCENARIO", "PROCEDURE", "EXCEPTION", "SIGN_MEANING", "TECHNICAL_SPEC"}
 ALLOWED_DIFFICULTIES = {"EASY", "MEDIUM", "HARD"}
-QA_PIPELINE_VERSION = "qa_v4_strict_verbatim_quotes_no_default_fuzzy"
+QA_PIPELINE_VERSION = "qa_v5_practical_user_questions_strict_quotes"
 
 
 def canonicalize_qa_pair(pair: dict, record: dict) -> dict:
@@ -197,6 +197,145 @@ def _reference_from_record(record: dict) -> str:
     return ", ".join(str(p) for p in parts if p)
 
 
+def question_practicality_issue(question: str) -> str:
+    """Returns a rejection reason when a generated question is broad, abstract, or unlikely as a user turn."""
+
+    q = re.sub(r"\s+", " ", question or "").strip()
+    if not q:
+        return "empty_question"
+    qa = q.lower()
+    word_count = len(q.split())
+    if word_count < 5:
+        return "too_short"
+    if word_count > 34 or len(q) > 230:
+        return "too_long_or_lan_man"
+
+    abstract_phrases = [
+        "quy định này",
+        "nội dung này",
+        "phần này",
+        "điều khoản này",
+        "văn bản này",
+        "bảng trong quy định",
+        "nói về nội dung gì",
+        "cần hiểu thế nào",
+        "được nêu ra sao",
+    ]
+    if any(phrase in qa for phrase in abstract_phrases):
+        return "abstract_heading_like_question"
+
+    broad_statistical_phrases = [
+        "top 10",
+        "top mười",
+        "hay vi phạm nhất",
+        "phổ biến nhất",
+        "thường gặp nhất",
+        "cao nhất là gì",
+        "thấp nhất là gì",
+        "thống kê",
+        "xếp hạng",
+    ]
+    if any(phrase in qa for phrase in broad_statistical_phrases):
+        return "broad_or_statistical_question"
+
+    practical_terms = [
+        "tôi",
+        "người điều khiển",
+        "lái xe",
+        "chạy xe",
+        "đi xe",
+        "xe",
+        "ô tô",
+        "mô tô",
+        "xe máy",
+        "xe đạp",
+        "phương tiện",
+        "gplx",
+        "giấy phép lái xe",
+        "bằng lái",
+        "biển",
+        "vạch",
+        "đèn",
+        "tốc độ",
+        "nồng độ cồn",
+        "rượu bia",
+        "mũ bảo hiểm",
+        "ngược chiều",
+        "dừng",
+        "đỗ",
+        "vượt",
+        "phạt",
+        "trừ điểm",
+        "tước",
+        "tạm giữ",
+        "hồ sơ",
+        "thủ tục",
+        "thời hạn",
+        "đăng ký",
+        "đào tạo",
+        "sát hạch",
+        "cấp đổi",
+        "cấp lại",
+        "tai nạn",
+        "nhường đường",
+        "ưu tiên",
+        "giao thông",
+        "đi đường",
+    ]
+    if not any(term in qa for term in practical_terms):
+        return "missing_real_world_anchor"
+    return ""
+
+
+def _behavior_question_from_source(source: str) -> str:
+    lower = source.lower()
+    patterns = [
+        (["đèn tín hiệu", "đèn đỏ", "đèn vàng"], "Tôi vượt đèn đỏ hoặc không chấp hành đèn tín hiệu giao thông thì bị xử lý thế nào?"),
+        (["nồng độ cồn", "rượu", "bia"], "Tôi lái xe khi có nồng độ cồn thì bị phạt, trừ điểm và tước GPLX thế nào?"),
+        (["quá tốc độ", "tốc độ"], "Chạy quá tốc độ thì bị phạt, trừ điểm hoặc tước GPLX như thế nào?"),
+        (["mũ bảo hiểm"], "Đi xe máy không đội mũ bảo hiểm thì bị phạt bao nhiêu?"),
+        (["ngược chiều", "đường cấm"], "Đi vào đường cấm hoặc đi ngược chiều thì bị phạt và trừ điểm thế nào?"),
+        (["điện thoại"], "Vừa lái xe vừa dùng điện thoại thì bị xử lý ra sao?"),
+        (["dừng xe", "đỗ xe"], "Dừng đỗ xe sai quy định gây cản trở giao thông thì bị phạt thế nào?"),
+        (["gây tai nạn", "tai nạn giao thông"], "Gây tai nạn giao thông thì người lái xe phải chịu trách nhiệm và mức phạt nào?"),
+        (["chở theo", "chở người"], "Chở quá số người quy định trên xe thì bị phạt thế nào?"),
+        (["giấy phép lái xe", "gplx", "bằng lái"], "Không có hoặc dùng GPLX không phù hợp với loại xe thì bị xử lý thế nào?"),
+    ]
+    for terms, question in patterns:
+        if any(term in lower for term in terms):
+            return question
+    return "Tôi vi phạm hành vi giao thông trong trường hợp này thì bị phạt, trừ điểm hoặc tước GPLX thế nào?"
+
+
+def _practical_fallback_question(record: dict, intent: str, source: str) -> str:
+    lower = source.lower()
+    if intent == "TECHNICAL_SPEC":
+        if "tốc độ" in lower:
+            return "Tôi cần tra tốc độ tối đa theo bảng/phụ lục thì phải áp dụng thông số nào?"
+        return "Tôi cần tra bảng hoặc phụ lục kỹ thuật để áp dụng cho phương tiện thì xem nội dung gì?"
+    if intent == "SIGN_MEANING":
+        code = ""
+        figure = record.get("figure") if isinstance(record.get("figure"), dict) else {}
+        code = str(figure.get("code") or "").strip()
+        if not code:
+            match = re.search(r"\b(?:P|W|R|I|S|DP|IE)\s*\.?\s*\d{2,3}[a-zđ]?\b", source, re.IGNORECASE)
+            code = match.group(0) if match else ""
+        if code:
+            return f"Biển {code} có ý nghĩa gì và khi gặp biển này tôi phải đi thế nào?"
+        return "Gặp biển báo hoặc vạch kẻ này thì người tham gia giao thông phải làm gì?"
+    if intent == "PENALTY":
+        return _behavior_question_from_source(source)
+    if intent == "PROCEDURE":
+        if any(term in lower for term in ["cấp đổi", "cấp lại"]):
+            return "Tôi muốn cấp đổi hoặc cấp lại GPLX thì hồ sơ, thời hạn và thủ tục thế nào?"
+        if "sát hạch" in lower:
+            return "Tôi chuẩn bị sát hạch lái xe thì điều kiện, hồ sơ hoặc thời hạn cần biết là gì?"
+        return "Tôi cần làm thủ tục liên quan đến GPLX hoặc phương tiện thì hồ sơ và thời hạn thế nào?"
+    if intent == "EXCEPTION":
+        return "Trường hợp nào trong quy định giao thông này được ngoại lệ hoặc phải đáp ứng thêm điều kiện?"
+    return "Người lái xe cần hiểu nghĩa vụ gì để đi đường đúng luật?"
+
+
 def deterministic_fallback_qa(record: dict) -> list[dict]:
     source = _source_text(record)
     quote = _short_exact_quote(source)
@@ -207,19 +346,15 @@ def deterministic_fallback_qa(record: dict) -> list[dict]:
     lower = source.lower()
     if record.get("tables"):
         intent = "TECHNICAL_SPEC"
-        question = "Bảng trong quy định này nói về nội dung gì và cần hiểu thế nào?"
     elif record.get("figures") or record.get("figure_refs") or "biển" in lower or "vạch" in lower:
         intent = "SIGN_MEANING"
-        question = "Biển báo hoặc hình minh họa trong phần này có ý nghĩa gì?"
     elif any(k in lower for k in ["phạt", "tiền", "trừ điểm", "tước"]):
         intent = "PENALTY"
-        question = "Trường hợp này bị xử lý hoặc áp dụng mức phạt như thế nào?"
     elif any(k in lower for k in ["hồ sơ", "thủ tục", "trình tự", "thời hạn"]):
         intent = "PROCEDURE"
-        question = "Thủ tục hoặc thời hạn trong quy định này được nêu ra sao?"
     else:
         intent = "DEFINITION"
-        question = "Quy định này nói gì theo cách dễ hiểu?"
+    question = _practical_fallback_question(record, intent, source)
 
     answer = (
         f"Theo {citation}, nội dung cần căn cứ là: \"{quote}\". "
@@ -398,11 +533,17 @@ async def generate_expert_qa(client: genai.Client, record: dict, semaphore: asyn
 # FEW-SHOT STYLE EXAMPLES
 Example 1:
 TEXT: "Người điều khiển xe không chấp hành hiệu lệnh của đèn tín hiệu giao thông..."
-QA: intent=SCENARIO, question="Nếu tôi vượt đèn đỏ thì bị xử lý theo căn cứ nào?", answer="...", quote="Người điều khiển xe không chấp hành hiệu lệnh của đèn tín hiệu giao thông"
+QA: intent=SCENARIO, question="Tôi vượt đèn đỏ ở ngã tư thì bị phạt, trừ điểm GPLX theo căn cứ nào?", answer="...", quote="Người điều khiển xe không chấp hành hiệu lệnh của đèn tín hiệu giao thông"
 
 Example 2:
 TEXT: "Biển số P.102 'Cấm đi ngược chiều'..."
 QA: intent=SIGN_MEANING, question="Biển P.102 có ý nghĩa gì và gặp biển này có được đi vào không?", answer="...", quote="Biển số P.102"
+
+Bad question: "Quy định này nói về nội dung gì?"
+Good question: "Tôi đi xe máy vào đường có biển cấm thì bị xử lý thế nào?"
+
+Bad question: "Top 10 hành vi vi phạm phổ biến nhất là gì?"
+Good question: "Xe máy chạy quá tốc độ ghi trên biển P.127 thì bị phạt và trừ điểm ra sao?"
 """
     reasoning_instruction = (
         "Write a brief Vietnamese analysis_summary in thought_process before qa_pairs. "
@@ -430,7 +571,7 @@ You are a Legal Knowledge Engineer for Vietnamese traffic-law RAG datasets.
 
 # TASK
 Generate 2-4 detailed QA pairs in Vietnamese based ONLY on the provided [TEXT].
-The QA set must be natural, diverse, and useful for RAG retrieval.
+The QA set must be natural, practical, and useful for RAG retrieval in a public traffic-law assistant.
 
 # COVERAGE REQUIREMENTS
 - Cover the main legal rule in [TEXT].
@@ -438,9 +579,15 @@ The QA set must be natural, diverse, and useful for RAG retrieval.
 - If [TEXT] contains procedure/time/dossier/process wording, include a PROCEDURE QA.
 - If [TEXT] contains exceptions/conditions, include an EXCEPTION or HARD scenario QA.
 - If [TEXT] contains a traffic sign, road marking, table, or image asset, include SIGN_MEANING or TECHNICAL_SPEC QA and mention the sign/table identifier.
-- Questions must sound like real Vietnamese users, not copied headings.
+- Questions must sound like common real Vietnamese user problems: mention a vehicle, driver/passenger, action, sign, road situation, GPLX, procedure, fine, point deduction, or missing fact whenever possible.
+- Prefer practical situations people often ask about: vượt đèn đỏ, quá tốc độ, nồng độ cồn, không đội mũ bảo hiểm, đi ngược chiều, dừng/đỗ sai, dùng điện thoại khi lái xe, thiếu GPLX, biển báo/vạch kẻ, cấp đổi/cấp lại GPLX, xe ưu tiên, tai nạn.
+- Keep each question concise: ideally 10-26 Vietnamese words, never more than 34 words.
+- Do NOT generate broad, statistical, or ranking questions such as "Top 10", "hành vi phổ biến nhất", "cao nhất/thấp nhất" unless [TEXT] itself is a statistics/ranking dataset.
+- Do NOT generate abstract heading-like questions such as "Quy định này nói gì?", "Nội dung này cần hiểu thế nào?", "Bảng trong quy định này nói về nội dung gì?".
+- If the source lacks a specific vehicle, ask a realistic but still scoped question and explicitly keep the missing fact in the answer, instead of making the question broad.
 - Answers must cite {reference} and must not add facts absent from [TEXT].
 - quote must be a short verbatim substring copied exactly from [TEXT].
+- search_queries should be short real search phrases users would type, not long legal headings.
 
 Return ONLY a JSON object following this schema:
 {{
@@ -511,8 +658,19 @@ Return ONLY a JSON object following this schema:
                     
                     final_qa = []
                     rejected_quotes = 0
+                    rejected_practicality = 0
                     for pair in parsed_data.qa_pairs:
                         data = canonicalize_qa_pair(pair.model_dump(), record)
+                        practicality_issue = question_practicality_issue(data.get("question", ""))
+                        if practicality_issue:
+                            rejected_practicality += 1
+                            logger.info(
+                                " - [PRACTICALITY REJECT] %s rejected question for %s: %s",
+                                model_name,
+                                practicality_issue,
+                                data.get("question", "")[:120],
+                            )
+                            continue
                         if validate_qa_pair(data, source_body, doc_name, log_failure=False):
                             data.update({
                                 "source_chunk_id": chunk_id, "doc_name": doc_name,
@@ -527,8 +685,9 @@ Return ONLY a JSON object following this schema:
                         return final_qa
                     else:
                         logger.warning(
-                            " - [VALIDATION FAIL] %s produced %s QA pair(s), all rejected by strict quote validation for %s.",
+                            " - [VALIDATION FAIL] %s produced QA pairs, rejected_practicality=%s, rejected_quotes=%s for %s.",
                             model_name,
+                            rejected_practicality,
                             rejected_quotes,
                             chunk_id,
                         )

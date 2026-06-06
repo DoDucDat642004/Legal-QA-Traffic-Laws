@@ -26,6 +26,7 @@ from google.genai import types
 from PIL import Image
 
 from src.rag.legal_graph_rag import LegalGraphRAG
+from src.rag.conversation_guard import ConversationalResponse, route_conversational_query
 from src.rag.legal_utils import (
     ascii_lower,
     format_reference,
@@ -465,6 +466,48 @@ def _attach_query_preprocessing(analysis: Dict[str, Any], prepared: PreparedQuer
                 hints.append(text)
         analysis["missing_data_hints"] = hints
     return analysis
+
+
+def _conversation_query_preprocessing(query: str, routed: ConversationalResponse) -> Dict[str, Any]:
+    text = (query or "").strip()
+    return {
+        "was_preprocessed": False,
+        "reason": routed.reason,
+        "used_llm": False,
+        "effective_query": text,
+        "history_summary": "",
+        "missing_data_hints": [],
+        "warnings": ["retrieval_skipped_by_conversation_guard"],
+        "stats": {
+            "original_chars": len(text),
+            "original_words": len(re.findall(r"\S+", text)),
+            "history_messages": 0,
+            "history_chars": 0,
+        },
+    }
+
+
+def _conversation_chat_payload(query: str, routed: ConversationalResponse) -> Dict[str, Any]:
+    preprocessing = _conversation_query_preprocessing(query, routed)
+    analysis = routed.query_analysis()
+    analysis["query_preprocessing"] = preprocessing
+    metadata = routed.metadata()
+    if routed.intent == "capability_intro":
+        metadata["supported_sources"] = source_catalog_payload()
+    return {
+        "answer": routed.answer,
+        "condensed_query": None,
+        "query_preprocessing": preprocessing,
+        "query_analysis": analysis,
+        "images": [],
+        "reference_images": [],
+        "references": [],
+        "answer_trace": None,
+        "claim_verification": None,
+        "graph_trace": None,
+        "metadata": metadata,
+    }
+
 
 def _snippet(text: str, limit: int = 800) -> str:
     compact = re.sub(r"\s+", " ", text or "").strip()
@@ -1090,6 +1133,18 @@ async def chat_verify(answer: str = Form(...), source_chunk_ids: str = Form(""))
 async def chat_analyze(query: str = Form(...), history: str = Form("[]")):
     """Analyzes query complexity and identified slots."""
     try:
+        conversational = route_conversational_query(query)
+        if conversational:
+            preprocessing = _conversation_query_preprocessing(query, conversational)
+            analysis = conversational.query_analysis()
+            analysis["query_preprocessing"] = preprocessing
+            return {
+                "query": query,
+                "condensed_query": None,
+                "query_preprocessing": preprocessing,
+                "analysis": analysis,
+            }
+
         rag = get_rag()
         try:
             chat_history = json.loads(history)
@@ -1113,6 +1168,10 @@ async def chat_analyze(query: str = Form(...), history: str = Form("[]")):
 @app.post('/chat/text')
 async def chat_text(query: str = Form(...), history: str = Form("[]")):
     try:
+        conversational = route_conversational_query(query)
+        if conversational:
+            return _conversation_chat_payload(query, conversational)
+
         rag = get_rag()
         try:
             chat_history = json.loads(history)

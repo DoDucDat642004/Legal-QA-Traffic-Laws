@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from src.rag.conversation_guard import ConversationalResponse, route_conversational_query
 from src.rag.custom_legal_retriever import CustomLegalRetriever
 from src.rag.hybrid_vector_store import HybridLegalVectorStore
 from src.rag.legal_graph_store import DeterministicLegalGraphStore
@@ -126,6 +127,9 @@ class LegalGraphRAG:
 
     def query_adaptive(self, query: str) -> Dict[str, Any]:
         """Runs the complete adaptive QA pipeline for text questions."""
+        conversational = route_conversational_query(query)
+        if conversational:
+            return self._conversation_result(query, conversational)
         plan, profile = self._build_query_profile(query)
         if "out_of_scope" in set(profile.facets or []) or profile.intent == "out_of_scope":
             return self._out_of_scope_result(query, plan, profile)
@@ -174,6 +178,21 @@ class LegalGraphRAG:
                 "sequential": False,
                 "route": "out_of_scope",
                 "reason": "outside_vietnam_road_traffic_law_scope",
+                "query": query,
+            },
+        }
+
+    def _conversation_result(self, query: str, routed: ConversationalResponse) -> Dict[str, Any]:
+        return {
+            "answer": routed.answer,
+            "contexts": [],
+            "references": [],
+            "images": [],
+            "sequential_results": [],
+            "slots": [],
+            "query_analysis": routed.query_analysis(),
+            "metadata": {
+                **routed.metadata(),
                 "query": query,
             },
         }
