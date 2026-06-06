@@ -132,6 +132,21 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIsNone(route_conversational_query("Hello, xe máy vượt đèn đỏ bị phạt bao nhiêu?"))
         self.assertIsNone(route_conversational_query("Tôi bị phạt bao nhiêu?"))
 
+    def test_colloquial_parking_sidewalk_question_routes_to_penalty(self):
+        query = "Hey tôi đỗ xe tải ở vỉa hè có ổn không?"
+        planner = LegalQueryPlanner()
+        plan = planner.rule_plan(query)
+        profile = AdaptiveQuestionAnalyzer().analyze(query, plan)
+        facets = [slot["facet"] for slot in plan.subquestions]
+        profile_queries = "\n".join(slot["query"] for slot in profile.evidence_slots)
+
+        self.assertIsNone(route_conversational_query(query))
+        self.assertEqual(plan.intent.value, "penalty")
+        self.assertIn("penalty", facets)
+        self.assertIn("rule", facets)
+        self.assertIn("vỉa hè", profile_queries)
+        self.assertIn("Nghị định 168/2024/NĐ-CP", profile_queries)
+
     def test_generated_question_practicality_filter_rejects_lan_man_prompts(self):
         self.assertEqual(question_practicality_issue("Top 10 hành vi hay vi phạm nhất là gì?"), "broad_or_statistical_question")
         self.assertEqual(question_practicality_issue("Quy định này nói gì theo cách dễ hiểu?"), "abstract_heading_like_question")

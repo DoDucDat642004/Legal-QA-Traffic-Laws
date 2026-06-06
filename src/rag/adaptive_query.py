@@ -380,6 +380,12 @@ class AdaptiveQuestionAnalyzer:
             for _code, terms, _description, _facet in self._known_behavior_patterns()
             for term in terms
         )
+        has_penalty_behavior = any(
+            term in qa
+            for _code, terms, _description, facet in self._known_behavior_patterns()
+            if facet == "penalty"
+            for term in terms
+        )
 
         if not SIGN_CODE_RE.search(q or "") and self._looks_like_out_of_scope(qa):
             return [{
@@ -478,7 +484,7 @@ class AdaptiveQuestionAnalyzer:
                 "must_answer": True,
             })
 
-        penalty_like = any(
+        penalty_like = has_penalty_behavior or any(
             k in qa
             for k in ["phat", "xu phat", "muc phat", "bao nhieu tien", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]
         )
@@ -650,6 +656,27 @@ class AdaptiveQuestionAnalyzer:
                 "phone",
                 ["dien thoai", "thiet bi am thanh", "dung tay cam va su dung dien thoai"],
                 "sử dụng điện thoại hoặc thiết bị âm thanh khi điều khiển phương tiện",
+                "penalty",
+            ),
+            (
+                "parking_sidewalk_obstruction",
+                [
+                    "do xe",
+                    "dung xe",
+                    "dung do",
+                    "do xe tai",
+                    "do o via he",
+                    "do tren via he",
+                    "do xe o via he",
+                    "do xe tren via he",
+                    "dung o via he",
+                    "dung tren via he",
+                    "do o he pho",
+                    "do tren he pho",
+                    "do long duong",
+                    "do tren long duong",
+                ],
+                "dừng, đỗ xe ở vỉa hè, hè phố, lòng đường hoặc vị trí có nguy cơ cản trở giao thông",
                 "penalty",
             ),
             (

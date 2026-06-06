@@ -1971,15 +1971,20 @@ class CustomLegalRetriever:
         add_ref(["vuot xe", "ben nao"], "Luật Trật tự ATGT 2024", "14", clause="2", reason="topic_overtake_left_rule")
         add_ref(["chuyen huong", "tin hieu bao huong"], "Luật Trật tự ATGT 2024", "15", clause="2", reason="topic_turn_signal_rule")
         add_ref(["dung", "do xe", "truoc cong co quan"], "Luật Trật tự ATGT 2024", "18", clause="4", point="k", reason="topic_no_parking_agency_gate")
+        parking_terms = ["dung xe", "do xe", "dung do", "do xe tai", "do o via he", "do tren via he", "do o he pho", "do tren he pho"]
+        parking_place_terms = ["via he", "he pho", "long duong", "le duong", "giua duong"]
+        parking_risk_terms = ["can tro giao thong", "un tac", "nguy hiem", "co on", "co sao", "co duoc", "duoc khong"]
         if any(term in qa for term in ["do giua duong", "do xe giua duong", "dung giua duong", "dung xe giua duong"]) or (
-            any(term in qa for term in ["dung xe", "do xe", "dung do", "long duong"])
-            and any(term in qa for term in ["can tro giao thong", "un tac", "nguy hiem"])
+            any(term in qa for term in parking_terms)
+            and (any(term in qa for term in parking_place_terms) or any(term in qa for term in parking_risk_terms))
         ):
             add_ref([], "Luật Trật tự ATGT 2024", "18", clause="6", reason="topic_parking_must_not_obstruct", boost=72.0)
             add_ref([], "Luật Trật tự ATGT 2024", "18", clause="7", reason="topic_breakdown_parking_warning", boost=56.0)
             add_ref([], "Luật Trật tự ATGT 2024 (Tiếp)", "69", clause="1", reason="topic_obstructing_parked_vehicle_removal", boost=72.0)
             add_ref([], "Nghị định 168/2024/NĐ-CP", "7", clause="2", point="d", reason="topic_motorbike_parking_obstruction_penalty", boost=78.0)
             add_ref([], "Nghị định 168/2024/NĐ-CP", "6", clause="5", point="k", reason="topic_car_parking_congestion_penalty", boost=70.0)
+            if any(term in qa for term in ["via he", "he pho", "long duong"]):
+                add_ref([], "Luật Trật tự ATGT 2024 (Tiếp)", "77", clause="1", reason="topic_temporary_sidewalk_roadway_use_permission", boost=46.0)
         add_ref(["mo cua xe"], "Luật Trật tự ATGT 2024", "19", clause="1", reason="topic_open_vehicle_door")
         add_ref(["ham duong bo", "su dung den"], "Luật Trật tự ATGT 2024 (Tiếp)", "26", clause="1", reason="topic_tunnel_lights")
         add_ref(["xe dang bi keo", "cho nguoi"], "Luật Trật tự ATGT 2024 (Tiếp)", "29", clause="3", reason="topic_towed_vehicle_no_passenger")
