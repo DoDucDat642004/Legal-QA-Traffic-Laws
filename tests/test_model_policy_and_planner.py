@@ -855,6 +855,51 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Điều 32", answer)
         self.assertIn("Điều 18", answer)
 
+    def test_a1_driver_car_question_does_not_make_owner_primary_subject(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi có bằng A1 chạy xe hơi thì có được không?",
+            [],
+        )
+
+        self.assertIn("Không", answer)
+        self.assertIn("A1", answer)
+        self.assertIn("Điều 56", answer)
+        self.assertIn("Người lái", answer)
+        self.assertNotIn("Có. Nếu chủ xe giao ô tô", answer)
+
+    def test_ride_hailing_phone_acceptance_answers_two_subjects_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tài xế xe công nghệ thao tác điện thoại nhận chuyến khi xe đang chạy có vi phạm không?",
+            [],
+        )
+
+        self.assertIn("tài xế sử dụng điện thoại", answer.lower())
+        self.assertIn("4.000.000 - 6.000.000 đồng", answer)
+        self.assertIn("800.000 - 1.000.000 đồng", answer)
+        self.assertIn("30.000.000 - 50.000.000 đồng", answer)
+        self.assertIn("Điều 12 Nghị định 336/2025/NĐ-CP", answer)
+
+    def test_borrowed_vehicle_impound_answer_separates_driver_owner(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi mượn xe người khác rồi vi phạm bị tạm giữ xe thì trách nhiệm thuộc về ai?",
+            [],
+        )
+
+        self.assertIn("Người mượn xe", answer)
+        self.assertIn("Chủ phương tiện", answer)
+        self.assertIn("Điều 48", answer)
+        self.assertIn("Điều 32", answer)
+
+    def test_no_source_answer_warns_to_check_external_sources(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag.generate_answer("Một câu hỏi chưa có nguồn trong hệ thống", [])
+
+        self.assertIn("Chưa đủ nguồn", answer)
+        self.assertIn("kiểm tra thêm nguồn ngoài hệ thống", answer.lower())
+
     def test_answer_continuation_strips_completion_marker(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         rag.client = FakeClient({

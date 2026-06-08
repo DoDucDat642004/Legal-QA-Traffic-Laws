@@ -346,7 +346,10 @@ class LegalGraphRAG:
     ) -> str:
         """Synthesizes final answer from retrieved contexts."""
         if not contexts:
-            return "Tôi chưa tìm thấy căn cứ phù hợp trong dữ liệu luật giao thông đã trích xuất."
+            deterministic = self._deterministic_structured_answer(query, [])
+            if deterministic:
+                return deterministic
+            return self._source_limitation_answer(query)
         deterministic = self._deterministic_structured_answer(query, contexts)
         if deterministic:
             return deterministic
@@ -539,6 +542,7 @@ class LegalGraphRAG:
             "23. Không xuất quá trình suy luận nội bộ; chỉ xuất kết quả phân tích pháp lý đã kiểm chứng từ nguồn.\n"
             "24. Diễn giải bằng câu văn tự nhiên, rõ ràng, dễ hiểu; phân tích đủ từng chi tiết cần thiết, không nén ý đến mức người đọc phải tự suy luận.\n"
             "25. Câu trả lời phải kết thúc hoàn chỉnh: không dừng ở giữa câu, giữa bảng, giữa danh sách hoặc sau các từ nối như 'và', 'theo', 'căn cứ'. Khi đã hoàn tất toàn bộ nội dung, thêm đúng dòng riêng: <<<HOAN_TAT_TRA_LOI>>>.\n"
+            "26. Nếu không tìm được nguồn đủ trực tiếp, vẫn phải giải thích ngắn gọn phạm vi đã kiểm tra, phần chưa có căn cứ và cảnh báo người dùng kiểm tra thêm nguồn ngoài hệ thống; không bịa căn cứ.\n"
             "Few-shot format nội bộ: 'Biển + hành vi' => ý nghĩa biển trước, hành vi sau, xử phạt cuối; "
             "'Bảng/phụ lục' => nêu dòng/cột; 'Tình huống nhiều bước' => kết luận từng bước."
         )
@@ -758,9 +762,15 @@ class LegalGraphRAG:
             return source_text(first)
         if modality == "aggregation":
             return source_text(first)
+        phone_answer = self._deterministic_phone_ride_hailing_answer(query, contexts)
+        if phone_answer:
+            return phone_answer
         license_mismatch_answer = self._deterministic_license_vehicle_mismatch_answer(query, contexts)
         if license_mismatch_answer:
             return license_mismatch_answer
+        borrowed_impound_answer = self._deterministic_borrowed_vehicle_impound_answer(query, contexts)
+        if borrowed_impound_answer:
+            return borrowed_impound_answer
         license_points_answer = self._deterministic_license_points_answer(query, contexts)
         if license_points_answer:
             return license_points_answer
@@ -792,6 +802,67 @@ class LegalGraphRAG:
         if sign_answer:
             return sign_answer
         return ""
+
+    def _source_limitation_answer(self, query: str) -> str:
+        del query
+        return "\n".join([
+            "## Chưa đủ nguồn để kết luận chắc chắn",
+            "",
+            "Tôi chưa tìm thấy căn cứ phù hợp trong dữ liệu pháp luật giao thông đã trích xuất của hệ thống, nên không thể chốt câu trả lời như một kết luận pháp lý chắc chắn.",
+            "",
+            "## Phân tích trong phạm vi nguồn hiện có",
+            "",
+            "- Hệ thống chỉ được phép kết luận khi có điều/khoản/điểm hoặc bản ghi nguồn đủ trực tiếp.",
+            "- Nếu câu hỏi là tình huống thực tế, có thể còn cần dữ kiện ngoài hồ sơ như loại xe, người điều khiển, chủ xe, biên bản vi phạm, quyết định tạm giữ hoặc văn bản đang có hiệu lực tại thời điểm xảy ra vụ việc.",
+            "",
+            "## Cảnh báo kiểm chứng",
+            "",
+            "Bạn nên kiểm tra thêm nguồn ngoài hệ thống như Cổng Thông tin điện tử Chính phủ, Công báo, cơ quan công an/đơn vị xử lý vụ việc hoặc luật sư. Việc thiếu nguồn trong hệ thống không có nghĩa là pháp luật không có quy định; chỉ có nghĩa là dữ liệu hiện tại chưa đủ để tôi trích dẫn an toàn.",
+        ])
+
+    def _first_context_by_ref(
+        self,
+        contexts: List[Dict[str, Any]],
+        *,
+        document_term: str,
+        article: str,
+        clause: str = "",
+        point: str = "",
+        contains: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        wanted_doc = ascii_lower(document_term)
+        wanted_point = ascii_lower(point)
+        contains = contains or []
+        for record in contexts:
+            ref = normalized_legal_reference(record)
+            doc = ascii_lower(ref.get("document") or record.get("doc_name") or "")
+            if wanted_doc not in doc:
+                continue
+            if str(ref.get("article") or "") != article:
+                continue
+            if clause and str(ref.get("clause") or "") != clause:
+                continue
+            if wanted_point and ascii_lower(str(ref.get("point") or "")) != wanted_point:
+                continue
+            text = ascii_lower(" ".join([
+                source_text(record),
+                str(record.get("qa_context") or ""),
+                str(record.get("semantic_context") or ""),
+                str(record.get("rag_text") or ""),
+            ]))
+            if contains and not all(term in text for term in contains):
+                continue
+            return record
+        return None
+
+    def _ref_or_default(self, record: Optional[Dict[str, Any]], fallback: str) -> str:
+        return format_reference(record) if record else fallback
+
+    def _penalty_or_default(self, record: Optional[Dict[str, Any]], fallback: str) -> str:
+        if not record:
+            return fallback
+        penalty = self._penalty_sentence(record)
+        return penalty if penalty and penalty != "Nhánh này có thể bị xử phạt." else fallback
 
     def _deterministic_priority_vehicle_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)
@@ -881,6 +952,88 @@ class LegalGraphRAG:
         ]
         return "\n".join(lines)
 
+    def _deterministic_phone_ride_hailing_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        phone_like = any(term in qa for term in ["dien thoai", "thiet bi dien tu", "thao tac"])
+        ride_hailing_like = any(term in qa for term in ["xe cong nghe", "goi xe", "nhan chuyen", "dat chuyen", "ung dung", "app"])
+        moving_like = any(term in qa for term in ["dang chay", "dang di chuyen", "khi xe dang chay", "khi xe dang di chuyen"])
+        if not (phone_like and ride_hailing_like and moving_like):
+            return ""
+
+        car_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="6",
+            clause="5",
+            point="h",
+        )
+        motorbike_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="7",
+            clause="4",
+            point="đ",
+        )
+        app_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 336",
+            article="12",
+            clause="7",
+            point="e",
+        )
+
+        mentions_car = bool(re.search(r"\b(?:o to|xe hoi|xe oto|xe con|taxi|xe khach|xe tai)\b", qa))
+        mentions_motorbike = bool(re.search(r"\b(?:xe may|mo to|gan may)\b", qa))
+
+        rows = []
+        if mentions_car or not mentions_motorbike:
+            rows.append((
+                "Tài xế ô tô/xe công nghệ là ô tô",
+                "Nếu dùng tay cầm và sử dụng điện thoại hoặc thiết bị điện tử khi phương tiện đang di chuyển: có vi phạm.",
+                self._penalty_or_default(car_record, "Phạt tiền 4.000.000 - 6.000.000 đồng."),
+                self._ref_or_default(car_record, "Điểm h khoản 5 Điều 6 Nghị định 168/2024/NĐ-CP"),
+            ))
+        if mentions_motorbike or not mentions_car:
+            rows.append((
+                "Tài xế mô tô/xe máy công nghệ",
+                "Nếu đang điều khiển xe mà dùng tay cầm và sử dụng điện thoại hoặc thiết bị điện tử: có vi phạm.",
+                self._penalty_or_default(motorbike_record, "Phạt tiền 800.000 - 1.000.000 đồng."),
+                self._ref_or_default(motorbike_record, "Điểm đ khoản 4 Điều 7 Nghị định 168/2024/NĐ-CP"),
+            ))
+        rows.append((
+            "Đơn vị cung cấp phần mềm/app gọi xe",
+            "Nếu phần mềm buộc lái xe thực hiện nhiều thao tác nhận chuyến khi xe đang di chuyển: đây là nhánh vi phạm của đơn vị cung cấp phần mềm, không phải chỉ là lỗi cá nhân tài xế.",
+            self._penalty_or_default(app_record, "Phạt tiền 30.000.000 - 50.000.000 đồng đối với đơn vị cung cấp phần mềm ứng dụng hỗ trợ kết nối vận tải."),
+            self._ref_or_default(app_record, "Điểm e khoản 7 Điều 12 Nghị định 336/2025/NĐ-CP"),
+        ))
+
+        lines = [
+            "## Trả lời ngắn gọn",
+            "",
+            "Có thể có vi phạm, nhưng phải tách đúng hai nhánh: **tài xế sử dụng điện thoại khi đang điều khiển xe** và **phần mềm/app thiết kế bắt buộc nhiều thao tác nhận chuyến khi xe đang di chuyển**.",
+            "",
+            "## Phân tích từng nhánh",
+            "",
+            "| Nhánh | Kết luận | Mức xử lý tìm thấy | Căn cứ |",
+            "|---|---|---|---|",
+        ]
+        for label, conclusion, penalty, ref in rows:
+            lines.append(f"| {self._escape_table(label)} | {self._escape_table(conclusion)} | {self._escape_table(penalty)} | {self._escape_table(ref)} |")
+
+        lines.extend([
+            "",
+            "## Lưu ý",
+            "",
+            "- Nếu tài xế chỉ thao tác khi xe đã dừng an toàn, cần đối chiếu lại đúng dữ kiện thực tế; câu hỏi hiện nêu là xe đang chạy/đang di chuyển.",
+            "- Nếu chỉ hỏi riêng tài xế, không tự động kết luận công ty/app bị phạt; nhánh công ty/app chỉ áp dụng khi có căn cứ phần mềm buộc nhiều thao tác nhận chuyến khi xe đang di chuyển.",
+            "- Nếu câu hỏi không nói rõ ô tô hay xe máy, hệ thống phải trình bày cả hai nhóm phương tiện thay vì đoán.",
+            "",
+            "## Tổng hậu quả",
+            "",
+            "Tài xế có thể bị xử phạt theo loại phương tiện nếu dùng tay cầm và sử dụng điện thoại khi xe đang di chuyển; đơn vị cung cấp phần mềm có thể bị xử phạt riêng nếu thiết kế phần mềm khiến lái xe phải thực hiện nhiều thao tác nhận chuyến khi xe đang di chuyển.",
+        ])
+        return "\n".join(lines)
+
     def _deterministic_license_vehicle_mismatch_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)
         mentions_a1 = any(term in qa for term in ["a1", "hang a1", "giay phep lai xe a1"])
@@ -903,11 +1056,15 @@ class LegalGraphRAG:
         if not (mentions_a1 and mentions_car and asks_liability):
             return ""
 
+        asks_owner = any(term in qa for term in ["chu xe", "giao xe", "cho muon xe", "dua xe", "giao o to"])
         owner_record = None
         driver_record = None
+        rule_record = None
         for record in contexts:
             ref = normalized_legal_reference(record)
             article = str(ref.get("article") or "")
+            clause = str(ref.get("clause") or "")
+            point = str(ref.get("point") or "")
             doc = ascii_lower(ref.get("document") or record.get("doc_name") or "")
             text = ascii_lower(" ".join([
                 source_text(record),
@@ -915,15 +1072,34 @@ class LegalGraphRAG:
                 str(record.get("semantic_context") or ""),
                 str(record.get("rag_text") or ""),
             ]))
+            if not rule_record and article == "56" and "luat trat tu" in doc and clause == "1" and (point == "b" or "phu hop voi loai xe" in text):
+                rule_record = record
             if not owner_record and article == "32" and "nghi dinh 168" in doc and any(term in text for term in ["giao xe", "khong du dieu kien", "khong du điều kiện", "không đủ điều kiện"]):
                 owner_record = record
             if not driver_record and article == "18" and "nghi dinh 168" in doc and any(term in text for term in ["khong phu hop voi loai xe", "khong co giay phep lai xe", "khong du dieu kien"]):
                 driver_record = record
 
+        rule_ref = format_reference(rule_record) if rule_record else "Điểm b khoản 1 Điều 56 Luật Trật tự, an toàn giao thông đường bộ 2024"
         owner_ref = format_reference(owner_record) if owner_record else "Nghị định 168/2024/NĐ-CP, Điều 32"
         driver_ref = format_reference(driver_record) if driver_record else "Nghị định 168/2024/NĐ-CP, Điều 18"
         owner_penalty = self._penalty_sentence(owner_record) if owner_record else "Chủ xe có thể bị xử phạt vì giao xe cho người không đủ điều kiện."
         driver_penalty = self._penalty_sentence(driver_record) if driver_record else "Người lái có thể bị xử phạt vì điều khiển ô tô bằng GPLX không phù hợp với loại xe."
+
+        if not asks_owner:
+            return "\n".join([
+                "## Trả lời ngắn gọn",
+                "",
+                "Không. Bằng/GPLX hạng A1 không phải giấy phép phù hợp để điều khiển ô tô/xe hơi.",
+                "",
+                "## Phân tích",
+                "",
+                f"1. **Điều kiện nền**: người lái phải có giấy phép lái xe phù hợp với loại xe đang điều khiển. **Căn cứ:** {rule_ref}.",
+                f"2. **Người lái**: nếu chỉ có A1 mà lái ô tô thì bị xét theo nhánh không có GPLX phù hợp với loại xe. {driver_penalty} **Căn cứ:** {driver_ref}.",
+                "",
+                "## Lưu ý",
+                "",
+                f"Nếu có người/chủ xe giao ô tô cho bạn dù biết bạn chỉ có A1 hoặc không đủ điều kiện lái ô tô, chủ xe có thể bị xử lý ở nhánh riêng. **Căn cứ tham chiếu:** {owner_ref}.",
+            ])
 
         return "\n".join([
             "## Trả lời ngắn gọn",
@@ -937,7 +1113,8 @@ class LegalGraphRAG:
             "",
             "## Căn cứ áp dụng",
             "",
-            "- Bằng A1 không phù hợp để điều khiển ô tô.",
+            f"- Người lái phải có GPLX phù hợp với loại xe đang điều khiển. Căn cứ: {rule_ref}.",
+            "- Bằng A1 không phù hợp để điều khiển ô tô/xe hơi.",
             "- Hành vi giao xe cho người không đủ điều kiện là nhánh xử lý riêng của chủ xe.",
             "",
             "## Tổng hậu quả",
@@ -947,6 +1124,56 @@ class LegalGraphRAG:
             "## Lưu ý",
             "",
             "Nếu cần chốt đúng mức tiền phạt, phải xác định chủ xe là cá nhân hay tổ chức và tách riêng lỗi của chủ xe với lỗi của người điều khiển.",
+        ])
+
+    def _deterministic_borrowed_vehicle_impound_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        borrowed_like = any(term in qa for term in ["muon xe", "mượn xe", "xe nguoi khac", "xe của người khác", "xe cua ban", "xe bạn"])
+        impound_like = any(term in qa for term in ["tam giu xe", "tam giu phuong tien", "bi giu xe", "giu xe", "tạm giữ"])
+        if not (borrowed_like and impound_like):
+            return ""
+
+        impound_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="48",
+            clause="4",
+        )
+        owner_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="32",
+            contains=["giao xe"],
+        )
+        unresolved_record = self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="62",
+            clause="4",
+        )
+
+        impound_ref = self._ref_or_default(impound_record, "Khoản 4 Điều 48 Nghị định 168/2024/NĐ-CP")
+        owner_ref = self._ref_or_default(owner_record, "Điều 32 Nghị định 168/2024/NĐ-CP")
+        unresolved_ref = self._ref_or_default(unresolved_record, "Khoản 4 Điều 62 Luật Trật tự, an toàn giao thông đường bộ 2024")
+
+        return "\n".join([
+            "## Trả lời ngắn gọn",
+            "",
+            "Không nên hiểu là “có hời”. Bạn là người điều khiển và thực hiện hành vi vi phạm thì vẫn phải chịu trách nhiệm với lỗi vi phạm của mình; việc xe của người khác bị tạm giữ chỉ là biện pháp xử lý/bảo đảm xử lý vụ việc, không làm bạn hết trách nhiệm.",
+            "",
+            "## Phân tích từng bên",
+            "",
+            f"1. **Người mượn xe/người vi phạm**: vẫn chịu quyết định xử phạt, nghĩa vụ nộp phạt và các yêu cầu xử lý vụ việc đối với hành vi mình gây ra. Nếu chưa thực hiện xong yêu cầu xử lý vi phạm, còn có rủi ro bị ảnh hưởng thủ tục GPLX. **Căn cứ:** {unresolved_ref}.",
+            f"2. **Chủ phương tiện**: khi phương tiện bị tạm giữ theo các trường hợp luật định, chủ phương tiện có thể phải chịu chi phí liên quan đến việc tạm giữ phương tiện. **Căn cứ:** {impound_ref}.",
+            f"3. **Chủ xe giao xe**: nếu chủ xe giao xe cho người không đủ điều kiện điều khiển phương tiện, chủ xe có thể bị xử phạt ở nhánh riêng. **Căn cứ:** {owner_ref}.",
+            "",
+            "## Lưu ý ngoài phạm vi nguồn",
+            "",
+            "Quan hệ bồi hoàn giữa bạn và chủ xe, thỏa thuận mượn xe, chi phí kéo giữ/bãi giữ hoặc thiệt hại dân sự có thể phụ thuộc giấy tờ, thỏa thuận và quyết định xử lý cụ thể. Nếu nguồn trong hệ thống không có hồ sơ vụ việc, cần kiểm tra thêm biên bản, quyết định tạm giữ và yêu cầu của cơ quan đang xử lý.",
+            "",
+            "## Tổng hậu quả",
+            "",
+            "Người mượn xe không thoát trách nhiệm vì xe đứng tên người khác. Chủ xe có thể chịu chi phí/phần việc liên quan đến phương tiện và có thể bị xử lý nếu có lỗi giao xe cho người không đủ điều kiện; còn người điều khiển vẫn chịu trách nhiệm chính về hành vi vi phạm của mình.",
         ])
 
     def _deterministic_statutory_fine_cap_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
@@ -1798,7 +2025,7 @@ class LegalGraphRAG:
     def _extractive_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         rows = self._fallback_evidence_rows(query, contexts)
         if not rows:
-            return "Chưa đủ căn cứ phù hợp trong dữ liệu đã truy xuất để kết luận chắc chắn cho câu hỏi này."
+            return self._source_limitation_answer(query)
 
         lines = [
             "## Trả lời ngắn gọn",

@@ -2105,6 +2105,22 @@ class CustomLegalRetriever:
         add_ref(["thoi hieu xu phat", "bao lau"], "Nghị định 168/2024/NĐ-CP", "4", clause="1", reason="topic_168_limitation_period", boost=44.0)
         add_ref(["phan mem ung dung", "nhieu thao tac", "nhan chuyen"], "Nghị định 336/2025/NĐ-CP", "12", clause="7", point="e", reason="topic_336_ride_hailing_app_many_actions", boost=48.0)
         add_ref(["thao tac tren dien thoai", "nhan chuyen"], "Nghị định 336/2025/NĐ-CP", "12", clause="7", point="e", reason="topic_336_ride_hailing_app_many_actions", boost=48.0)
+        if (
+            any(term in qa for term in ["nhan chuyen", "dat chuyen", "xe cong nghe", "goi xe", "phan mem ung dung", "ung dung ho tro ket noi van tai"])
+            and any(term in qa for term in ["dien thoai", "thao tac", "dang chay", "dang di chuyen"])
+        ):
+            add_ref([], "Luật Trật tự ATGT 2024", "9", clause="6", reason="topic_phone_forbidden_rule_ride_hailing", boost=72.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "6", clause="5", point="h", reason="topic_phone_car_penalty_ride_hailing", boost=78.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "7", clause="4", point="đ", reason="topic_phone_motorbike_penalty_ride_hailing", boost=78.0)
+            add_ref([], "Nghị định 336/2025/NĐ-CP", "12", clause="7", point="e", reason="topic_336_ride_hailing_app_many_actions_broad", boost=92.0)
+        if (
+            any(term in qa for term in ["muon xe", "xe nguoi khac", "xe cua ban", "xe ban", "xe cua nguoi khac"])
+            and any(term in qa for term in ["tam giu xe", "tam giu phuong tien", "bi giu xe", "giu xe"])
+        ):
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "48", clause="4", reason="topic_impounded_vehicle_owner_costs", boost=92.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "32", clause="14", point="i", reason="topic_owner_unqualified_driver_high_penalty", boost=70.0)
+            add_ref([], "Nghị định 168/2024/NĐ-CP", "32", clause="10", reason="topic_owner_unqualified_driver_penalty", boost=68.0)
+            add_ref([], "Luật Trật tự ATGT 2024 (Tiếp)", "62", clause="4", reason="topic_unresolved_violation_license_procedure", boost=58.0)
 
         add_ref(["gplx", "phuc hoi", "12 diem"], "Luật Trật tự ATGT 2024 (Tiếp)", "58", clause="2", reason="topic_license_points_restore")
         add_ref(["tru het diem"], "Luật Trật tự ATGT 2024 (Tiếp)", "58", clause="3", reason="topic_license_points_exhausted")
@@ -2772,6 +2788,21 @@ class CustomLegalRetriever:
             add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_phone_car_penalty", clause="5", point="h", boost=30.0)
         if "dien thoai" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_phone_motorbike_penalty", clause="4", point="đ", boost=30.0)
+        if (
+            any(term in qa for term in ["nhan chuyen", "dat chuyen", "xe cong nghe", "goi xe", "phan mem ung dung", "ung dung ho tro ket noi van tai"])
+            and any(term in qa for term in ["dien thoai", "thao tac", "dang chay", "dang di chuyen"])
+        ):
+            add("Luật Trật tự ATGT 2024", "9", "known_ref_phone_forbidden_rule", clause="6", boost=36.0)
+            add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_phone_car_penalty_unspecified_vehicle", clause="5", point="h", boost=34.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_phone_motorbike_penalty_unspecified_vehicle", clause="4", point="đ", boost=34.0)
+            add("Nghị định 336/2025/NĐ-CP", "12", "known_ref_336_ride_hailing_app_many_actions", clause="7", point="e", boost=58.0)
+        if (
+            any(term in qa for term in ["muon xe", "xe nguoi khac", "xe cua ban", "xe ban", "xe cua nguoi khac"])
+            and any(term in qa for term in ["tam giu xe", "tam giu phuong tien", "bi giu xe", "giu xe"])
+        ):
+            add("Nghị định 168/2024/NĐ-CP", "48", "known_ref_impounded_vehicle_owner_costs", clause="4", boost=58.0)
+            add("Nghị định 168/2024/NĐ-CP", "32", "known_ref_owner_gives_vehicle_unqualified_driver_borrowed", boost=38.0)
+            add("Luật Trật tự ATGT 2024 (Tiếp)", "62", "known_ref_unresolved_violation_license_procedure", clause="4", boost=34.0)
         if "cao toc" in qa and any(term in qa for term in ["lui xe", "nguoc chieu", "quay dau"]) and any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
             add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_car_reverse_wrong_way_expressway", clause="11", point="đ", boost=72.0)
         if "mu bao hiem" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):

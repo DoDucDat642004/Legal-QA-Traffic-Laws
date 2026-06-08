@@ -971,6 +971,12 @@ class LegalQueryPlanner:
                 "penalty",
             ),
             (
+                "borrowed_vehicle_impound",
+                ["muon xe", "xe nguoi khac", "xe cua ban", "tam giu xe", "tam giu phuong tien", "bi giu xe"],
+                "trách nhiệm của người mượn xe, chủ phương tiện và chi phí/trách nhiệm khi phương tiện bị tạm giữ",
+                "penalty",
+            ),
+            (
                 "parking_sidewalk_obstruction",
                 [
                     "do xe",
