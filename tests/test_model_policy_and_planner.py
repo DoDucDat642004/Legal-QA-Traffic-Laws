@@ -947,6 +947,9 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Đi ngược chiều / đi vào đường cấm", answer)
         self.assertIn("Không đội mũ bảo hiểm", answer)
         self.assertIn("Gây tai nạn cho người khác", answer)
+        self.assertIn("4.000.000 - 6.000.000 đồng", answer)
+        self.assertIn("10.000.000 - 14.000.000 đồng", answer)
+        self.assertIn("trừ 10 điểm", answer.lower())
         self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
 
     def test_motorbike_compound_penalty_question_tolerates_typos_and_speed_branch(self):
@@ -969,6 +972,40 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Chạy quá tốc độ / vượt giới hạn 40 km/h", answer)
         self.assertIn("Vượt đèn đỏ / không chấp hành tín hiệu đèn", answer)
         self.assertIn("Gây tai nạn cho người khác", answer)
+        self.assertIn("400.000 - 600.000 đồng", answer)
+        self.assertIn("2.000.000 - 3.000.000 đồng", answer)
+        self.assertIn("6.000.000 - 8.000.000 đồng", answer)
+        self.assertIn("8.000.000 - 10.000.000 đồng", answer)
+        self.assertIn("10.000.000 - 14.000.000 đồng", answer)
+        self.assertIn("cần tốc độ thực tế", answer)
+        self.assertNotIn("QCVN 41:2024", answer)
+
+    def test_motorbike_compound_penalty_does_not_use_qcvn_as_penalty_basis(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi chạy vượt đèn đỏ, chưa đủ 18 tuổi, quá tốc độ ở biển 40km/h, không đội mũ bảo hiểm, chạy ngược chiều, xay xỉn, gây tai nạn.",
+            [
+                {
+                    "rag_modality": "sign",
+                    "doc_name": "QCVN 41:2024 (Thông tư 51/2024)",
+                    "legal_reference": {"document": "QCVN 41:2024 (Thông tư 51/2024)", "section": "Phụ lục B"},
+                    "source_body_exact": "Biển P.127 tốc độ tối đa cho phép.",
+                    "retrieval_score": 100.0,
+                },
+                {
+                    "rag_modality": "text",
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "c"},
+                    "source_body_exact": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông.",
+                    "retrieval_score": 1.0,
+                },
+            ],
+        )
+
+        self.assertIn("Điểm c khoản 7", answer)
+        self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
+        self.assertIn("Chưa chốt được số tiền", answer)
+        self.assertNotIn("QCVN 41:2024", answer)
 
     def test_extractive_penalty_answer_uses_standard_sections(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)

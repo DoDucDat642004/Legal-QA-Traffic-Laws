@@ -994,7 +994,7 @@ class LegalGraphRAG:
 
     def _deterministic_motorbike_multi_penalty_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)
-        has_no_helmet = any(term in qa for term in ["khong doi mu", "mu bao hiem"])
+        has_no_helmet = any(term in qa for term in ["khong doi mu", "khong mu", "mu bao hiem"])
         has_alcohol = any(term in qa for term in [
             "nong do con",
             "say xin",
@@ -1096,13 +1096,42 @@ class LegalGraphRAG:
                 "",
                 "Nếu không chấp hành yêu cầu kiểm tra nồng độ cồn, hoặc nếu hành vi gây tai nạn, mức xử lý có thể chuyển sang nhánh nặng hơn.",
             ])
-        if explicit_car or not asks_penalty or len(matched) < 2:
+        single_supported = (
+            len(matched) == 1
+            and any(term in qa for term in ["mo to", "xe may", "gan may"])
+            and (has_alcohol or has_speed or has_accident)
+        )
+        if explicit_car or not asks_penalty or (len(matched) < 2 and not single_supported):
             return ""
 
-        def pick_record(terms: List[str]) -> Optional[Dict[str, Any]]:
+        def ref_key(record: Dict[str, Any]) -> tuple[str, str, str, str]:
+            ref = normalized_legal_reference(record)
+            doc = ascii_lower(ref.get("document") or record.get("doc_name") or "")
+            return (
+                doc,
+                str(ref.get("article") or ""),
+                str(ref.get("clause") or ""),
+                str(ref.get("point") or ""),
+            )
+
+        def pick_record(
+            terms: List[str],
+            allowed_refs: Optional[List[tuple[str, str, str]]] = None,
+        ) -> Optional[Dict[str, Any]]:
             best: Optional[Dict[str, Any]] = None
             best_score = -1.0
             for idx, record in enumerate(contexts):
+                doc, article, clause, point = ref_key(record)
+                if allowed_refs:
+                    if "nghi dinh 168" not in doc:
+                        continue
+                    if not any(
+                        article == allowed_article
+                        and (not allowed_clause or clause == allowed_clause)
+                        and (not allowed_point or point == allowed_point)
+                        for allowed_article, allowed_clause, allowed_point in allowed_refs
+                    ):
+                        continue
                 text = " ".join([
                     source_text(record),
                     str(record.get("qa_context") or ""),
@@ -1128,44 +1157,51 @@ class LegalGraphRAG:
             "underage": {
                 "label": "Chưa đủ tuổi điều khiển xe máy",
                 "terms": ["chua du tuoi", "chua du 18", "chua du 18 tuoi", "khong du tuoi", "duoi 18", "17 tuoi"],
-                "summary": "Nhánh điều kiện độ tuổi/GPLX; cần bóc tách riêng theo độ tuổi thực tế và loại xe để chốt mức xử phạt.",
-                "fallback_ref": "Luật Trật tự ATGT 2024 (Tiếp), Điều 59; Nghị định 168/2024/NĐ-CP, Điều 18",
+                "summary": "Nếu từ đủ 16 đến dưới 18 tuổi điều khiển mô tô từ 50 cm³ trở lên hoặc xe điện từ 04 kW trở lên: phạt 400.000 - 600.000 đồng; nếu từ đủ 14 đến dưới 16 tuổi điều khiển xe mô tô/xe gắn máy thì bị cảnh cáo.",
+                "fallback_ref": "Điểm a khoản 4 và khoản 1 Điều 18 Nghị định 168/2024/NĐ-CP",
+                "allowed_refs": [("18", "4", "a"), ("18", "1", "")],
             },
             "alcohol": {
                 "label": "Say xỉn / nồng độ cồn",
                 "terms": ["nong do con", "say xin", "xay xin", "ruou", "bia", "hoi con", "co con"],
-                "summary": "Bị xử lý theo ngưỡng nồng độ cồn; ngưỡng càng cao thì tiền phạt, trừ điểm và tước GPLX càng nặng.",
-                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+                "summary": "Phải có số đo nồng độ cồn mới chốt được một mức: mức thấp phạt 2.000.000 - 3.000.000 đồng và trừ 04 điểm; mức trung bình phạt 6.000.000 - 8.000.000 đồng và trừ 10 điểm; mức cao hoặc không chấp hành kiểm tra phạt 8.000.000 - 10.000.000 đồng, có thể tước GPLX 22 - 24 tháng.",
+                "fallback_ref": "Điểm a khoản 6, điểm b khoản 8, điểm d/đ khoản 9, khoản 12 và khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP",
+                "allowed_refs": [("7", "6", "a"), ("7", "8", "b"), ("7", "9", "d"), ("7", "9", "đ")],
             },
             "red_light": {
                 "label": "Vượt đèn đỏ / không chấp hành tín hiệu đèn",
                 "terms": ["vuot den do", "den do", "tin hieu den", "khong chap hanh hieu lenh cua den tin hieu"],
-                "summary": "Phạt tiền và trừ điểm GPLX; nếu đi kèm tai nạn thì phải xét nhánh nặng hơn.",
-                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+                "summary": "Phạt 4.000.000 - 6.000.000 đồng và trừ 04 điểm GPLX; nếu hành vi này gây tai nạn thì xét nhánh gây tai nạn nặng hơn.",
+                "fallback_ref": "Điểm c khoản 7 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP",
+                "allowed_refs": [("7", "7", "c")],
             },
             "speed": {
                 "label": "Chạy quá tốc độ / vượt giới hạn 40 km/h",
                 "terms": ["qua toc", "qua toc do", "chay qua toc", "vuot toc", "toc do", "gioi han 40", "40km/h", "40 km/h", "p127", "p.127"],
-                "summary": "Phải có tốc độ thực tế đã chạy và giới hạn áp dụng để tính mốc vượt; nếu chỉ nêu biển giới hạn 40 km/h thì chưa chốt được một mức phạt duy nhất.",
-                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7; QCVN 41:2024, biển P.127",
+                "summary": "Chưa chốt được số tiền nếu chỉ biết biển giới hạn 40 km/h; cần tốc độ thực tế. Với mô tô/xe gắn máy: vượt 05 đến dưới 10 km/h phạt 400.000 - 600.000 đồng; vượt 10 đến 20 km/h phạt 800.000 - 1.000.000 đồng; vượt trên 20 km/h phạt 6.000.000 - 8.000.000 đồng và trừ 04 điểm.",
+                "fallback_ref": "Điểm b khoản 2, điểm a khoản 4, điểm a khoản 8 và điểm b khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP",
+                "allowed_refs": [("7", "2", "b"), ("7", "4", "a"), ("7", "8", "a")],
             },
             "wrong_way": {
                 "label": "Đi ngược chiều / đi vào đường cấm",
                 "terms": ["nguoc chieu", "duong nguoc chieu", "duong cam", "cam di nguoc chieu", "p102", "p.102"],
-                "summary": "Phải tách theo nhóm xe và tình huống đường cấm/đường một chiều; thường kéo theo phạt tiền và có thể trừ điểm/tước GPLX.",
-                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+                "summary": "Đi ngược chiều của đường một chiều hoặc đường có biển cấm đi ngược chiều: phạt 4.000.000 - 6.000.000 đồng và trừ 02 điểm; nếu gây tai nạn thì xét nhánh gây tai nạn nặng hơn.",
+                "fallback_ref": "Điểm a khoản 7 và điểm a khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP",
+                "allowed_refs": [("7", "7", "a")],
             },
             "helmet": {
                 "label": "Không đội mũ bảo hiểm",
                 "terms": ["khong doi mu", "mu bao hiem"],
-                "summary": "Phạt tiền theo lỗi không đội mũ bảo hiểm; nhánh này không ghi nhận trừ điểm trong câu trả lời chuẩn.",
-                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+                "summary": "Phạt 400.000 - 600.000 đồng; nhánh này không ghi nhận trừ điểm GPLX.",
+                "fallback_ref": "Điểm h khoản 2 Điều 7 Nghị định 168/2024/NĐ-CP",
+                "allowed_refs": [("7", "2", "h")],
             },
             "accident": {
                 "label": "Gây tai nạn cho người khác",
                 "terms": ["gay tai nan", "tai nan cho nguoi khac", "tai nan giao thong"],
-                "summary": "Ngoài phạt theo lỗi gốc còn phải xử lý nghĩa vụ tại hiện trường và nhánh tăng nặng nếu nguồn có.",
-                "fallback_ref": "Luật Trật tự ATGT 2024 (Tiếp), Điều 80",
+                "summary": "Nếu các lỗi như quá tốc độ, đi ngược chiều, không giữ khoảng cách hoặc đi vào đường cấm gây tai nạn: phạt 10.000.000 - 14.000.000 đồng và trừ 10 điểm. Nếu gây tai nạn rồi không dừng, không giữ hiện trường, không trợ giúp hoặc không trình báo: phạt 8.000.000 - 10.000.000 đồng và trừ 06 điểm.",
+                "fallback_ref": "Điểm a khoản 10, điểm c khoản 9, điểm c/d khoản 13 Điều 7 Nghị định 168/2024/NĐ-CP; Điều 80 Luật Trật tự ATGT 2024",
+                "allowed_refs": [("7", "10", "a"), ("7", "9", "c")],
             },
         }
 
@@ -1179,12 +1215,19 @@ class LegalGraphRAG:
         ]
         for name in matched:
             spec = behavior_specs[name]
-            record = pick_record(spec["terms"])
+            record = pick_record(spec["terms"], spec.get("allowed_refs"))
             if record:
                 fine_text = self._fine_text(record)
                 extra_text = self._extra_penalty_text(record, None)
                 consequence = " / ".join(bit for bit in [fine_text, extra_text] if bit)
                 ref = format_reference(record)
+                if (
+                    "Chưa " in consequence
+                    or "QCVN" in ref
+                    or "Chưa thấy" in ref
+                ):
+                    consequence = spec["summary"]
+                    ref = spec["fallback_ref"]
             else:
                 consequence = spec["summary"]
                 ref = spec["fallback_ref"]

@@ -183,12 +183,23 @@ class LexicalOnlyRAG:
 
     def _load_records(self, processed_path: Path) -> None:
         seen = set()
-        for path in processed_path.rglob("*.json"):
+        paths = list(processed_path.rglob("*.json"))
+        chunks_path = processed_path.parent / "chunks"
+        if chunks_path.exists():
+            paths.extend(sorted(chunks_path.glob("*.chunks.jsonl")))
+        for path in paths:
             try:
-                data = json.load(path.open(encoding="utf-8"))
+                if path.suffix.lower() == ".jsonl":
+                    rows = [
+                        json.loads(line)
+                        for line in path.read_text(encoding="utf-8").splitlines()
+                        if line.strip()
+                    ]
+                else:
+                    data = json.load(path.open(encoding="utf-8"))
+                    rows = data if isinstance(data, list) else data.get("records") or data.get("chunks") or []
             except Exception:
                 continue
-            rows = data if isinstance(data, list) else data.get("records") or data.get("chunks") or []
             for row in rows:
                 if not isinstance(row, dict):
                     continue

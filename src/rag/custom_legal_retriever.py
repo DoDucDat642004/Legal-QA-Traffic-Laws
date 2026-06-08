@@ -2762,7 +2762,12 @@ class CustomLegalRetriever:
                 add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_lane_violation_car_unspecified", clause="3", point="g", boost=24.0)
                 add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_lane_violation_motorbike_unspecified", clause="4", point="đ", boost=24.0)
         if any(term in qa for term in ["nong do con", "hoi con", "say xin", "xay xin", "uong ruou"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
-            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_penalty", boost=28.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_low", clause="6", point="a", boost=52.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_mid", clause="8", point="b", boost=52.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_high", clause="9", point="d", boost=52.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_refusal", clause="9", point="đ", boost=48.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_points_mid", clause="13", point="d", boost=38.0)
+            add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_points_low", clause="13", point="b", boost=36.0)
         if "dien thoai" in qa and any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
             add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_phone_car_penalty", clause="5", point="h", boost=30.0)
         if "dien thoai" in qa and any(term in qa for term in ["mo to", "xe may", "gan may"]):
@@ -2787,7 +2792,12 @@ class CustomLegalRetriever:
                 add("Nghị định 168/2024/NĐ-CP", "26", "known_ref_loading_overweight_over_100", clause="5", boost=28.0)
 
         if any(term in qa for term in ["gay tai nan", "tai nan giao thong", "tai nan cho nguoi khac", "hien truong tai nan"]):
-            add("Luật Trật tự ATGT 2024 (Tiếp)", "80", "known_ref_accident_responsibility", boost=38.0)
+            if self._vehicle_scope(query) == "motorbike" or any(term in qa for term in ["mo to", "xe may", "gan may"]):
+                add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_accident_causation", clause="10", point="a", boost=58.0)
+                add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_accident_leave_scene", clause="9", point="c", boost=60.0)
+                add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_accident_leave_scene_points", clause="13", point="c", boost=48.0)
+                add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_accident_causation_points", clause="13", point="d", boost=46.0)
+            add("Luật Trật tự ATGT 2024 (Tiếp)", "80", "known_ref_accident_responsibility", boost=30.0)
             if any(term in qa for term in ["co mat", "hien truong", "thay tai nan"]):
                 add("Luật Trật tự ATGT 2024 (Tiếp)", "80", "known_ref_accident_witness_responsibility", clause="2", boost=42.0)
 
