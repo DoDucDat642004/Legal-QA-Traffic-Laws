@@ -1204,9 +1204,27 @@ def render_metadata(metadata: dict[str, Any] | None) -> None:
     if not metadata:
         return
     slot_results = metadata.get("slot_results") or []
-    if not slot_results:
+    source_assurance = metadata.get("source_assurance") or {}
+    if not slot_results and not source_assurance:
         return
     with st.expander("Nhật ký truy xuất theo nhánh", expanded=False):
+        if source_assurance:
+            attempts = source_assurance.get("attempts") or []
+            status = source_assurance.get("status") or "unknown"
+            warning = source_assurance.get("warning") or ""
+            render_html(
+                f"""
+                <div class="source-card">
+                    <div class="source-title">Bảo đảm nguồn · {html_escape(status)}</div>
+                    <div class="source-meta">
+                        {html_escape(source_assurance.get("before_count", 0))} nguồn ban đầu ·
+                        {html_escape(source_assurance.get("after_count", 0))} nguồn sau mở rộng ·
+                        {len(attempts)} tuyến đã thử
+                    </div>
+                    {'<div class="small-note">' + html_escape(warning) + '</div>' if warning else ''}
+                </div>
+                """
+            )
         for item in slot_results:
             slot = item.get("slot") or {}
             status = item.get("status") or "unknown"

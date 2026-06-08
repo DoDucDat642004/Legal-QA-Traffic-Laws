@@ -428,7 +428,9 @@ def _timeout_fallback_result(rag: LegalGraphRAG, query: str) -> Dict[str, Any]:
     budget["max_contexts"] = min(int(budget.get("max_contexts") or 16), _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 16, minimum=4, maximum=40))
     profile.retrieval_budget = budget
     docs = rag._retrieve_direct(query, plan, profile)
+    docs, source_assurance = rag._ensure_source_coverage(query, docs, plan, profile)
     docs = docs[: _env_int("RAG_TIMEOUT_FALLBACK_CONTEXTS", 16, minimum=4, maximum=40)]
+    source_assurance["returned_count"] = len(docs)
     deterministic = rag._deterministic_structured_answer(query, docs)
     answer = deterministic or rag._extractive_answer(query, docs)
     images = rag._context_images(docs, limit=_api_image_limit())
@@ -442,6 +444,7 @@ def _timeout_fallback_result(rag: LegalGraphRAG, query: str) -> Dict[str, Any]:
             "route": "timeout_fallback",
             "sequential": False,
             "reason": "full_query_exceeded_deadline",
+            "source_assurance": source_assurance,
         },
     }
 
@@ -864,6 +867,7 @@ def _answer_trace(
 
     analysis = analysis or {}
     metadata = result.get("metadata") or {}
+    source_assurance = metadata.get("source_assurance") or {}
     slot_results = metadata.get("slot_results") or result.get("sequential_results") or []
     slots = result.get("slots") or metadata.get("slots") or analysis.get("evidence_slots") or (analysis.get("plan") or {}).get("subquestions") or []
     facets = analysis.get("facets") or []
@@ -933,16 +937,27 @@ def _answer_trace(
             "name": "Truy xuất căn cứ",
             "summary": f"Thu được {len(records)} nguồn, {len(references)} căn cứ pháp lý duy nhất và {image_count} ảnh nguồn.",
         },
-        {
-            "name": "Tổng hợp và kiểm chứng",
-            "summary": (
-                f"Kiểm chứng lexical {verification_summary['claim_count']} kết luận; "
-                f"{verification_summary['supported_count']} mạnh, {verification_summary['weak_count']} yếu, "
-                f"{verification_summary['needs_review_count']} cần rà soát."
-                if verification_summary else "Đã tổng hợp câu trả lời từ các nguồn đã retrieve."
-            ),
-        },
     ]
+    if source_assurance:
+        attempts = source_assurance.get("attempts") or []
+        status = source_assurance.get("status") or "unknown"
+        steps.append({
+            "name": "Bảo đảm nguồn",
+            "summary": (
+                f"Trạng thái {status}; trước {source_assurance.get('before_count', 0)} nguồn, "
+                f"sau {source_assurance.get('after_count', 0)} nguồn, "
+                f"đã thử {len(attempts)} tuyến mở rộng."
+            ),
+        })
+    steps.append({
+        "name": "Tổng hợp và kiểm chứng",
+        "summary": (
+            f"Kiểm chứng lexical {verification_summary['claim_count']} kết luận; "
+            f"{verification_summary['supported_count']} mạnh, {verification_summary['weak_count']} yếu, "
+            f"{verification_summary['needs_review_count']} cần rà soát."
+            if verification_summary else "Đã tổng hợp câu trả lời từ các nguồn đã retrieve."
+        ),
+    })
     return {
         "query": query,
         "route": metadata.get("route") or ("sequential" if metadata.get("sequential") else "direct"),
@@ -956,6 +971,7 @@ def _answer_trace(
         "reference_count": len(references),
         "image_count": image_count,
         "coverage": coverage,
+        "source_assurance": source_assurance,
         "missing_or_weak_branch_count": miss_count,
         "verification": verification_summary,
         "verification_details": (verification or {}).get("claims", [])[:8] if verification else [],

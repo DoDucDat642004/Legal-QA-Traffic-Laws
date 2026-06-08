@@ -19,6 +19,7 @@ from src.rag.legal_utils import (
     ascii_lower,
     format_reference,
     looks_like_statutory_fine_cap_query,
+    merge_record_assets,
     normalize_sign_code,
     normalized_legal_reference,
     penalty_summary,
@@ -229,10 +230,12 @@ class LegalGraphRAG:
         if plan is None or profile is None:
             plan, profile = self._build_query_profile(query)
         contexts = self._retrieve_direct(query, plan, profile)
+        contexts, source_assurance = self._ensure_source_coverage(query, contexts, plan, profile)
         max_contexts = int((profile.retrieval_budget or {}).get("max_contexts") or 18)
         if self._env_bool("RAG_DEPLOY_FAST_MODE", False):
             max_contexts = min(max_contexts, self._env_int("RAG_FAST_MAX_CONTEXTS", 10, minimum=4, maximum=48))
         contexts = contexts[:max_contexts]
+        source_assurance["returned_count"] = len(contexts)
         images = self._context_images(
             contexts,
             limit=self._env_int("RAG_FAST_MAX_IMAGES", 6, minimum=0, maximum=40),
@@ -250,6 +253,7 @@ class LegalGraphRAG:
                 "route": "direct",
                 "plan_source": getattr(plan, "plan_source", ""),
                 "retrieval_budget": profile.retrieval_budget or {},
+                "source_assurance": source_assurance,
                 "images": images,
             },
         }
@@ -285,9 +289,14 @@ class LegalGraphRAG:
         )
         
         contexts = result["accumulated_records"]
+        contexts, source_assurance = self._ensure_source_coverage(query, contexts, plan, profile)
+        source_assurance["returned_count"] = len(contexts)
+        answer = result["answer"]
+        if source_assurance.get("status") == "rescued":
+            answer = self.generate_answer(query, contexts, sequential_results=result["public_results"])
         images = self._context_images(contexts, limit=int((profile.retrieval_budget or {}).get("max_images") or 30))
         return {
-            "answer": result["answer"],
+            "answer": answer,
             "contexts": contexts,
             "references": self.format_references(contexts),
             "images": images,
@@ -301,6 +310,7 @@ class LegalGraphRAG:
                 "retrieval_budget": budget,
                 "slots": result["slots"],
                 "slot_results": result["public_results"],
+                "source_assurance": source_assurance,
                 "images": images,
             },
         }
@@ -336,6 +346,287 @@ class LegalGraphRAG:
         if "source_image" in facets:
             return self.retriever.retrieve_source_image(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         return self.retriever.retrieve_general(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
+
+    def _ensure_source_coverage(
+        self,
+        query: str,
+        contexts: List[Dict[str, Any]],
+        plan: Any,
+        profile: Any,
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        contexts = list(contexts or [])
+        min_contexts = self._env_int("RAG_SOURCE_ASSURANCE_MIN_CONTEXTS", 2, minimum=1, maximum=20)
+        report: Dict[str, Any] = {
+            "enabled": self._env_bool("RAG_ENABLE_SOURCE_ASSURANCE", True),
+            "status": "disabled",
+            "before_count": len(contexts),
+            "after_count": len(contexts),
+            "returned_count": len(contexts),
+            "min_contexts": min_contexts,
+            "attempts": [],
+            "warning": "",
+        }
+        if not report["enabled"]:
+            return contexts, report
+
+        if self._source_contexts_sufficient(contexts, min_contexts=min_contexts):
+            report["status"] = "sufficient"
+            return contexts, report
+
+        rescue_records, attempts = self._source_rescue_retrieval(query, plan, profile)
+        merged = self._dedupe_contexts([*contexts, *rescue_records])
+        if rescue_records:
+            merged = self._prioritize_source_contexts(merged)
+
+        report["attempts"] = attempts
+        report["after_count"] = len(merged)
+        report["rescued_count"] = max(0, len(merged) - len(contexts))
+        if len(merged) > len(contexts):
+            report["status"] = "rescued"
+        elif self._source_contexts_sufficient(merged, min_contexts=min_contexts):
+            report["status"] = "sufficient"
+        elif any(self._context_has_legal_source(record) for record in merged):
+            report["status"] = "weak"
+            report["warning"] = (
+                "Hệ thống đã tìm thấy một số nguồn nhưng chưa đủ trực tiếp hoặc chưa đạt ngưỡng bao phủ; "
+                "câu trả lời phải nêu rõ phần nào còn cần kiểm tra thêm."
+            )
+        else:
+            report["status"] = "not_found"
+            report["warning"] = (
+                "Hệ thống đã mở rộng truy hồi qua nhiều tuyến nhưng chưa tìm thấy nguồn đủ trực tiếp; "
+                "câu trả lời phải cảnh báo người dùng kiểm tra thêm nguồn ngoài hệ thống."
+            )
+        report["coverage"] = "sufficient" if self._source_contexts_sufficient(merged, min_contexts=min_contexts) else "weak"
+        return merged, report
+
+    def _source_contexts_sufficient(self, contexts: List[Dict[str, Any]], *, min_contexts: int) -> bool:
+        if not contexts:
+            return False
+        legal_source_count = sum(1 for record in contexts if self._context_has_legal_source(record))
+        if legal_source_count <= 0:
+            return False
+        if any(
+            record.get("rag_modality") in {"aggregation", "document_overview", "legal_article_detail"}
+            for record in contexts
+        ):
+            return True
+        return len(contexts) >= min_contexts and legal_source_count >= min_contexts
+
+    def _context_has_legal_source(self, record: Dict[str, Any]) -> bool:
+        text = source_text(record) or str(record.get("rag_text") or record.get("content") or "")
+        if not text.strip():
+            return False
+        ref = normalized_legal_reference(record)
+        document = ref.get("document") or record.get("doc_name")
+        if not document:
+            return False
+        return bool(
+            ref.get("article")
+            or ref.get("clause")
+            or ref.get("point")
+            or ref.get("section")
+            or record.get("source_chunk_id")
+            or record.get("rag_modality") in {"sign", "table", "aggregation", "document_overview", "legal_article_detail"}
+        )
+
+    def _source_rescue_retrieval(
+        self,
+        query: str,
+        plan: Any,
+        profile: Any,
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        top_k = self._env_int("RAG_SOURCE_ASSURANCE_TOP_K", 32, minimum=6, maximum=120)
+        expand_depth = self._env_int("RAG_SOURCE_ASSURANCE_EXPAND_DEPTH", 3, minimum=0, maximum=6)
+        max_attempts = self._env_int("RAG_SOURCE_ASSURANCE_MAX_ATTEMPTS", 10, minimum=1, maximum=30)
+        records: List[Dict[str, Any]] = []
+        attempts: List[Dict[str, Any]] = []
+        seen_routes: Set[tuple[str, str]] = set()
+
+        def run(label: str, method_name: str, search_query: str, facet: str = "general") -> None:
+            if len(attempts) >= max_attempts:
+                return
+            route_key = (method_name, ascii_lower(search_query))
+            if route_key in seen_routes:
+                return
+            seen_routes.add(route_key)
+            try:
+                found = self._call_retrieval_route(
+                    method_name,
+                    search_query,
+                    top_k=top_k,
+                    expand_depth=expand_depth,
+                    plan=plan,
+                )
+            except Exception as exc:
+                attempts.append({"route": label, "method": method_name, "query": search_query, "count": 0, "error": str(exc)[:240]})
+                return
+            tagged = self._tag_source_assurance_records(found, label=label, facet=facet)
+            attempts.append({"route": label, "method": method_name, "query": search_query, "count": len(tagged)})
+            records.extend(tagged)
+
+        for slot in self._source_assurance_slots(query, plan, profile):
+            facet = str(slot.get("facet") or "general")
+            method_name = self._retrieval_method_for_facet(facet)
+            run(f"planned_{facet}", method_name, str(slot.get("query") or query), facet)
+
+        facets = [str(facet) for facet in (getattr(profile, "facets", None) or []) if str(facet)]
+        for facet in facets:
+            run(f"expanded_{facet}", self._retrieval_method_for_facet(facet), self._source_assurance_query(query, [facet]), facet)
+
+        broad_routes = [
+            ("penalty", "retrieve_penalty"),
+            ("procedure", "retrieve_procedure"),
+            ("definition", "retrieve_definition"),
+            ("scenario", "retrieve_scenario"),
+            ("priority", "retrieve_priority"),
+            ("legal_detail", "retrieve_legal_detail"),
+            ("aggregation", "retrieve_aggregation"),
+            ("sign", "retrieve_sign"),
+            ("table", "retrieve_table"),
+            ("source_image", "retrieve_source_image"),
+            ("general", "retrieve_general"),
+            ("default", "retrieve"),
+        ]
+        for facet, method_name in broad_routes:
+            run(f"broad_{facet}", method_name, self._source_assurance_query(query, facets), facet)
+
+        return self._dedupe_contexts(records), attempts
+
+    def _source_assurance_slots(self, query: str, plan: Any, profile: Any) -> List[Dict[str, Any]]:
+        slots: List[Dict[str, Any]] = []
+        for item in (getattr(profile, "evidence_slots", None) or []):
+            if isinstance(item, dict):
+                slots.append(item)
+        for item in (getattr(plan, "subquestions", None) or []):
+            if isinstance(item, dict):
+                slots.append(item)
+        try:
+            for search_query in plan.search_queries():
+                if search_query:
+                    slots.append({"facet": "general", "query": search_query})
+        except Exception:
+            pass
+        if not slots:
+            facet = next(iter(getattr(profile, "facets", None) or ["general"]), "general")
+            slots.append({"facet": facet, "query": query})
+
+        limit = self._env_int("RAG_SOURCE_ASSURANCE_SLOT_QUERIES", 8, minimum=1, maximum=30)
+        deduped: List[Dict[str, Any]] = []
+        seen = set()
+        for slot in slots:
+            search_query = str(slot.get("query") or "").strip()
+            if not search_query:
+                continue
+            key = (str(slot.get("facet") or "general"), ascii_lower(search_query))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(slot)
+            if len(deduped) >= limit:
+                break
+        return deduped
+
+    def _retrieval_method_for_facet(self, facet: str) -> str:
+        mapping = {
+            "document_overview": "retrieve_document_overview",
+            "legal_detail": "retrieve_legal_detail",
+            "aggregation": "retrieve_aggregation",
+            "sign": "retrieve_sign",
+            "table": "retrieve_table",
+            "penalty": "retrieve_penalty",
+            "procedure": "retrieve_procedure",
+            "definition": "retrieve_definition",
+            "priority": "retrieve_priority",
+            "scenario": "retrieve_scenario",
+            "source_image": "retrieve_source_image",
+        }
+        return mapping.get(str(facet or "").strip(), "retrieve_general")
+
+    def _call_retrieval_route(
+        self,
+        method_name: str,
+        query: str,
+        *,
+        top_k: int,
+        expand_depth: int,
+        plan: Any,
+    ) -> List[Dict[str, Any]]:
+        method = getattr(self.retriever, method_name, None)
+        if method is None:
+            return []
+        try:
+            return list(method(query, top_k=top_k, expand_depth=expand_depth, plan=plan) or [])
+        except TypeError:
+            return list(method(query, top_k=top_k, expand_depth=expand_depth) or [])
+
+    def _source_assurance_query(self, query: str, facets: List[str]) -> str:
+        facet_text = " ".join(facets or [])
+        anchors = (
+            "căn cứ điều khoản điểm khoản văn bản gốc luật giao thông đường bộ "
+            "mức phạt trách nhiệm nghĩa vụ giấy phép lái xe tạm giữ xử phạt "
+            "Nghị định 168/2024/NĐ-CP Luật Trật tự ATGT 2024 Luật Đường bộ 2024 "
+            "Nghị định 336/2025/NĐ-CP Thông tư QCVN 41:2024"
+        )
+        return f"{query}. {facet_text}. {anchors}".strip()
+
+    def _tag_source_assurance_records(
+        self,
+        records: List[Dict[str, Any]],
+        *,
+        label: str,
+        facet: str,
+    ) -> List[Dict[str, Any]]:
+        tagged: List[Dict[str, Any]] = []
+        for record in records or []:
+            if not isinstance(record, dict):
+                continue
+            reasons = list(record.get("retrieval_reasons") or [])
+            reasons.extend(["source_assurance_rescue", f"source_assurance:{label}"])
+            record["retrieval_reasons"] = sorted(set(str(reason) for reason in reasons if reason))
+            record.setdefault("retrieval_slot_facet", facet)
+            tagged.append(record)
+        return tagged
+
+    def _dedupe_contexts(self, contexts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        merged_by_key: Dict[str, Dict[str, Any]] = {}
+        order: List[str] = []
+        for record in contexts or []:
+            if not isinstance(record, dict):
+                continue
+            key = self._context_dedupe_key(record)
+            if key not in merged_by_key:
+                merged_by_key[key] = record
+                order.append(key)
+            else:
+                merged_by_key[key] = merge_record_assets(merged_by_key[key], record)
+        return [merged_by_key[key] for key in order]
+
+    def _context_dedupe_key(self, record: Dict[str, Any]) -> str:
+        direct = record.get("source_chunk_id") or record.get("record_id") or record.get("id")
+        if direct:
+            return str(direct)
+        ref = normalized_legal_reference(record)
+        text = re.sub(r"\s+", " ", source_text(record)).strip()[:220]
+        return "|".join([
+            str(ref.get("document") or record.get("doc_name") or ""),
+            str(ref.get("article") or ""),
+            str(ref.get("clause") or ""),
+            str(ref.get("point") or ""),
+            str(ref.get("section") or ""),
+            text,
+        ])
+
+    def _prioritize_source_contexts(self, contexts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        def rank(record: Dict[str, Any]) -> tuple[int, float]:
+            modality = record.get("rag_modality")
+            structured = modality in {"aggregation", "document_overview", "legal_article_detail"}
+            has_source = self._context_has_legal_source(record)
+            score = float(record.get("retrieval_score") or 0.0)
+            priority = 0 if structured else 1 if has_source else 2
+            return priority, -score
+
+        return sorted(contexts, key=rank)
 
     def generate_answer(
         self, 
@@ -543,6 +834,8 @@ class LegalGraphRAG:
             "24. Diễn giải bằng câu văn tự nhiên, rõ ràng, dễ hiểu; phân tích đủ từng chi tiết cần thiết, không nén ý đến mức người đọc phải tự suy luận.\n"
             "25. Câu trả lời phải kết thúc hoàn chỉnh: không dừng ở giữa câu, giữa bảng, giữa danh sách hoặc sau các từ nối như 'và', 'theo', 'căn cứ'. Khi đã hoàn tất toàn bộ nội dung, thêm đúng dòng riêng: <<<HOAN_TAT_TRA_LOI>>>.\n"
             "26. Nếu không tìm được nguồn đủ trực tiếp, vẫn phải giải thích ngắn gọn phạm vi đã kiểm tra, phần chưa có căn cứ và cảnh báo người dùng kiểm tra thêm nguồn ngoài hệ thống; không bịa căn cứ.\n"
+            "27. Không dùng ẩn dụ, ví von hoặc cách nói né tránh. Trả lời bằng kết luận pháp lý trực tiếp, nêu điều kiện áp dụng và điều luật chính xác nếu nguồn có.\n"
+            "28. Nếu chỉ có nguồn gián tiếp hoặc nguồn yếu, phải gắn nhãn rõ 'chưa đủ căn cứ trực tiếp trong hệ thống' trước khi phân tích khách quan; tuyệt đối không biến phân tích thành kết luận chắc chắn.\n"
             "Few-shot format nội bộ: 'Biển + hành vi' => ý nghĩa biển trước, hành vi sau, xử phạt cuối; "
             "'Bảng/phụ lục' => nêu dòng/cột; 'Tình huống nhiều bước' => kết luận từng bước."
         )
@@ -808,12 +1101,13 @@ class LegalGraphRAG:
         return "\n".join([
             "## Chưa đủ nguồn để kết luận chắc chắn",
             "",
-            "Tôi chưa tìm thấy căn cứ phù hợp trong dữ liệu pháp luật giao thông đã trích xuất của hệ thống, nên không thể chốt câu trả lời như một kết luận pháp lý chắc chắn.",
+            "Tôi đã thử tra cứu trong các nhánh nguồn pháp luật giao thông hiện có của hệ thống nhưng chưa tìm thấy căn cứ đủ trực tiếp để trích dẫn điều/khoản/điểm phù hợp. Vì vậy tôi không thể chốt câu trả lời như một kết luận pháp lý chắc chắn.",
             "",
             "## Phân tích trong phạm vi nguồn hiện có",
             "",
             "- Hệ thống chỉ được phép kết luận khi có điều/khoản/điểm hoặc bản ghi nguồn đủ trực tiếp.",
             "- Nếu câu hỏi là tình huống thực tế, có thể còn cần dữ kiện ngoài hồ sơ như loại xe, người điều khiển, chủ xe, biên bản vi phạm, quyết định tạm giữ hoặc văn bản đang có hiệu lực tại thời điểm xảy ra vụ việc.",
+            "- Phần phân tích này chỉ là đánh giá khách quan theo phạm vi dữ liệu hiện có, không thay thế văn bản pháp luật gốc hoặc kết luận của cơ quan có thẩm quyền.",
             "",
             "## Cảnh báo kiểm chứng",
             "",

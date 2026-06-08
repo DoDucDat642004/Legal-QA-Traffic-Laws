@@ -656,6 +656,108 @@ class StructuredGeneralRetrievalTest(unittest.TestCase):
         self.assertFalse(retriever._looks_like_license_vehicle_mismatch_query("Tôi có bằng A1 chạy xe máy có được không?"))
         self.assertFalse(retriever._looks_like_license_vehicle_mismatch_query("Tra bảng thông số xe ô tô trong phụ lục."))
 
+    def test_source_assurance_rescues_empty_contexts_with_planned_route(self):
+        class RescueRetriever:
+            def __init__(self):
+                self.calls = []
+
+            def retrieve_penalty(self, query, top_k=10, expand_depth=1, plan=None):
+                self.calls.append(("retrieve_penalty", query, top_k, expand_depth, bool(plan)))
+                return [{
+                    "source_chunk_id": "phone_penalty",
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {
+                        "document": "Nghị định 168/2024/NĐ-CP",
+                        "article": "6",
+                        "clause": "5",
+                        "point": "h",
+                    },
+                    "source_body_exact": "Dùng tay cầm và sử dụng điện thoại khi đang điều khiển xe chạy trên đường bị phạt tiền.",
+                    "retrieval_score": 12.0,
+                }]
+
+            def retrieve_general(self, *args, **kwargs):
+                self.calls.append(("retrieve_general", args[0], kwargs.get("top_k"), kwargs.get("expand_depth"), bool(kwargs.get("plan"))))
+                return []
+
+            def retrieve(self, *args, **kwargs):
+                self.calls.append(("retrieve", args[0], kwargs.get("top_k"), kwargs.get("expand_depth"), False))
+                return []
+
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        rag.retriever = RescueRetriever()
+        plan = QueryPlan(
+            subquestions=[{
+                "facet": "penalty",
+                "query": "mức phạt tài xế sử dụng điện thoại khi đang điều khiển ô tô",
+                "priority": 1,
+                "reason": "Cần nguồn xử phạt.",
+            }],
+            filters={"search_queries": ["mức phạt tài xế sử dụng điện thoại khi đang điều khiển ô tô"]},
+        )
+        profile = SimpleNamespace(
+            facets=["penalty"],
+            evidence_slots=plan.subquestions,
+            retrieval_budget={"top_k": 1, "expand_depth": 0},
+        )
+
+        with patched_env(
+            RAG_ENABLE_SOURCE_ASSURANCE="true",
+            RAG_SOURCE_ASSURANCE_MIN_CONTEXTS="2",
+            RAG_SOURCE_ASSURANCE_TOP_K="8",
+            RAG_SOURCE_ASSURANCE_EXPAND_DEPTH="2",
+            RAG_SOURCE_ASSURANCE_MAX_ATTEMPTS="3",
+        ):
+            contexts, report = rag._ensure_source_coverage(
+                "Tài xế xe công nghệ thao tác điện thoại nhận chuyến khi xe đang chạy có vi phạm không?",
+                [],
+                plan,
+                profile,
+            )
+
+        self.assertEqual(report["status"], "rescued")
+        self.assertEqual(report["before_count"], 0)
+        self.assertEqual(report["after_count"], 1)
+        self.assertEqual(contexts[0]["source_chunk_id"], "phone_penalty")
+        self.assertIn("source_assurance_rescue", contexts[0]["retrieval_reasons"])
+        self.assertEqual(rag.retriever.calls[0][0], "retrieve_penalty")
+
+    def test_source_assurance_skips_when_sources_are_sufficient(self):
+        class NoCallRetriever:
+            def __getattr__(self, name):
+                if name.startswith("retrieve"):
+                    raise AssertionError(f"unexpected rescue retrieval: {name}")
+                raise AttributeError(name)
+
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        rag.retriever = NoCallRetriever()
+        contexts = [
+            {
+                "source_chunk_id": "a",
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "6", "clause": "5"},
+                "source_body_exact": "Nguồn xử phạt ô tô.",
+            },
+            {
+                "source_chunk_id": "b",
+                "doc_name": "Luật Trật tự ATGT 2024",
+                "legal_reference": {"document": "Luật Trật tự ATGT 2024", "article": "56", "clause": "1"},
+                "source_body_exact": "Nguồn điều kiện giấy phép lái xe.",
+            },
+        ]
+
+        with patched_env(RAG_ENABLE_SOURCE_ASSURANCE="true", RAG_SOURCE_ASSURANCE_MIN_CONTEXTS="2"):
+            returned, report = rag._ensure_source_coverage(
+                "Tôi có bằng A1 chạy xe hơi thì có được không?",
+                contexts,
+                QueryPlan(),
+                SimpleNamespace(facets=["procedure"], evidence_slots=[]),
+            )
+
+        self.assertEqual(returned, contexts)
+        self.assertEqual(report["status"], "sufficient")
+        self.assertEqual(report["attempts"], [])
+
 
 class HybridVectorStoreConfigTest(unittest.TestCase):
     def test_disabled_embeddings_skip_existing_local_model_path(self):
