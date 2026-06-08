@@ -488,7 +488,7 @@ class LegalQueryPlanner:
             facets.append("legal_detail")
         if self._looks_like_source_image(qa):
             facets.append("source_image")
-        if any(key in qa for key in ["xe uu tien", "quyen uu tien", "uu tien", "nhuong duong", "cuu thuong", "chua chay", "cong an", "quan su", "doan xe"]):
+        if any(key in qa for key in ["xe uu tien", "xe duoc quyen uu tien", "quyen uu tien", "tin hieu uu tien", "coi uu tien", "den uu tien", "uu tien", "nhuong duong", "cuu thuong", "chua chay", "cuu hoa", "cong an", "quan su", "doan xe", "can tro xe uu tien"]):
             facets.append("priority")
         scenario_markers = [
             "tinh huong",
@@ -518,6 +518,13 @@ class LegalQueryPlanner:
                 "tuoc",
                 "tam giu",
                 "bi gi",
+                "bi sao",
+                "co bi",
+                "co sao",
+                "co sai",
+                "sai khong",
+                "hau qua",
+                "trach nhiem",
                 "xu ly",
                 "vi pham",
             ]
@@ -563,8 +570,26 @@ class LegalQueryPlanner:
                 "nong do con",
                 "hoi con",
                 "say xin",
+                "ruou",
+                "bia",
                 "mu bao hiem",
                 "tai nan",
+                "den vang",
+                "vach dung",
+                "coi hoi",
+                "bam coi",
+                "ru ga",
+                "net po",
+                "duong chinh",
+                "duong nhanh",
+                "duong uu tien",
+                "khong nhuong",
+                "can tro",
+                "chan xe",
+                "khong cho qua",
+                "xe uu tien",
+                "cuu thuong",
+                "tin hieu uu tien",
             ]
         ) or behavior_hits
         if rule_like and not self._looks_like_license_points_fact(qa):
@@ -714,7 +739,7 @@ class LegalQueryPlanner:
         qa = ascii_lower(query)
         if self._vehicle_scope(query):
             return []
-        if not any(term in qa for term in ["phat", "xu phat", "muc phat", "bi gi", "xu ly", "vi pham"]):
+        if not any(term in qa for term in ["phat", "xu phat", "muc phat", "bi gi", "bi sao", "co bi", "co sao", "co sai", "sai khong", "hau qua", "trach nhiem", "xu ly", "vi pham", "khong nhuong", "can tro"]):
             return []
         if not any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"]):
             return []
@@ -903,15 +928,40 @@ class LegalQueryPlanner:
                 "rule",
             ),
             (
+                "priority_vehicle_obstruction",
+                [
+                    "khong nhuong duong",
+                    "khong nhuong",
+                    "can tro xe uu tien",
+                    "gay can tro xe uu tien",
+                    "can tro xe duoc quyen uu tien",
+                    "chan xe cuu thuong",
+                    "chan xe uu tien",
+                    "khong cho xe cuu thuong",
+                    "khong cho xe uu tien",
+                    "khong cho qua",
+                    "co tinh chan",
+                    "gay can tro",
+                ],
+                "không nhường đường hoặc gây cản trở xe được quyền ưu tiên đang phát tín hiệu ưu tiên đi làm nhiệm vụ",
+                "penalty",
+            ),
+            (
                 "red_light",
-                ["vuot den do", "khong chap hanh tin hieu den", "den tin hieu giao thong"],
-                "vượt đèn đỏ hoặc không chấp hành tín hiệu đèn giao thông",
+                ["vuot den do", "vuot den vang", "den vang", "vach dung", "khong chap hanh tin hieu den", "den tin hieu giao thong"],
+                "vượt đèn đỏ/đèn vàng hoặc không chấp hành tín hiệu đèn giao thông, vạch dừng",
                 "penalty",
             ),
             (
                 "alcohol",
-                ["say xin", "xay xin", "hoi con", "nong do con", "ruou bia", "uong ruou", "co con cao"],
+                ["say xin", "xay xin", "hoi con", "nong do con", "ruou bia", "uong ruou", "ruou", "bia", "co con cao"],
                 "điều khiển xe khi trong máu hoặc hơi thở có nồng độ cồn cao",
+                "penalty",
+            ),
+            (
+                "horn_noise",
+                ["coi hoi", "bam coi", "su dung coi", "ru ga", "net po", "khu dan cu", "ban dem"],
+                "sử dụng còi, còi hơi, rú ga hoặc nẹt pô trong khu dân cư/khu vực hạn chế",
                 "penalty",
             ),
             (
@@ -1026,7 +1076,14 @@ class LegalQueryPlanner:
             "doi mu",
             "nong do",
             "su dung",
+            "coi hoi",
+            "ru ga",
+            "net po",
             "nhuong duong",
+            "khong nhuong",
+            "can tro",
+            "chan xe",
+            "khong cho qua",
         ]
         if any(term in qa for term in phrase_terms):
             return True
@@ -1165,10 +1222,36 @@ class LegalQueryPlanner:
             "xe may",
             "bien bao",
             "den do",
+            "den tin hieu",
+            "den vang",
+            "vach dung",
+            "nga tu",
+            "giao nhau",
+            "vong xuyen",
+            "ngo",
+            "duong chinh",
+            "duong nhanh",
+            "duong uu tien",
+            "un tac",
+            "dung xe",
+            "do xe",
+            "via he",
+            "long duong",
+            "coi hoi",
+            "bam coi",
+            "ru ga",
+            "net po",
+            "khu dan cu",
+            "csgt",
+            "canh sat giao thong",
+            "nguoi dieu khien giao thong",
+            "nguoi kiem soat giao thong",
             "toc do",
             "gplx",
             "giay phep lai xe",
             "nong do con",
+            "ruou",
+            "bia",
             "tai nan",
             "nghi dinh 168",
             "nghi dinh 336",

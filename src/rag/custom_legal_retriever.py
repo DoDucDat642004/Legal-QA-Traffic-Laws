@@ -2529,6 +2529,17 @@ class CustomLegalRetriever:
             ))
         if any(term in qa for term in ["gay tai nan", "tai nan giao thong", "tai nan cho nguoi khac"]):
             specs.append(("accident", ["gay tai nan giao thong", "khong giu nguyen hien truong", "khong tro giup nguoi bi nan"]))
+        if any(term in qa for term in ["khong nhuong", "can tro xe uu tien", "gay can tro xe uu tien", "chan xe cuu thuong", "khong cho xe cuu thuong", "khong cho qua", "co tinh chan"]):
+            specs.append((
+                "priority_vehicle_obstruction",
+                [
+                    "khong nhuong duong",
+                    "gay can tro xe uu tien",
+                    "khong nhuong duong hoac gay can tro",
+                    "xe duoc quyen uu tien dang phat tin hieu uu tien",
+                    "xe uu tien",
+                ],
+            ))
         return specs
 
     def _focused_behavior_text(self, query: str) -> str:
@@ -3590,6 +3601,39 @@ class CustomLegalRetriever:
             "known_chunk_traffic_law_ambulance_priority_yield",
             boost=96.0,
         )
+        priority_obstruction_chunks = [
+            "luật_trật_tự_atgt_2024_(tiếp)_27_2_c_682629",
+            "luật_trật_tự_atgt_2024_(tiếp)_27_3_a_008e07",
+            "luật_trật_tự_atgt_2024_(tiếp)_27_5_0_5f3375",
+            "nghị_định_168/2024/nđ-cp_6_6_b_bbd3f1",
+            "nghị_định_168/2024/nđ-cp_7_7_đ_43e63e",
+            "nghị_định_168/2024/nđ-cp_8_6_g_2376a1",
+            "nghị_định_168/2024/nđ-cp_9_2_d_ac556f",
+        ]
+        add(
+            ["xe cuu thuong", "khong nhuong"],
+            priority_obstruction_chunks,
+            "known_chunk_priority_vehicle_obstruction_penalty",
+            boost=140.0,
+        )
+        add(
+            ["xe cuu thuong", "can tro"],
+            priority_obstruction_chunks,
+            "known_chunk_priority_vehicle_obstruction_penalty",
+            boost=140.0,
+        )
+        add(
+            ["xe uu tien", "can tro"],
+            priority_obstruction_chunks,
+            "known_chunk_priority_vehicle_obstruction_penalty",
+            boost=140.0,
+        )
+        add(
+            ["khong cho qua", "xe cuu thuong"],
+            priority_obstruction_chunks,
+            "known_chunk_priority_vehicle_obstruction_penalty",
+            boost=140.0,
+        )
         add(
             ["xe uu tien", "nhuong duong"],
             ["luật_trật_tự_atgt_2024_(tiếp)_27_5_0_5f3375"],
@@ -3972,7 +4016,21 @@ class CustomLegalRetriever:
         return matches[:80]
 
     def _priority_boost(self, query: str, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        priority_terms = ["xe uu tien", "quyen uu tien", "uu tien", "nhuong duong", "tin hieu uu tien", "giao nhau", "vong xuyen"]
+        priority_terms = [
+            "xe uu tien",
+            "xe duoc quyen uu tien",
+            "quyen uu tien",
+            "uu tien",
+            "nhuong duong",
+            "khong nhuong duong",
+            "tin hieu uu tien",
+            "cuu thuong",
+            "chua chay",
+            "can tro xe uu tien",
+            "gay can tro xe uu tien",
+            "giao nhau",
+            "vong xuyen",
+        ]
         for record in records:
             text = ascii_lower(source_text(record))
             doc = ascii_lower(record.get("doc_name") or (normalized_legal_reference(record).get("document") or ""))

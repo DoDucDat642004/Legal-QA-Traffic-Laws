@@ -133,6 +133,49 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIsNone(route_conversational_query("Hello, xe máy vượt đèn đỏ bị phạt bao nhiêu?"))
         self.assertIsNone(route_conversational_query("Tôi bị phạt bao nhiêu?"))
 
+    def test_conversation_guard_does_not_block_real_world_guard_sensitive_questions(self):
+        queries = [
+            "Tôi cố tình chặn xe không cho xe cứu thương qua thì bị hậu quả gì?",
+            "Tôi thấy xe cứu thương hú còi nhưng không nhường đường thì có bị phạt không?",
+            "Xe cứu hỏa bật đèn ưu tiên mà tôi đứng chắn đường vài giây có sao không?",
+            "Xe ưu tiên không bật còi/đèn mà tôi không nhường có bị xử lý không?",
+            "CSGT yêu cầu dừng xe mà tôi không chấp hành thì hậu quả gì?",
+            "Tôi đỗ xe trước cổng bệnh viện làm xe cứu thương khó ra thì bị gì?",
+            "Tôi đi xe đạp cản đường xe ưu tiên thì có bị xử lý không?",
+            "Tôi lái xe không nhường đường cho xe xin vượt thì sao?",
+            "Tôi chạy xe máy trên vỉa hè để tránh kẹt xe có bị phạt không?",
+            "Tôi dừng ở ngã tư làm ùn tắc để livestream thì có bị phạt không?",
+            "Tôi chưa đủ tuổi chạy xe máy dung tích lớn thì người giao xe có bị phạt không?",
+            "Chủ xe giao ô tô cho người chỉ có bằng A1 lái thì chủ xe có bị phạt không?",
+            "Tôi mượn xe người khác rồi vi phạm bị tạm giữ xe thì trách nhiệm thuộc về ai?",
+            "Tài xế xe công nghệ thao tác điện thoại nhận chuyến khi xe đang chạy có vi phạm không?",
+        ]
+        planner = LegalQueryPlanner()
+        analyzer = AdaptiveQuestionAnalyzer()
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertIsNone(route_conversational_query(query))
+                plan = planner.rule_plan(query)
+                profile = analyzer.analyze(query, plan)
+                self.assertNotEqual(plan.intent.value, "out_of_scope")
+                self.assertNotIn("out_of_scope", [slot["facet"] for slot in plan.subquestions])
+                self.assertNotIn("out_of_scope", profile.facets)
+
+    def test_priority_vehicle_obstruction_routes_to_priority_and_penalty(self):
+        query = "Tôi cố tình chặn xe không cho xe cứu thương qua thì bị hậu quả gì?"
+        planner = LegalQueryPlanner()
+        plan = planner.rule_plan(query)
+        profile = AdaptiveQuestionAnalyzer().analyze(query, plan)
+        plan_facets = [slot["facet"] for slot in plan.subquestions]
+
+        self.assertIsNone(route_conversational_query(query))
+        self.assertEqual(plan.intent.value, "penalty")
+        self.assertIn("priority", plan_facets)
+        self.assertIn("penalty", plan_facets)
+        self.assertIn("priority", profile.facets)
+        self.assertIn("penalty", profile.facets)
+
     def test_colloquial_parking_sidewalk_question_routes_to_penalty(self):
         query = "Hey tôi đỗ xe tải ở vỉa hè có ổn không?"
         planner = LegalQueryPlanner()
@@ -1225,6 +1268,57 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("đi sát lề đường bên phải", answer)
         self.assertIn("dừng lại", answer)
         self.assertIn("Khoản 5, Điều 27", answer)
+        self.assertNotIn("Câu hỏi xử phạt còn quá rộng", answer)
+
+    def test_priority_vehicle_obstruction_liability_answer_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi cố tình chặn xe không cho xe cứu thương qua thì bị hậu quả gì?",
+            [
+                {
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "2", "point": "c"},
+                    "source_body_exact": "c) Xe cứu thương đi làm nhiệm vụ cấp cứu;",
+                },
+                {
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "5"},
+                    "source_body_exact": "Khi có tín hiệu của xe ưu tiên, người và phương tiện phải giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường, không được gây cản trở.",
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "6", "clause": "6", "point": "b"},
+                    "source_body_exact": "b) Không nhường đường hoặc gây cản trở xe được quyền ưu tiên đang phát tín hiệu ưu tiên đi làm nhiệm vụ;",
+                    "penalties": {"main_penalty": {"raw_penalty_text": "Phạt tiền từ 6.000.000 đồng đến 8.000.000 đồng"}},
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "đ"},
+                    "source_body_exact": "đ) Không nhường đường hoặc gây cản trở xe được quyền ưu tiên đang phát tín hiệu ưu tiên đi làm nhiệm vụ.",
+                    "penalties": {"main_penalty": {"raw_penalty_text": "Phạt tiền từ 4.000.000 đồng đến 6.000.000 đồng"}},
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "8", "clause": "6", "point": "g"},
+                    "source_body_exact": "g) Không nhường đường hoặc gây cản trở xe được quyền ưu tiên đang phát tín hiệu ưu tiên đi làm nhiệm vụ;",
+                    "penalties": {"main_penalty": {"raw_penalty_text": "Phạt tiền từ 3.000.000 đồng đến 5.000.000 đồng"}},
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "9", "clause": "2", "point": "d"},
+                    "source_body_exact": "d) Không nhường đường cho xe xin vượt khi có đủ điều kiện an toàn hoặc gây cản trở xe ưu tiên;",
+                    "penalties": {"main_penalty": {"raw_penalty_text": "Phạt tiền từ 150.000 đồng đến 250.000 đồng"}},
+                },
+            ],
+        )
+
+        self.assertIn("Có.", answer)
+        self.assertIn("xe được quyền ưu tiên đang phát tín hiệu ưu tiên", answer)
+        self.assertIn("6.000.000 đồng đến 8.000.000 đồng", answer)
+        self.assertIn("4.000.000 đồng đến 6.000.000 đồng", answer)
+        self.assertIn("Điểm b, Khoản 6, Điều 6", answer)
+        self.assertIn("Điểm đ, Khoản 7, Điều 7", answer)
+        self.assertNotIn("Mình chỉ hỗ trợ", answer)
         self.assertNotIn("Câu hỏi xử phạt còn quá rộng", answer)
 
     def test_underage_large_motorbike_giver_answers_without_too_broad_fallback(self):

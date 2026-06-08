@@ -1073,6 +1073,9 @@ class LegalGraphRAG:
         fine_cap_answer = self._deterministic_statutory_fine_cap_answer(query, contexts)
         if fine_cap_answer:
             return fine_cap_answer
+        priority_liability_answer = self._deterministic_priority_vehicle_liability_answer(query, contexts)
+        if priority_liability_answer:
+            return priority_liability_answer
         priority_vehicle_answer = self._deterministic_priority_vehicle_answer(query, contexts)
         if priority_vehicle_answer:
             return priority_vehicle_answer
@@ -1247,6 +1250,172 @@ class LegalGraphRAG:
             "",
             "**Căn cứ:** " + "; ".join(refs) + ".",
         ]
+        return "\n".join(lines)
+
+    def _deterministic_priority_vehicle_liability_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        priority_like = any(term in qa for term in [
+            "xe uu tien",
+            "xe duoc quyen uu tien",
+            "quyen uu tien",
+            "tin hieu uu tien",
+            "nhuong duong",
+            "khong nhuong",
+            "can tro",
+            "cuu thuong",
+            "chua chay",
+            "khong cho qua",
+            "chan xe",
+        ])
+        asks_liability = any(term in qa for term in [
+            "phat",
+            "xu phat",
+            "muc phat",
+            "bao nhieu tien",
+            "tru diem",
+            "tuoc",
+            "bi gi",
+            "co bi",
+            "co sao",
+            "hau qua",
+            "trach nhiem",
+            "xu ly",
+            "vi pham",
+            "khong nhuong",
+            "can tro",
+            "khong cho qua",
+            "chan xe",
+        ])
+        if not (priority_like and asks_liability):
+            return ""
+
+        duty_record = self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="27",
+            clause="5",
+        ) or self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="27",
+            contains=["nhuong duong"],
+        )
+        ambulance_record = self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="27",
+            clause="2",
+            point="c",
+        ) or self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="27",
+            contains=["xe cuu thuong"],
+        )
+        signal_record = self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="27",
+            clause="3",
+        ) or self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="27",
+            contains=["tin hieu uu tien"],
+        )
+
+        car_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="6",
+            clause="6",
+            point="b",
+        )
+        motorbike_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="7",
+            clause="7",
+            point="đ",
+        )
+        specialized_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="8",
+            clause="6",
+            point="g",
+        )
+        bicycle_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="9",
+            clause="2",
+            point="d",
+        )
+        if not any([duty_record, ambulance_record, signal_record, car_record, motorbike_record, specialized_record, bicycle_record]):
+            return ""
+
+        mentions_car = bool(re.search(r"\b(?:o to|xe hoi|xe oto|xe con|xe tai|xe khach|taxi)\b", qa))
+        mentions_motorbike = bool(re.search(r"\b(?:xe may|mo to|gan may)\b", qa))
+        mentions_specialized = "may chuyen dung" in qa
+        mentions_bicycle = any(term in qa for term in ["xe dap", "xe tho so", "tho so"])
+
+        rows = []
+        if mentions_car or not any([mentions_motorbike, mentions_specialized, mentions_bicycle]):
+            rows.append((
+                "Ô tô và xe tương tự ô tô",
+                self._penalty_or_default(car_record, "Phạt tiền 6.000.000 - 8.000.000 đồng."),
+                self._ref_or_default(car_record, "Điểm b khoản 6 Điều 6 Nghị định 168/2024/NĐ-CP"),
+            ))
+        if mentions_motorbike or not any([mentions_car, mentions_specialized, mentions_bicycle]):
+            rows.append((
+                "Mô tô, xe gắn máy và xe tương tự",
+                self._penalty_or_default(motorbike_record, "Phạt tiền 4.000.000 - 6.000.000 đồng."),
+                self._ref_or_default(motorbike_record, "Điểm đ khoản 7 Điều 7 Nghị định 168/2024/NĐ-CP"),
+            ))
+        if mentions_specialized or not any([mentions_car, mentions_motorbike, mentions_bicycle]):
+            rows.append((
+                "Xe máy chuyên dùng",
+                self._penalty_or_default(specialized_record, "Phạt tiền 3.000.000 - 5.000.000 đồng."),
+                self._ref_or_default(specialized_record, "Điểm g khoản 6 Điều 8 Nghị định 168/2024/NĐ-CP"),
+            ))
+        if mentions_bicycle or not any([mentions_car, mentions_motorbike, mentions_specialized]):
+            rows.append((
+                "Xe đạp, xe thô sơ",
+                self._penalty_or_default(bicycle_record, "Phạt tiền 150.000 - 250.000 đồng."),
+                self._ref_or_default(bicycle_record, "Điểm d khoản 2 Điều 9 Nghị định 168/2024/NĐ-CP"),
+            ))
+
+        duty_ref = self._ref_or_default(duty_record, "Khoản 5 Điều 27 Luật Trật tự, an toàn giao thông đường bộ 2024")
+        ambulance_ref = self._ref_or_default(ambulance_record, "Điểm c khoản 2 Điều 27 Luật Trật tự, an toàn giao thông đường bộ 2024")
+        signal_ref = self._ref_or_default(signal_record, "Khoản 3 Điều 27 Luật Trật tự, an toàn giao thông đường bộ 2024")
+
+        lines = [
+            "## Trả lời ngắn gọn",
+            "",
+            "Có. Nếu xe cứu thương là **xe được quyền ưu tiên đang phát tín hiệu ưu tiên đi làm nhiệm vụ**, hành vi cố tình chặn, không nhường đường hoặc gây cản trở có thể bị xử phạt. Điều kiện mấu chốt là xe đó đang có tín hiệu ưu tiên và đang làm nhiệm vụ.",
+            "",
+            "## Căn cứ nền",
+            "",
+            f"- Xe cứu thương đi làm nhiệm vụ cấp cứu thuộc nhóm xe ưu tiên. **Căn cứ:** {ambulance_ref}.",
+            f"- Khi có tín hiệu của xe ưu tiên, người và phương tiện phải giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường, không được gây cản trở. **Căn cứ:** {duty_ref}.",
+            f"- Cần đối chiếu tín hiệu ưu tiên thực tế của xe. **Căn cứ tham chiếu:** {signal_ref}.",
+            "",
+            "## Hậu quả xử phạt theo loại phương tiện",
+            "",
+            "| Trường hợp người vi phạm điều khiển | Hậu quả xử phạt tìm thấy | Căn cứ |",
+            "|---|---|---|",
+        ]
+        for label, penalty, ref in rows:
+            lines.append(f"| {self._escape_table(label)} | {self._escape_table(penalty)} | {self._escape_table(ref)} |")
+
+        lines.extend([
+            "",
+            "## Lưu ý cần kiểm tra",
+            "",
+            "- Câu hỏi chưa nêu bạn chặn bằng ô tô, xe máy, xe máy chuyên dùng, xe đạp/xe thô sơ hay bằng hành vi không điều khiển phương tiện; vì vậy nếu không có loại phương tiện rõ ràng thì phải trình bày theo các nhánh trên.",
+            "- Nếu việc chặn xe cứu thương gây tai nạn, thiệt hại, chậm cấp cứu hoặc có dấu hiệu chống người thi hành công vụ/tội phạm khác, hệ thống cần thêm nguồn ngoài bộ dữ liệu giao thông hiện tại để kết luận đầy đủ. Bạn nên kiểm tra thêm với văn bản pháp luật gốc hoặc cơ quan có thẩm quyền.",
+        ])
         return "\n".join(lines)
 
     def _deterministic_phone_ride_hailing_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:

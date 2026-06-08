@@ -145,7 +145,7 @@ class AdaptiveQuestionAnalyzer:
             "tho so",
         ]
         has_vehicle_scope = any(term in qa for term in vehicle_terms)
-        penalty_like = "penalty" in facets or any(term in qa for term in ["phat", "xu phat", "muc phat", "vi pham", "bi gi", "xu ly"])
+        penalty_like = "penalty" in facets or any(term in qa for term in ["phat", "xu phat", "muc phat", "vi pham", "bi gi", "bi sao", "co bi", "co sao", "co sai", "sai khong", "hau qua", "trach nhiem", "xu ly"])
         if (
             penalty_like
             and "aggregation" not in facets
@@ -447,7 +447,7 @@ class AdaptiveQuestionAnalyzer:
                 "reason": "Yêu cầu ảnh căn cứ từ văn bản gốc"
             })
 
-        if any(k in qa for k in ["xe uu tien", "quyen uu tien", "uu tien", "nhuong duong", "cuu thuong", "chua chay", "cong an", "quan su", "doan xe"]):
+        if any(k in qa for k in ["xe uu tien", "xe duoc quyen uu tien", "quyen uu tien", "tin hieu uu tien", "coi uu tien", "den uu tien", "uu tien", "nhuong duong", "cuu thuong", "chua chay", "cuu hoa", "cong an", "quan su", "doan xe", "can tro xe uu tien"]):
             slots.append({
                 "facet": "priority",
                 "query": f"Tra cứu quy định về quyền ưu tiên, thứ tự nhường đường và điều kiện áp dụng cho câu hỏi: {q}",
@@ -505,7 +505,7 @@ class AdaptiveQuestionAnalyzer:
 
         penalty_like = has_penalty_behavior or any(
             k in qa
-            for k in ["phat", "xu phat", "muc phat", "bao nhieu tien", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]
+            for k in ["phat", "xu phat", "muc phat", "bao nhieu tien", "bi gi", "bi sao", "co bi", "co sao", "co sai", "sai khong", "hau qua", "trach nhiem", "xu ly", "vi pham", "tru diem", "tuoc"]
         )
         if penalty_like and not statutory_fine_cap and not (aggregation_like and not has_specific_behavior):
             behavior_slots = self._known_behavior_slots(q, qa, start_priority=4)
@@ -636,6 +636,25 @@ class AdaptiveQuestionAnalyzer:
     def _known_behavior_patterns(self) -> List[Tuple[str, List[str], str, str]]:
         return [
             (
+                "priority_vehicle_obstruction",
+                [
+                    "khong nhuong duong",
+                    "khong nhuong",
+                    "can tro xe uu tien",
+                    "gay can tro xe uu tien",
+                    "can tro xe duoc quyen uu tien",
+                    "chan xe cuu thuong",
+                    "chan xe uu tien",
+                    "khong cho xe cuu thuong",
+                    "khong cho xe uu tien",
+                    "khong cho qua",
+                    "co tinh chan",
+                    "gay can tro",
+                ],
+                "không nhường đường hoặc gây cản trở xe được quyền ưu tiên đang phát tín hiệu ưu tiên đi làm nhiệm vụ",
+                "penalty",
+            ),
+            (
                 "underage_license",
                 ["chua du tuoi", "khong du tuoi", "chua du 18", "chua du 18 tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "dung tich lon", "gplx hang a", "giay phep lai xe hang a", "giao xe", "cho muon xe"],
                 "độ tuổi, điều kiện giấy phép lái xe và xe mô tô/xe gắn máy phân khối lớn",
@@ -643,14 +662,20 @@ class AdaptiveQuestionAnalyzer:
             ),
             (
                 "red_light",
-                ["vuot den do", "khong chap hanh tin hieu den", "den tin hieu giao thong", "den do"],
-                "vượt đèn đỏ hoặc không chấp hành tín hiệu đèn giao thông",
+                ["vuot den do", "vuot den vang", "den vang", "vach dung", "khong chap hanh tin hieu den", "den tin hieu giao thong", "den do"],
+                "vượt đèn đỏ/đèn vàng hoặc không chấp hành tín hiệu đèn giao thông, vạch dừng",
                 "penalty",
             ),
             (
                 "alcohol",
-                ["say xin", "xay xin", "hoi con", "nong do con", "ruou bia", "uong ruou", "co con cao"],
+                ["say xin", "xay xin", "hoi con", "nong do con", "ruou bia", "uong ruou", "ruou", "bia", "co con cao"],
                 "điều khiển xe khi trong máu hoặc hơi thở có nồng độ cồn",
+                "penalty",
+            ),
+            (
+                "horn_noise",
+                ["coi hoi", "bam coi", "su dung coi", "ru ga", "net po", "khu dan cu", "ban dem"],
+                "sử dụng còi, còi hơi, rú ga hoặc nẹt pô trong khu dân cư/khu vực hạn chế",
                 "penalty",
             ),
             (
@@ -753,7 +778,7 @@ class AdaptiveQuestionAnalyzer:
     def _ambiguous_vehicle_penalty_slots(self, q: str, qa: str, *, start_priority: int) -> List[Dict[str, Any]]:
         if self._vehicle_scope(q):
             return []
-        if not any(term in qa for term in ["phat", "xu phat", "muc phat", "bi gi", "xu ly", "vi pham", "tru diem", "tuoc"]):
+        if not any(term in qa for term in ["phat", "xu phat", "muc phat", "bi gi", "bi sao", "co bi", "co sao", "co sai", "sai khong", "hau qua", "trach nhiem", "xu ly", "vi pham", "tru diem", "tuoc", "khong nhuong", "can tro"]):
             return []
         if not any(term in qa for term in ["xe", "phuong tien", "chay", "toc do", "bien", "p127", "p.127", "tat ca", "toan bo"]):
             return []
@@ -835,7 +860,14 @@ class AdaptiveQuestionAnalyzer:
             "doi mu",
             "nong do",
             "su dung",
+            "coi hoi",
+            "ru ga",
+            "net po",
             "nhuong duong",
+            "khong nhuong",
+            "can tro",
+            "chan xe",
+            "khong cho qua",
         ]
         if any(term in qa for term in phrase_terms):
             return True
@@ -988,10 +1020,36 @@ class AdaptiveQuestionAnalyzer:
             "xe may",
             "bien bao",
             "den do",
+            "den tin hieu",
+            "den vang",
+            "vach dung",
+            "nga tu",
+            "giao nhau",
+            "vong xuyen",
+            "ngo",
+            "duong chinh",
+            "duong nhanh",
+            "duong uu tien",
+            "un tac",
+            "dung xe",
+            "do xe",
+            "via he",
+            "long duong",
+            "coi hoi",
+            "bam coi",
+            "ru ga",
+            "net po",
+            "khu dan cu",
+            "csgt",
+            "canh sat giao thong",
+            "nguoi dieu khien giao thong",
+            "nguoi kiem soat giao thong",
             "toc do",
             "gplx",
             "giay phep lai xe",
             "nong do con",
+            "ruou",
+            "bia",
             "tai nan",
             "nghi dinh 168",
             "nghi dinh 336",
