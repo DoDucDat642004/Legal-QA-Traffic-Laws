@@ -165,6 +165,48 @@ class QueryPlannerCoverageTest(unittest.TestCase):
         self.assertIn("làn", profile_queries)
         self.assertIn("Nghị định 168/2024/NĐ-CP", profile_queries)
 
+    def test_ambulance_priority_yield_question_routes_to_priority_not_penalty(self):
+        query = "Gặp xe cứu thương bật còi ưu tiên ở ngã tư thì xe máy phải nhường đường thế nào?"
+        planner = LegalQueryPlanner()
+        plan = planner.rule_plan(query)
+        profile = AdaptiveQuestionAnalyzer().analyze(query, plan)
+
+        self.assertEqual(plan.intent.value, "priority")
+        self.assertIn("priority", profile.facets)
+        self.assertNotIn("penalty", profile.facets)
+
+    def test_ambulance_priority_yield_query_has_direct_article27_anchor(self):
+        class FakeVectorStore:
+            def __init__(self):
+                self.records = [
+                    {
+                        "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_27_2_c_682629",
+                        "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                        "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "2", "point": "c"},
+                        "source_body_exact": "c) Xe cứu thương đi làm nhiệm vụ cấp cứu;",
+                    },
+                    {
+                        "source_chunk_id": "luật_trật_tự_atgt_2024_(tiếp)_27_5_0_5f3375",
+                        "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                        "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "5"},
+                        "source_body_exact": "Khi có tín hiệu của xe ưu tiên, người và phương tiện phải giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường.",
+                    },
+                ]
+
+            def by_source_chunk_ids(self, source_chunk_ids):
+                wanted = set(source_chunk_ids)
+                return [record for record in self.records if record["source_chunk_id"] in wanted]
+
+        retriever = CustomLegalRetriever.__new__(CustomLegalRetriever)
+        retriever.vector_store = FakeVectorStore()
+        matches = retriever._known_chunk_matches(
+            "Gặp xe cứu thương bật còi ưu tiên ở ngã tư thì xe máy phải nhường đường thế nào?"
+        )
+        source_ids = {record["source_chunk_id"] for record in matches}
+
+        self.assertIn("luật_trật_tự_atgt_2024_(tiếp)_27_2_c_682629", source_ids)
+        self.assertIn("luật_trật_tự_atgt_2024_(tiếp)_27_5_0_5f3375", source_ids)
+
     def test_specific_lane_and_parking_queries_do_not_use_vague_penalty_fallback(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
 
@@ -907,6 +949,27 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Gây tai nạn cho người khác", answer)
         self.assertIn("Nghị định 168/2024/NĐ-CP", answer)
 
+    def test_motorbike_compound_penalty_question_tolerates_typos_and_speed_branch(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi chạy vượt đèn đỏ, chưa đủ 18 tuối, chạy quá tốc độ khi gặp biển báo giới hạn 40km/h, không đội mũ bảo hiểm, chạy ngược chiều, xay xỉn, gây tai nạn.",
+            [
+                {
+                    "rag_modality": "text",
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "7", "point": "c"},
+                    "source_body_exact": "Không chấp hành hiệu lệnh của đèn tín hiệu giao thông; vượt đèn đỏ.",
+                    "retrieval_score": 10.0,
+                }
+            ],
+        )
+
+        self.assertIn("Chưa đủ tuổi điều khiển xe máy", answer)
+        self.assertIn("Say xỉn / nồng độ cồn", answer)
+        self.assertIn("Chạy quá tốc độ / vượt giới hạn 40 km/h", answer)
+        self.assertIn("Vượt đèn đỏ / không chấp hành tín hiệu đèn", answer)
+        self.assertIn("Gây tai nạn cho người khác", answer)
+
     def test_extractive_penalty_answer_uses_standard_sections(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         answer = rag._extractive_answer(
@@ -955,6 +1018,30 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Đèn vàng nhấp nháy", answer)
         self.assertIn("Đèn đỏ", answer)
         self.assertIn("QCVN 41:2024", answer)
+
+    def test_ambulance_priority_yield_answer_without_model(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Gặp xe cứu thương bật còi ưu tiên ở ngã tư thì xe máy phải nhường đường thế nào?",
+            [
+                {
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "2", "point": "c"},
+                    "source_body_exact": "c) Xe cứu thương đi làm nhiệm vụ cấp cứu;",
+                },
+                {
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "5"},
+                    "source_body_exact": "5. Khi có tín hiệu của xe ưu tiên, người và phương tiện tham gia giao thông đường bộ phải giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường, không được gây cản trở.",
+                },
+            ],
+        )
+
+        self.assertIn("giảm tốc độ", answer)
+        self.assertIn("đi sát lề đường bên phải", answer)
+        self.assertIn("dừng lại", answer)
+        self.assertIn("Khoản 5, Điều 27", answer)
+        self.assertNotIn("Câu hỏi xử phạt còn quá rộng", answer)
 
     def test_motorbike_red_light_penalty_answers_without_model(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)

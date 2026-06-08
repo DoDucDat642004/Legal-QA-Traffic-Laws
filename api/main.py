@@ -1183,7 +1183,7 @@ async def chat_text(query: str = Form(...), history: str = Form("[]")):
         if prepared.was_preprocessed:
             logger.info("Prepared Search Query: %s", search_query)
 
-        deadline = _env_int("RAG_CHAT_TEXT_DEADLINE_SECONDS", 300, minimum=30, maximum=600)
+        deadline = _env_int("RAG_CHAT_TEXT_DEADLINE_SECONDS", 900, minimum=30, maximum=1800)
         try:
             result = await asyncio.wait_for(asyncio.to_thread(rag.query_adaptive, search_query), timeout=deadline)
         except asyncio.TimeoutError:

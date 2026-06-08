@@ -898,7 +898,7 @@ class LegalQueryPlanner:
         return [
             (
                 "underage_license",
-                ["chua du tuoi", "khong du tuoi", "chua du 18", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "gplx hang a", "giay phep lai xe hang a"],
+                ["chua du tuoi", "khong du tuoi", "chua du 18", "chua du 18 tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "gplx hang a", "giay phep lai xe hang a"],
                 "độ tuổi, điều kiện giấy phép lái xe hạng A và xe mô tô/xe gắn máy phân khối lớn",
                 "rule",
             ),
@@ -910,7 +910,7 @@ class LegalQueryPlanner:
             ),
             (
                 "alcohol",
-                ["say xin", "hoi con", "nong do con", "ruou bia", "co con cao"],
+                ["say xin", "xay xin", "hoi con", "nong do con", "ruou bia", "uong ruou", "co con cao"],
                 "điều khiển xe khi trong máu hoặc hơi thở có nồng độ cồn cao",
                 "penalty",
             ),
@@ -960,7 +960,7 @@ class LegalQueryPlanner:
             ),
             (
                 "speed",
-                ["vi pham toc do", "qua toc do", "chay qua toc", "vuot toc", "p127", "p.127"],
+                ["vi pham toc do", "qua toc do", "qua toc", "chay qua toc", "chay qua toc do", "vuot toc", "gioi han 40", "40km/h", "40 km/h", "p127", "p.127"],
                 "chạy quá tốc độ quy định hoặc vượt trị số tốc độ tối đa ghi trên biển P.127",
                 "penalty",
             ),

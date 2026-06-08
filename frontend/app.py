@@ -38,7 +38,7 @@ def env_bool(name: str, default: bool = False) -> bool:
 SHOW_ADVANCED_TOOLS = env_bool("SHOW_ADVANCED_TOOLS", False)
 SHOW_RETRIEVAL_DETAILS = env_bool("SHOW_RETRIEVAL_DETAILS", False)
 ENABLE_PRE_ANALYSIS = env_bool("ENABLE_PRE_ANALYSIS", False)
-CHAT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("CHAT_REQUEST_TIMEOUT_SECONDS", "420"))
+CHAT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("CHAT_REQUEST_TIMEOUT_SECONDS", "960"))
 
 st.set_page_config(page_title="Luật Giao Thông AI", layout="wide", page_icon="§")
 
@@ -1533,8 +1533,7 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
         with step_box.container():
             render_stepper(active_index=1, done_until=0)
 
-        wait_seconds = int((query_analysis or {}).get("max_wait_seconds") or 90)
-        request_timeout = min(CHAT_REQUEST_TIMEOUT_SECONDS, max(330, wait_seconds + 180))
+        request_timeout = CHAT_REQUEST_TIMEOUT_SECONDS
 
         with step_box.container():
             render_stepper(active_index=2, done_until=1)

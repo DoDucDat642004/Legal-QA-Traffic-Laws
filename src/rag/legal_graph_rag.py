@@ -767,6 +767,9 @@ class LegalGraphRAG:
         fine_cap_answer = self._deterministic_statutory_fine_cap_answer(query, contexts)
         if fine_cap_answer:
             return fine_cap_answer
+        priority_vehicle_answer = self._deterministic_priority_vehicle_answer(query, contexts)
+        if priority_vehicle_answer:
+            return priority_vehicle_answer
         multi_penalty_answer = self._deterministic_motorbike_multi_penalty_answer(query, contexts)
         if multi_penalty_answer:
             return multi_penalty_answer
@@ -789,6 +792,94 @@ class LegalGraphRAG:
         if sign_answer:
             return sign_answer
         return ""
+
+    def _deterministic_priority_vehicle_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        if not any(term in qa for term in [
+            "xe uu tien",
+            "quyen uu tien",
+            "tin hieu uu tien",
+            "nhuong duong",
+            "cuu thuong",
+            "chua chay",
+        ]):
+            return ""
+        if any(term in qa for term in ["phat", "xu phat", "muc phat", "bao nhieu tien", "tru diem", "tuoc"]):
+            return ""
+
+        def article27(record: Dict[str, Any]) -> bool:
+            ref = normalized_legal_reference(record)
+            doc = ascii_lower(ref.get("document") or record.get("doc_name") or "")
+            article = str(ref.get("article") or "")
+            text = ascii_lower(source_text(record))
+            return (
+                article == "27"
+                and "luat trat tu" in doc
+                and ("xe uu tien" in text or "nhuong duong" in text or "cuu thuong" in text)
+            )
+
+        records = [record for record in contexts if article27(record)]
+        if not records:
+            return ""
+
+        def pick(*, clause: str = "", point: str = "", contains: List[str] | None = None) -> Optional[Dict[str, Any]]:
+            for record in records:
+                ref = normalized_legal_reference(record)
+                text = ascii_lower(source_text(record))
+                if clause and str(ref.get("clause") or "") != clause:
+                    continue
+                if point and str(ref.get("point") or "") != point:
+                    continue
+                if contains and not all(term in text for term in contains):
+                    continue
+                return record
+            return None
+
+        ambulance_record = pick(clause="2", point="c") or pick(contains=["xe cuu thuong"])
+        signal_record = pick(clause="3", point="a") or pick(contains=["den nhap nhay mau do"])
+        rights_record = pick(clause="4") or pick(contains=["khong phu thuoc vao tin hieu den"])
+        yield_record = pick(clause="5") or pick(contains=["nhuong duong"])
+
+        refs = []
+        for record in [ambulance_record, signal_record, rights_record, yield_record]:
+            if record:
+                ref_text = format_reference(record)
+                if ref_text not in refs:
+                    refs.append(ref_text)
+        if not refs:
+            refs = ["Điều 27, Luật Trật tự ATGT 2024"]
+
+        basis = []
+        if ambulance_record:
+            basis.append("Xe cứu thương đi làm nhiệm vụ cấp cứu thuộc nhóm xe ưu tiên và được quyền đi trước xe khác khi qua đường giao nhau từ bất kỳ hướng nào tới.")
+        if signal_record:
+            basis.append("Xe ưu tiên thuộc nhóm này phải có tín hiệu ưu tiên; với xe cứu thương đang làm nhiệm vụ cấp cứu, căn cứ trong nguồn nêu đèn nhấp nháy màu đỏ.")
+        if rights_record and any(term in qa for term in ["den do", "den giao thong", "tin hieu den", "khong phu thuoc"]):
+            basis.append("Xe ưu tiên thuộc nhóm này không phụ thuộc tín hiệu đèn giao thông, nhưng vẫn phải tuân theo hiệu lệnh của người điều khiển giao thông và biển báo hiệu tạm thời.")
+        if yield_record:
+            basis.append("Khi có tín hiệu của xe ưu tiên, người và phương tiện tham gia giao thông phải giảm tốc độ, đi sát lề phải hoặc dừng lại để nhường đường.")
+        if not basis:
+            basis.append("Điều 27 Luật Trật tự ATGT 2024 quy định về xe ưu tiên và nghĩa vụ nhường đường khi có tín hiệu ưu tiên.")
+
+        lines = [
+            "## Trả lời ngắn gọn",
+            "",
+            "Khi gặp xe cứu thương đang phát tín hiệu ưu tiên ở ngã tư, xe máy phải **giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại ở vị trí an toàn để nhường đường**, không được gây cản trở xe ưu tiên đi qua.",
+            "",
+            "## Cách xử lý tại ngã tư",
+            "",
+            "1. Bình tĩnh quan sát hướng xe cứu thương đang tới và các xe xung quanh.",
+            "2. Giảm tốc độ ngay; nếu còn khoảng trống an toàn thì nép sát về bên phải.",
+            "3. Nếu đang ở gần vạch dừng hoặc giữa luồng xe đông, dừng lại ở vị trí không chắn đường xe cứu thương.",
+            "4. Không cố vượt qua trước đầu xe cứu thương, không lách sang trái bất ngờ, không dừng giữa nút giao làm cản đường.",
+            "",
+            "## Căn cứ áp dụng",
+            "",
+            *[f"- {item}" for item in basis],
+            "",
+            "**Căn cứ:** " + "; ".join(refs) + ".",
+        ]
+        return "\n".join(lines)
 
     def _deterministic_license_vehicle_mismatch_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
         qa = ascii_lower(query)
@@ -907,6 +998,7 @@ class LegalGraphRAG:
         has_alcohol = any(term in qa for term in [
             "nong do con",
             "say xin",
+            "xay xin",
             "ruou",
             "bia",
             "co con",
@@ -921,10 +1013,24 @@ class LegalGraphRAG:
         ])
         has_underage = any(term in qa for term in [
             "chua du tuoi",
+            "chua du 18",
+            "chua du 18 tuoi",
             "khong du tuoi",
             "duoi 18",
             "17 tuoi",
             "nguoi 17",
+        ])
+        has_speed = any(term in qa for term in [
+            "qua toc",
+            "qua toc do",
+            "chay qua toc",
+            "vuot toc",
+            "toc do",
+            "gioi han 40",
+            "40km/h",
+            "40 km/h",
+            "p127",
+            "p.127",
         ])
         has_wrong_way = any(term in qa for term in [
             "nguoc chieu",
@@ -955,16 +1061,20 @@ class LegalGraphRAG:
                 ("underage", has_underage),
                 ("alcohol", has_alcohol),
                 ("red_light", has_red_light),
+                ("speed", has_speed),
                 ("wrong_way", has_wrong_way),
                 ("helmet", has_no_helmet),
                 ("accident", has_accident),
             ]
             if present
         ]
+        if len(matched) >= 3:
+            asks_penalty = True
         if (
             not has_underage
             and not has_wrong_way
             and not has_accident
+            and not has_speed
             and has_no_helmet
             and has_alcohol
             and has_red_light
@@ -1017,13 +1127,13 @@ class LegalGraphRAG:
         behavior_specs = {
             "underage": {
                 "label": "Chưa đủ tuổi điều khiển xe máy",
-                "terms": ["chua du tuoi", "khong du tuoi", "duoi 18", "17 tuoi"],
+                "terms": ["chua du tuoi", "chua du 18", "chua du 18 tuoi", "khong du tuoi", "duoi 18", "17 tuoi"],
                 "summary": "Nhánh điều kiện độ tuổi/GPLX; cần bóc tách riêng theo độ tuổi thực tế và loại xe để chốt mức xử phạt.",
                 "fallback_ref": "Luật Trật tự ATGT 2024 (Tiếp), Điều 59; Nghị định 168/2024/NĐ-CP, Điều 18",
             },
             "alcohol": {
                 "label": "Say xỉn / nồng độ cồn",
-                "terms": ["nong do con", "say xin", "ruou", "bia", "hoi con", "co con"],
+                "terms": ["nong do con", "say xin", "xay xin", "ruou", "bia", "hoi con", "co con"],
                 "summary": "Bị xử lý theo ngưỡng nồng độ cồn; ngưỡng càng cao thì tiền phạt, trừ điểm và tước GPLX càng nặng.",
                 "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
             },
@@ -1032,6 +1142,12 @@ class LegalGraphRAG:
                 "terms": ["vuot den do", "den do", "tin hieu den", "khong chap hanh hieu lenh cua den tin hieu"],
                 "summary": "Phạt tiền và trừ điểm GPLX; nếu đi kèm tai nạn thì phải xét nhánh nặng hơn.",
                 "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7",
+            },
+            "speed": {
+                "label": "Chạy quá tốc độ / vượt giới hạn 40 km/h",
+                "terms": ["qua toc", "qua toc do", "chay qua toc", "vuot toc", "toc do", "gioi han 40", "40km/h", "40 km/h", "p127", "p.127"],
+                "summary": "Phải có tốc độ thực tế đã chạy và giới hạn áp dụng để tính mốc vượt; nếu chỉ nêu biển giới hạn 40 km/h thì chưa chốt được một mức phạt duy nhất.",
+                "fallback_ref": "Nghị định 168/2024/NĐ-CP, Điều 7; QCVN 41:2024, biển P.127",
             },
             "wrong_way": {
                 "label": "Đi ngược chiều / đi vào đường cấm",

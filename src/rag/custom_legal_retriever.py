@@ -136,20 +136,27 @@ class CustomLegalRetriever:
             return self.retrieve_table(query, top_k=top_k, expand_depth=expand_depth)
         if (looks_like_sign_query(query) or intent == QueryIntent.SIGN) and self._should_route_sign(query):
             return self.retrieve_sign(query, top_k=top_k, expand_depth=expand_depth)
+        priority_requested = intent == QueryIntent.PRIORITY or self._has_priority_slot(plan)
+        penalty_requested = intent == QueryIntent.PENALTY or self._looks_like_penalty_query(query)
+        if priority_requested and not penalty_requested:
+            return self.retrieve_priority(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if intent == QueryIntent.SCENARIO or self._has_scenario_slot(plan):
             return self.retrieve_scenario(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
-        if intent == QueryIntent.PENALTY or self._looks_like_penalty_query(query):
+        if penalty_requested:
             return self.retrieve_penalty(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if intent == QueryIntent.PROCEDURE:
             return self.retrieve_procedure(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         if intent == QueryIntent.DEFINITION:
             return self.retrieve_definition(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
-        if intent == QueryIntent.PRIORITY:
+        if priority_requested:
             return self.retrieve_priority(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
         return self.retrieve_general(query, top_k=top_k, expand_depth=expand_depth, plan=plan)
 
     def _has_scenario_slot(self, plan: Optional[QueryPlan]) -> bool:
         return any((slot.get("facet") or "") == "scenario" for slot in (getattr(plan, "subquestions", None) or []))
+
+    def _has_priority_slot(self, plan: Optional[QueryPlan]) -> bool:
+        return any((slot.get("facet") or "") == "priority" for slot in (getattr(plan, "subquestions", None) or []))
 
     def retrieve_general(self, query: str, top_k: int = 8, expand_depth: int = 2, plan: Optional[QueryPlan] = None) -> List[Dict[str, Any]]:
         """Hybrid text retrieval without automatic sign/table rerouting."""
@@ -2478,9 +2485,9 @@ class CustomLegalRetriever:
         specs: List[Tuple[str, List[str]]] = []
         if any(term in qa for term in ["vuot den do", "khong chap hanh tin hieu den", "den tin hieu"]):
             specs.append(("red_light", ["khong chap hanh hieu lenh cua den tin hieu"]))
-        if any(term in qa for term in ["nong do con", "hoi con", "say xin", "ruou bia", "uong ruou", "ruou", "co con cao"]):
+        if any(term in qa for term in ["nong do con", "hoi con", "say xin", "xay xin", "ruou bia", "uong ruou", "ruou", "co con cao"]):
             specs.append(("alcohol", ["nong do con", "hoi tho co nong do con", "mau hoac hoi tho"]))
-        if any(term in qa for term in ["vi pham toc do", "qua toc", "chay qua toc", "vuot toc", "p127", "p.127"]):
+        if any(term in qa for term in ["vi pham toc do", "qua toc", "chay qua toc", "chay qua toc do", "vuot toc", "gioi han 40", "40km/h", "40 km/h", "p127", "p.127"]):
             specs.append(("speed", ["chay qua toc do", "qua toc do quy dinh", "toc do quy dinh"]))
         if any(term in qa for term in ["khong doi mu", "mu bao hiem"]):
             specs.append(("helmet", ["mu bao hiem", "khong cai quai dung quy cach"]))
@@ -2540,9 +2547,9 @@ class CustomLegalRetriever:
         exp = []
         if "xe máy" in q: exp.append("xe mô tô xe gắn máy người điều khiển xe")
         if "phân khối lớn" in q or "phan khoi lon" in qa: exp.append("trên 125 cm3 công suất trên 11 kW giấy phép lái xe hạng A")
-        if "chưa đủ tuổi" in q or "không đủ tuổi" in q or "chua du tuoi" in qa: exp.append("độ tuổi người lái xe điều kiện điều khiển phương tiện")
+        if "chưa đủ tuổi" in q or "không đủ tuổi" in q or "chua du tuoi" in qa or "chua du 18" in qa: exp.append("độ tuổi người lái xe điều kiện điều khiển phương tiện")
         if "vượt đèn đỏ" in q or "vuot den do" in qa: exp.append("không chấp hành tín hiệu đèn giao thông")
-        if "hơi cồn" in q or "nồng độ cồn" in q or "say xỉn" in q or "hoi con" in qa or "nong do con" in qa or "say xin" in qa:
+        if "hơi cồn" in q or "nồng độ cồn" in q or "say xỉn" in q or "hoi con" in qa or "nong do con" in qa or "say xin" in qa or "xay xin" in qa:
             exp.append("điều khiển xe trên đường mà trong máu hoặc hơi thở có nồng độ cồn")
         if "tốc độ" in q or "qua toc" in qa or "p127" in qa or "p.127" in qa:
             exp.append("điều khiển xe chạy quá tốc độ quy định tốc độ tối đa cho phép")
@@ -2686,7 +2693,7 @@ class CustomLegalRetriever:
         def add(document: str, article: str, reason: str, clause: str = "", point: str = "", boost: float = 5.0) -> None:
             specs.append((document, article, reason, clause, point, boost))
 
-        if any(term in qa for term in ["chua du tuoi", "khong du tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "gplx hang a", "giay phep lai xe hang a"]):
+        if any(term in qa for term in ["chua du tuoi", "chua du 18", "chua du 18 tuoi", "khong du tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "gplx hang a", "giay phep lai xe hang a"]):
             add("Luật Trật tự ATGT 2024 (Tiếp)", "57", "known_ref_license_class", boost=16.0)
             add("Luật Trật tự ATGT 2024 (Tiếp)", "59", "known_ref_driver_age", boost=16.0)
             if any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
@@ -2754,7 +2761,7 @@ class CustomLegalRetriever:
             else:
                 add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_lane_violation_car_unspecified", clause="3", point="g", boost=24.0)
                 add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_lane_violation_motorbike_unspecified", clause="4", point="đ", boost=24.0)
-        if any(term in qa for term in ["nong do con", "hoi con", "say xin", "uong ruou"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
+        if any(term in qa for term in ["nong do con", "hoi con", "say xin", "xay xin", "uong ruou"]) and any(term in qa for term in ["mo to", "xe may", "gan may"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_alcohol_motorbike_penalty", boost=28.0)
         if "dien thoai" in qa and any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
             add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_phone_car_penalty", clause="5", point="h", boost=30.0)
@@ -2796,9 +2803,9 @@ class CustomLegalRetriever:
             if any(term in qa for term in ["tru het diem", "het diem"]):
                 add("Luật Trật tự ATGT 2024 (Tiếp)", "58", "known_ref_license_point_exhausted", clause="3", boost=42.0)
 
-        if any(term in qa for term in ["vuot den do", "tin hieu den", "nong do con", "hoi con", "say xin", "khong doi mu", "mu bao hiem", "nguoc chieu", "duong cam", "p102", "p.102"]):
+        if any(term in qa for term in ["vuot den do", "tin hieu den", "nong do con", "hoi con", "say xin", "xay xin", "khong doi mu", "mu bao hiem", "nguoc chieu", "duong cam", "p102", "p.102"]):
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_motorbike_penalty", boost=0.9)
-        if any(term in qa for term in ["vi pham toc do", "qua toc", "chay qua toc", "vuot toc", "p127", "p.127"]):
+        if any(term in qa for term in ["vi pham toc do", "qua toc", "chay qua toc", "chay qua toc do", "vuot toc", "gioi han 40", "40km/h", "40 km/h", "p127", "p.127"]):
             add("Nghị định 168/2024/NĐ-CP", "6", "known_ref_speed_penalty_car", boost=2.5)
             add("Nghị định 168/2024/NĐ-CP", "7", "known_ref_speed_penalty_motorbike", boost=2.5)
             add("Nghị định 168/2024/NĐ-CP", "8", "known_ref_speed_penalty_specialized", boost=2.5)
@@ -3529,6 +3536,22 @@ class CustomLegalRetriever:
             boost=72.0,
         )
         add(
+            ["xe cuu thuong", "nhuong duong"],
+            [
+                "luật_trật_tự_atgt_2024_(tiếp)_27_2_c_682629",
+                "luật_trật_tự_atgt_2024_(tiếp)_27_3_a_008e07",
+                "luật_trật_tự_atgt_2024_(tiếp)_27_5_0_5f3375",
+            ],
+            "known_chunk_traffic_law_ambulance_priority_yield",
+            boost=96.0,
+        )
+        add(
+            ["xe uu tien", "nhuong duong"],
+            ["luật_trật_tự_atgt_2024_(tiếp)_27_5_0_5f3375"],
+            "known_chunk_traffic_law_priority_yield",
+            boost=96.0,
+        )
+        add(
             ["xe uu tien", "han che toc do", "den giao thong"],
             [
                 "luật_trật_tự_atgt_2024_(tiếp)_27_4_0_a17f94",
@@ -3794,7 +3817,7 @@ class CustomLegalRetriever:
 
     def _license_focus_boost(self, query: str, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         qa = ascii_lower(self._focused_behavior_text(query))
-        if not any(term in qa for term in ["chua du tuoi", "khong du tuoi", "duoi 18", "phan khoi lon", "hang a", "giay phep lai xe", "gplx"]):
+        if not any(term in qa for term in ["chua du tuoi", "chua du 18", "khong du tuoi", "duoi 18", "phan khoi lon", "hang a", "giay phep lai xe", "gplx"]):
             return records
         for record in records:
             ref = normalized_legal_reference(record)
@@ -3819,7 +3842,7 @@ class CustomLegalRetriever:
             for term in terms
         ]
         behavior_terms.extend([
-            term for term in ["toc do", "khong du tuoi", "chua du tuoi"] if term in qa
+            term for term in ["toc do", "khong du tuoi", "chua du tuoi", "chua du 18"] if term in qa
         ])
         scope = self._vehicle_scope(query)
         scoped_articles = (
@@ -3933,6 +3956,7 @@ class CustomLegalRetriever:
                 "mu bao hiem",
                 "tai nan",
                 "chua du tuoi",
+                "chua du 18",
                 "khong du tuoi",
             ] if term in qa
         ]
