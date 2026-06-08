@@ -35,7 +35,17 @@ The prepared dataset currently covers:
 - Thông tư 35/2024/TT-BGTVT
 - Curated handmade QA and sign/table records under `data/processed/handmade`
 
-Large data assets under `data/processed` and `data/graph/legal_graph.json` are tracked with Git LFS. Install Git LFS before cloning if you need the full dataset locally.
+Large deploy artifacts are hosted separately in the Hugging Face Dataset
+`doducdat642004/legal-qa-traffic-laws-data`, pinned by the Docker build at
+revision `ec787b36ad73e708a5e9615bd9ebba1c6caec7c4`.
+
+The Space **Files** tab shows the source repository only. Runtime artifacts
+downloaded during the Docker build, including `data/processed`,
+`data/graph/legal_graph.json`, source images, table images, sign assets, and
+OpenVINO model files, are copied into the container image and do not appear as
+normal files in the Space repository browser. Inspect the Dataset repository if
+you need to verify the processed data files directly:
+https://huggingface.co/datasets/doducdat642004/legal-qa-traffic-laws-data
 
 ## Architecture
 
@@ -58,7 +68,7 @@ LegalGraphRAG
 
 - Python 3.10 or newer
 - 8 GB RAM minimum for local Qdrant/OpenVINO retrieval
-- Git LFS for full data checkout
+- Hugging Face Hub CLI for downloading deploy artifacts locally
 - Qdrant service on `QDRANT_URL` for the default runtime
 - Optional: Docker, Neo4j, PostgreSQL, MinIO for local full-stack runs
 
@@ -66,13 +76,27 @@ LegalGraphRAG
 
 ```bash
 cd Legal-QA-Traffic-Laws
-git lfs pull
-
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
+```
+
+If your local checkout does not already contain `data/processed` and
+`data/graph/legal_graph.json`, hydrate the same processed artifacts used by the
+Space build:
+
+```bash
+hf download doducdat642004/legal-qa-traffic-laws-data \
+  --repo-type dataset \
+  --revision ec787b36ad73e708a5e9615bd9ebba1c6caec7c4 \
+  --local-dir . \
+  --include \
+    "data/processed/**" \
+    "data/graph/**" \
+    "data/models/openvino/bkai-foundation-models_vietnamese-bi-encoder/**" \
+    "data/models/openvino/BAAI_bge-reranker-v2-m3/**"
 ```
 
 Edit `.env` and set at least `GEMINI_API_KEY` if you want LLM-generated answers and image sign recognition. Without a Gemini key, the system still serves deterministic/extractive answers for many routes.
@@ -145,7 +169,9 @@ The container starts FastAPI on port `8002` internally and Streamlit on port `78
 This repository can run on Hugging Face Spaces with `sdk: docker`.
 
 1. Create a new Space with SDK `Docker`.
-2. Push the repository, including Git LFS files.
+2. Push the source repository. The Docker build downloads the processed
+   artifact snapshot from
+   `doducdat642004/legal-qa-traffic-laws-data@ec787b36ad73e708a5e9615bd9ebba1c6caec7c4`.
 3. Add secrets in **Settings > Secrets**:
    - `GEMINI_API_KEY`
 4. Use `.env.huggingface.example` as the Space variable template. It keeps the public Space on local graph/vector storage, but still enables OpenVINO embeddings, hard-query reranking, and the AI planner with a controlled retrieval budget.
