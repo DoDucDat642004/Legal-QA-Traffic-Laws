@@ -2562,7 +2562,8 @@ class CustomLegalRetriever:
         qa = ascii_lower(query)
         exp = []
         if "xe máy" in q: exp.append("xe mô tô xe gắn máy người điều khiển xe")
-        if "phân khối lớn" in q or "phan khoi lon" in qa: exp.append("trên 125 cm3 công suất trên 11 kW giấy phép lái xe hạng A")
+        if "phân khối lớn" in q or "dung tích lớn" in q or "phan khoi lon" in qa or "dung tich lon" in qa:
+            exp.append("trên 125 cm3 công suất trên 11 kW giấy phép lái xe hạng A")
         if "chưa đủ tuổi" in q or "không đủ tuổi" in q or "chua du tuoi" in qa or "chua du 18" in qa: exp.append("độ tuổi người lái xe điều kiện điều khiển phương tiện")
         if "vượt đèn đỏ" in q or "vuot den do" in qa: exp.append("không chấp hành tín hiệu đèn giao thông")
         if "hơi cồn" in q or "nồng độ cồn" in q or "say xỉn" in q or "hoi con" in qa or "nong do con" in qa or "say xin" in qa or "xay xin" in qa:
@@ -2709,9 +2710,12 @@ class CustomLegalRetriever:
         def add(document: str, article: str, reason: str, clause: str = "", point: str = "", boost: float = 5.0) -> None:
             specs.append((document, article, reason, clause, point, boost))
 
-        if any(term in qa for term in ["chua du tuoi", "chua du 18", "chua du 18 tuoi", "khong du tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "gplx hang a", "giay phep lai xe hang a"]):
+        if any(term in qa for term in ["chua du tuoi", "chua du 18", "chua du 18 tuoi", "khong du tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "dung tich lon", "gplx hang a", "giay phep lai xe hang a"]):
             add("Luật Trật tự ATGT 2024 (Tiếp)", "57", "known_ref_license_class", boost=16.0)
             add("Luật Trật tự ATGT 2024 (Tiếp)", "59", "known_ref_driver_age", boost=16.0)
+            if any(term in qa for term in ["giao xe", "cho muon xe", "dua xe", "chu xe", "nguoi giao", "phu huynh", "bo me"]):
+                add("Nghị định 168/2024/NĐ-CP", "18", "known_ref_underage_motorbike_penalty", boost=26.0)
+                add("Nghị định 168/2024/NĐ-CP", "32", "known_ref_owner_gives_motorbike_unqualified_driver", boost=34.0)
             if any(term in qa for term in ["o to", "xe o to", "xe hoi"]):
                 add("Nghị định 168/2024/NĐ-CP", "18", "known_ref_17yo_car_penalty", clause="6", boost=30.0)
                 add("Nghị định 168/2024/NĐ-CP", "32", "known_ref_owner_gives_vehicle_unqualified_driver", boost=28.0)
@@ -3858,7 +3862,7 @@ class CustomLegalRetriever:
 
     def _license_focus_boost(self, query: str, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         qa = ascii_lower(self._focused_behavior_text(query))
-        if not any(term in qa for term in ["chua du tuoi", "chua du 18", "khong du tuoi", "duoi 18", "phan khoi lon", "hang a", "giay phep lai xe", "gplx"]):
+        if not any(term in qa for term in ["chua du tuoi", "chua du 18", "khong du tuoi", "duoi 18", "phan khoi lon", "dung tich lon", "hang a", "giay phep lai xe", "gplx"]):
             return records
         for record in records:
             ref = normalized_legal_reference(record)

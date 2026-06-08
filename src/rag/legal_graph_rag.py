@@ -1061,6 +1061,9 @@ class LegalGraphRAG:
         license_mismatch_answer = self._deterministic_license_vehicle_mismatch_answer(query, contexts)
         if license_mismatch_answer:
             return license_mismatch_answer
+        underage_giver_answer = self._deterministic_underage_large_motorbike_giver_answer(query, contexts)
+        if underage_giver_answer:
+            return underage_giver_answer
         borrowed_impound_answer = self._deterministic_borrowed_vehicle_impound_answer(query, contexts)
         if borrowed_impound_answer:
             return borrowed_impound_answer
@@ -1418,6 +1421,125 @@ class LegalGraphRAG:
             "## Lưu ý",
             "",
             "Nếu cần chốt đúng mức tiền phạt, phải xác định chủ xe là cá nhân hay tổ chức và tách riêng lỗi của chủ xe với lỗi của người điều khiển.",
+        ])
+
+    def _deterministic_underage_large_motorbike_giver_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
+        qa = ascii_lower(query)
+        underage_like = any(term in qa for term in [
+            "chua du tuoi",
+            "khong du tuoi",
+            "chua du 18",
+            "chua du 18 tuoi",
+            "duoi 18",
+            "17 tuoi",
+            "nguoi 17",
+        ])
+        motorbike_like = any(term in qa for term in ["xe may", "mo to", "gan may", "phan khoi", "dung tich"])
+        large_motorbike_like = any(term in qa for term in [
+            "dung tich lon",
+            "phan khoi lon",
+            "hang a",
+            "tren 125",
+            "125 cm3",
+            "125cc",
+            "tren 11 kw",
+        ])
+        giver_like = any(term in qa for term in [
+            "giao xe",
+            "cho muon",
+            "dua xe",
+            "chu xe",
+            "nguoi giao",
+            "bo me",
+            "phu huynh",
+            "nguoi lon",
+        ])
+        asks_liability = any(term in qa for term in ["phat", "bi phat", "xu ly", "trach nhiem", "co sao", "hau qua"])
+        if not ((underage_like or large_motorbike_like) and motorbike_like and asks_liability):
+            return ""
+        if not (giver_like or any(term in qa for term in ["khong du dieu kien", "chua du dieu kien"])):
+            return ""
+
+        license_record = self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="57",
+            contains=["hang a"],
+        )
+        age_record = self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="59",
+            contains=["du 18"],
+        ) or self._first_context_by_ref(
+            contexts,
+            document_term="Luật Trật tự ATGT",
+            article="59",
+            contains=["nguoi lai xe"],
+        )
+        driver_penalty_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="18",
+            clause="4",
+            point="a",
+        ) or self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="18",
+            contains=["chua du tuoi"],
+        )
+        no_license_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="18",
+            contains=["khong co giay phep lai xe"],
+        )
+        owner_record = self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="32",
+            contains=["giao xe"],
+        ) or self._first_context_by_ref(
+            contexts,
+            document_term="Nghị định 168",
+            article="32",
+            contains=["khong du dieu kien"],
+        )
+
+        license_ref = self._ref_or_default(license_record, "Điều 57 Luật Trật tự, an toàn giao thông đường bộ 2024")
+        age_ref = self._ref_or_default(age_record, "Điều 59 Luật Trật tự, an toàn giao thông đường bộ 2024")
+        driver_ref = self._ref_or_default(driver_penalty_record or no_license_record, "Điều 18 Nghị định 168/2024/NĐ-CP")
+        owner_ref = self._ref_or_default(owner_record, "Điều 32 Nghị định 168/2024/NĐ-CP")
+        driver_penalty = self._penalty_or_default(
+            driver_penalty_record or no_license_record,
+            "Người lái có thể bị xử lý theo nhánh chưa đủ tuổi/không đủ điều kiện hoặc không có GPLX phù hợp; cần nguồn trực tiếp để chốt đúng mức tiền.",
+        )
+        owner_penalty = self._penalty_or_default(
+            owner_record,
+            "Người giao/chủ xe có thể bị xử phạt nếu giao xe cho người không đủ điều kiện điều khiển; cần xác định chủ xe là cá nhân hay tổ chức để chốt mức tiền.",
+        )
+
+        return "\n".join([
+            "## Trả lời ngắn gọn",
+            "",
+            "Có thể bị phạt. Nếu người chưa đủ tuổi hoặc chưa đủ điều kiện điều khiển xe máy dung tích lớn mà vẫn được giao xe, cần tách hai nhánh: **người lái** và **người giao/chủ xe**.",
+            "",
+            "## Phân tích từng nhánh",
+            "",
+            f"1. **Điều kiện xe/GPLX**: xe máy dung tích lớn phải đối chiếu hạng GPLX phù hợp, đặc biệt nhóm hạng A đối với mô tô hai bánh trên ngưỡng dung tích/công suất luật định. **Căn cứ:** {license_ref}.",
+            f"2. **Điều kiện tuổi người lái**: nếu người lái chưa đủ tuổi theo nhóm xe/GPLX tương ứng thì thuộc nhánh không đủ điều kiện điều khiển. **Căn cứ:** {age_ref}.",
+            f"3. **Người lái**: {driver_penalty} **Căn cứ:** {driver_ref}.",
+            f"4. **Người giao/chủ xe**: {owner_penalty} **Căn cứ:** {owner_ref}.",
+            "",
+            "## Cảnh báo cần kiểm tra thêm",
+            "",
+            "- Cần xác định tuổi chính xác của người lái, dung tích xi-lanh/công suất xe, hạng GPLX đang có nếu có, và người giao xe là cá nhân hay tổ chức.",
+            "- Nếu nguồn đã retrieve chưa có đúng khoản/điểm về mức tiền của chủ xe, không được chốt con số; phải kiểm tra thêm Điều 32 Nghị định 168/2024/NĐ-CP hoặc nguồn ngoài hệ thống.",
+            "",
+            "## Tổng hậu quả",
+            "",
+            "Người lái có thể bị xử lý vì chưa đủ điều kiện điều khiển xe; người giao/chủ xe có thể bị xử lý riêng nếu giao xe cho người không đủ điều kiện.",
         ])
 
     def _deterministic_borrowed_vehicle_impound_answer(self, query: str, contexts: List[Dict[str, Any]]) -> str:
@@ -1832,11 +1954,11 @@ class LegalGraphRAG:
             ),
         ]
         lines = [
-            "## Câu hỏi xử phạt còn quá rộng",
+            "## Phân tích theo nguồn đã tìm thấy",
             "",
-            "Không có một mức phạt chung cho câu “chạy xe vi phạm”. Mức áp dụng phụ thuộc ít nhất vào loại phương tiện, hành vi cụ thể, ngưỡng định lượng, hậu quả và tình tiết bổ sung.",
+            "Câu hỏi chưa đủ dữ kiện để chốt một mức xử lý duy nhất, nhưng vẫn có thể định hướng theo các nhánh pháp lý liên quan trong nguồn đã retrieve. Mức áp dụng phụ thuộc vào loại phương tiện, hành vi cụ thể, ngưỡng định lượng, hậu quả và tình tiết bổ sung.",
             "",
-            "| Nhánh cần kiểm tra | Căn cứ chính | Phạm vi phải bóc tách tiếp | Căn cứ đã retrieve |",
+            "| Nhánh liên quan | Căn cứ chính | Nội dung khách quan có thể áp dụng | Căn cứ đã retrieve |",
             "|---|---|---|---|",
         ]
         for label, article, scope in groups:
@@ -1849,6 +1971,10 @@ class LegalGraphRAG:
         lines.extend([
             "",
             "Các dữ kiện cần có để chốt mức phạt: loại xe; hành vi cụ thể; vị trí xảy ra; con số đo được như km/h hoặc nồng độ cồn; có gây tai nạn hay không; có tái phạm/đi theo nhóm/đua xe/chống đối hay không; người vi phạm là người lái hay chủ phương tiện.",
+            "",
+            "## Cảnh báo cần kiểm tra thêm",
+            "",
+            "Phần trên là phân tích khách quan theo nguồn hiện đang tìm thấy. Nếu cần kết luận chính xác một mức tiền, trừ điểm, tước GPLX hoặc tạm giữ phương tiện, phải kiểm tra lại đúng hành vi và văn bản gốc tương ứng.",
             "",
             "TỔNG HẬU QUẢ: với câu hỏi mơ hồ, hệ thống chỉ có thể bao phủ các nhánh pháp lý có thể áp dụng; chưa được kết luận một số tiền duy nhất nếu chưa xác định hành vi và nhóm phương tiện.",
         ])

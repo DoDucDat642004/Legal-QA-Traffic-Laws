@@ -164,7 +164,7 @@ def missing_data_hints(query: str) -> List[str]:
         ]
     )
     if broad_violation and not known_behavior:
-        hints.append("Hành vi vi phạm còn quá rộng; hệ thống sẽ bao phủ các khả năng liên quan nhưng cần hành vi cụ thể để chốt mức áp dụng.")
+        hints.append("Hành vi vi phạm chưa đủ dữ kiện để chốt một mức duy nhất; hệ thống vẫn sẽ phân tích các nhánh liên quan và cần hành vi cụ thể để chốt mức áp dụng.")
 
     if ("bien" in qa or "vach" in qa) and not SIGN_CODE_RE.search(query or "") and "anh" not in qa and "hinh" not in qa:
         hints.append("Thiếu mã biển/vạch hoặc ảnh rõ màu sắc, hình dạng, ký hiệu để xác định chính xác.")

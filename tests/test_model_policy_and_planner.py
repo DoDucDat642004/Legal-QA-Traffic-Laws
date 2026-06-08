@@ -1227,6 +1227,92 @@ class DeterministicPenaltyAnswerTest(unittest.TestCase):
         self.assertIn("Khoản 5, Điều 27", answer)
         self.assertNotIn("Câu hỏi xử phạt còn quá rộng", answer)
 
+    def test_underage_large_motorbike_giver_answers_without_too_broad_fallback(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        answer = rag._deterministic_structured_answer(
+            "Tôi chưa đủ tuổi chạy xe máy dung tích lớn thì người giao xe có bị phạt không?",
+            [
+                {
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "57", "clause": "1", "point": "b"},
+                    "source_body_exact": "b) Hạng A cấp cho người lái xe mô tô hai bánh có dung tích xi-lanh trên 125 cm3 hoặc có công suất động cơ điện trên 11 kW;",
+                },
+                {
+                    "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                    "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "59", "clause": "1", "point": "b"},
+                    "source_body_exact": "b) Người đủ 18 tuổi trở lên được điều khiển xe mô tô hai bánh, xe mô tô ba bánh có giấy phép lái xe phù hợp;",
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "18", "clause": "4", "point": "a"},
+                    "source_body_exact": "a) Người từ đủ 16 tuổi đến dưới 18 tuổi điều khiển xe mô tô có dung tích xi-lanh từ 50 cm3 trở lên;",
+                    "penalties": {"main_penalty": {"individual_min_vnd": 400000, "individual_max_vnd": 600000}},
+                },
+                {
+                    "doc_name": "Nghị định 168/2024/NĐ-CP",
+                    "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "32"},
+                    "source_body_exact": "Giao xe hoặc để cho người không đủ điều kiện theo quy định điều khiển xe tham gia giao thông.",
+                },
+            ],
+        )
+
+        self.assertIn("Có thể bị phạt", answer)
+        self.assertIn("người giao/chủ xe", answer.lower())
+        self.assertIn("Điều 57", answer)
+        self.assertIn("Điều 59", answer)
+        self.assertIn("Điều 32", answer)
+        self.assertIn("Cảnh báo cần kiểm tra thêm", answer)
+        self.assertNotIn("Câu hỏi xử phạt còn quá rộng", answer)
+
+    def test_generated_generic_scenario_questions_answer_with_context_and_warning(self):
+        rag = LegalGraphRAG.__new__(LegalGraphRAG)
+        contexts = [
+            {
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "6", "clause": "3"},
+                "source_body_exact": "Điều 6 quy định xử phạt người điều khiển xe ô tô vi phạm quy tắc giao thông đường bộ.",
+            },
+            {
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "7", "clause": "4"},
+                "source_body_exact": "Điều 7 quy định xử phạt người điều khiển xe mô tô, xe gắn máy vi phạm quy tắc giao thông đường bộ.",
+            },
+            {
+                "doc_name": "Nghị định 168/2024/NĐ-CP",
+                "legal_reference": {"document": "Nghị định 168/2024/NĐ-CP", "article": "32"},
+                "source_body_exact": "Chủ phương tiện giao xe cho người không đủ điều kiện điều khiển phương tiện tham gia giao thông có thể bị xử phạt.",
+            },
+            {
+                "doc_name": "Luật Trật tự ATGT 2024 (Tiếp)",
+                "legal_reference": {"document": "Luật Trật tự ATGT 2024 (Tiếp)", "article": "27", "clause": "5"},
+                "source_body_exact": "Khi có tín hiệu của xe ưu tiên, người và phương tiện phải giảm tốc độ, đi sát lề đường bên phải hoặc dừng lại để nhường đường.",
+            },
+        ]
+        generated_questions = [
+            "Chạy xe vi phạm thì bị xử lý thế nào?",
+            "Phương tiện đi sai luật bị phạt sao?",
+            "Đi xe máy sai luật thì hậu quả pháp lý là gì?",
+            "Chủ xe giao xe cho người không đủ điều kiện thì có bị phạt không?",
+            "Gặp xe ưu tiên ở ngã tư thì người đi xe máy xử lý sao?",
+            "Xe đang chạy mà có tình huống ưu tiên thì phải làm thế nào?",
+            "Người lái không đủ điều kiện mà vẫn chạy xe thì trách nhiệm thuộc về ai?",
+            "Nếu chưa rõ lỗi cụ thể thì hệ thống phân tích xử phạt xe thế nào?",
+        ]
+
+        for query in generated_questions:
+            with self.subTest(query=query):
+                answer = rag._deterministic_structured_answer(query, contexts)
+                if not answer:
+                    answer = rag._extractive_answer(query, contexts)
+
+                self.assertTrue(answer)
+                self.assertNotIn("Câu hỏi xử phạt còn quá rộng", answer)
+                self.assertNotIn("còn quá rộng", answer.lower())
+                self.assertTrue(
+                    any(marker in answer for marker in ["Cảnh báo", "Lưu ý", "Căn cứ", "Phân tích"]),
+                    answer,
+                )
+
     def test_motorbike_red_light_penalty_answers_without_model(self):
         rag = LegalGraphRAG.__new__(LegalGraphRAG)
         answer = rag._deterministic_structured_answer(

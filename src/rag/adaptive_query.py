@@ -637,7 +637,7 @@ class AdaptiveQuestionAnalyzer:
         return [
             (
                 "underage_license",
-                ["chua du tuoi", "khong du tuoi", "chua du 18", "chua du 18 tuoi", "duoi 18", "17 tuoi", "nguoi 17", "gplx hang a", "giay phep lai xe hang a"],
+                ["chua du tuoi", "khong du tuoi", "chua du 18", "chua du 18 tuoi", "duoi 18", "17 tuoi", "nguoi 17", "phan khoi lon", "dung tich lon", "gplx hang a", "giay phep lai xe hang a", "giao xe", "cho muon xe"],
                 "độ tuổi, điều kiện giấy phép lái xe và xe mô tô/xe gắn máy phân khối lớn",
                 "rule",
             ),
