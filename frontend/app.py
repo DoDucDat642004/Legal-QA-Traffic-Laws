@@ -39,6 +39,7 @@ SHOW_ADVANCED_TOOLS = env_bool("SHOW_ADVANCED_TOOLS", False)
 SHOW_RETRIEVAL_DETAILS = env_bool("SHOW_RETRIEVAL_DETAILS", False)
 ENABLE_PRE_ANALYSIS = env_bool("ENABLE_PRE_ANALYSIS", False)
 CHAT_REQUEST_TIMEOUT_SECONDS = int(os.getenv("CHAT_REQUEST_TIMEOUT_SECONDS", "960"))
+CHAT_PROGRESS_TARGET_SECONDS = int(os.getenv("CHAT_PROGRESS_TARGET_SECONDS", "300"))
 
 st.set_page_config(page_title="Luật Giao Thông AI", layout="wide", page_icon="§")
 
@@ -128,6 +129,92 @@ st.markdown(
         border-radius: 8px;
         padding: 12px;
         margin: 8px 0 14px 0;
+    }
+    .wait-panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin: 8px 0 14px 0;
+    }
+    .wait-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        border-bottom: 1px solid #eef1f5;
+        padding-bottom: 10px;
+        margin-bottom: 10px;
+    }
+    .wait-title {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 750;
+        line-height: 1.3;
+    }
+    .wait-note {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+        margin-top: 3px;
+    }
+    .wait-clock {
+        color: var(--accent-dark);
+        font-size: 18px;
+        font-weight: 750;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+    .wait-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+        margin: 10px 0;
+    }
+    .wait-metric {
+        padding: 0 0 0 9px;
+        border-left: 3px solid #d8dee6;
+        min-height: 42px;
+    }
+    .wait-metric-active {
+        border-left-color: var(--accent);
+    }
+    .wait-label {
+        color: var(--muted);
+        font-size: 11px;
+        margin-bottom: 2px;
+    }
+    .wait-value {
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.35;
+        word-break: break-word;
+    }
+    .wait-timeline {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+        margin-top: 8px;
+    }
+    .wait-warning {
+        background: var(--warn-soft);
+        border: 1px solid #f2d49b;
+        border-radius: 8px;
+        color: #7a4b00;
+        font-size: 12px;
+        line-height: 1.45;
+        padding: 8px 10px;
+        margin-top: 10px;
+    }
+    @media (max-width: 720px) {
+        .wait-head {
+            display: block;
+        }
+        .wait-clock {
+            margin-top: 8px;
+        }
     }
     .step-row {
         display: flex;
@@ -399,6 +486,16 @@ PROCESSING_STEPS = [
 ]
 
 
+WAITING_STAGES = [
+    (0, "Lập kế hoạch truy vấn", "Nhận diện phương tiện, hành vi, biển báo, thủ tục hoặc điều luật được hỏi."),
+    (12, "Tìm căn cứ ưu tiên", "Ưu tiên điều/khoản/điểm có chế tài, bảng, hình và nguồn có trích dẫn rõ."),
+    (35, "Mở rộng truy xuất", "Mở rộng sang các nhánh liên quan khi câu hỏi có nhiều hành vi hoặc thiếu dữ kiện."),
+    (75, "Đối chiếu nguồn", "So khớp nguồn phạt, quy tắc, biển báo và loại bỏ căn cứ không đúng vai trò."),
+    (135, "Tổng hợp kết luận", "Ghép từng nhánh thành câu trả lời có căn cứ, tránh chốt khi dữ kiện còn thiếu."),
+    (220, "Kiểm chứng lần cuối", "Rà các con số, điểm GPLX, tước GPLX và căn cứ được hiển thị."),
+]
+
+
 QUESTION_BANK = [
     "Xe máy vượt đèn đỏ bị phạt bao nhiêu và có bị trừ điểm GPLX không?",
     "Biển P.102 có ý nghĩa gì, đi vào đường có biển này bị phạt ra sao?",
@@ -554,6 +651,152 @@ def render_stepper(active_index: int, done_until: int = -1) -> None:
             """
         )
     render_html(f'<div class="stepper">{"".join(rows)}</div>')
+
+
+def format_duration(seconds: int | float) -> str:
+    total = max(0, int(seconds or 0))
+    minutes, secs = divmod(total, 60)
+    return f"{minutes:02d}:{secs:02d}"
+
+
+def wait_stage_for_elapsed(elapsed: int) -> tuple[int, str, str]:
+    current_idx = 0
+    for idx, (start, _title, _note) in enumerate(WAITING_STAGES):
+        if elapsed >= start:
+            current_idx = idx
+    _start, title, note = WAITING_STAGES[current_idx]
+    return current_idx, title, note
+
+
+def wait_step_state(elapsed: int) -> tuple[int, int]:
+    if elapsed < 8:
+        return 1, 0
+    if elapsed < 70:
+        return 2, 1
+    if elapsed < 150:
+        return 2, 1
+    return 3, 2
+
+
+def planned_slot_count(question: str, analysis: dict[str, Any] | None = None, *, has_image: bool = False) -> int:
+    if analysis:
+        plan = analysis.get("plan") or {}
+        slots = analysis.get("evidence_slots") or plan.get("subquestions") or []
+        if slots:
+            return len(slots)
+
+    qa = ascii_lower(question)
+    behavior_groups = [
+        ["vuot den do", "den do", "tin hieu den"],
+        ["qua toc", "toc do", "p127", "p.127"],
+        ["nong do con", "say xin", "xay xin", "ruou", "bia"],
+        ["nguoc chieu", "duong cam", "p102", "p.102"],
+        ["khong doi mu", "mu bao hiem"],
+        ["tai nan", "gay tai nan"],
+        ["chua du tuoi", "duoi 18", "17 tuoi"],
+        ["giay phep", "gplx", "bang lai", "cap doi"],
+        ["bien bao", "qcvn", "vach ke"],
+    ]
+    count = sum(1 for group in behavior_groups if any(term in qa for term in group))
+    if has_image:
+        count += 1
+    if len(question.split()) >= 30:
+        count += 1
+    return max(1, count)
+
+
+def wait_profile(question: str, analysis: dict[str, Any] | None = None, *, has_image: bool = False) -> dict[str, Any]:
+    slot_count = planned_slot_count(question, analysis, has_image=has_image)
+    if analysis:
+        difficulty = analysis.get("difficulty_label") or analysis.get("difficulty") or "Đang xác định"
+        facets = analysis.get("facets") or []
+        reason = analysis.get("difficulty_reason") or ""
+    else:
+        words = len(question.split())
+        if slot_count >= 5 or words >= 36:
+            difficulty = "Khó"
+        elif slot_count >= 3 or words >= 22:
+            difficulty = "Trung bình"
+        else:
+            difficulty = "Đang xác định"
+        facets = []
+        reason = "Ước lượng nhanh từ độ dài câu hỏi và số nhánh hành vi."
+    return {
+        "difficulty": difficulty,
+        "slot_count": slot_count,
+        "facets": ", ".join(str(item) for item in facets[:5]) or ("ảnh + văn bản" if has_image else "văn bản"),
+        "reason": reason,
+    }
+
+
+def render_waiting_panel(
+    question: str,
+    *,
+    elapsed: int,
+    request_timeout: int,
+    query_analysis: dict[str, Any] | None = None,
+    has_image: bool = False,
+) -> None:
+    target_seconds = max(45, min(CHAT_PROGRESS_TARGET_SECONDS, request_timeout))
+    stage_idx, stage_title, stage_note = wait_stage_for_elapsed(elapsed)
+    next_stage = WAITING_STAGES[stage_idx + 1] if stage_idx + 1 < len(WAITING_STAGES) else None
+    profile = wait_profile(question, query_analysis, has_image=has_image)
+    progress = min(0.96, 0.06 + (min(elapsed, target_seconds) / target_seconds) * 0.88)
+    active_metric_cls = "wait-metric wait-metric-active"
+    next_text = (
+        f"Mốc tiếp theo khoảng {format_duration(next_stage[0])}: {next_stage[1]}"
+        if next_stage else
+        "Đang ở mốc cuối trước khi backend trả kết quả."
+    )
+    warning = ""
+    if elapsed >= target_seconds:
+        warning = (
+            f'<div class="wait-warning">Đã vượt mốc {format_duration(target_seconds)}. '
+            f"Request hiện tại vẫn đang chạy trong giới hạn {format_duration(request_timeout)}; "
+            "giữ nguyên trang này để nhận kết quả, không cần gửi lại cùng câu hỏi.</div>"
+        )
+    elif elapsed >= 90:
+        warning = (
+            '<div class="wait-warning">Câu hỏi này đang cần nhiều lượt đối chiếu hơn bình thường. '
+            "Hệ thống vẫn đang xử lý request hiện tại.</div>"
+        )
+
+    render_html(
+        f"""
+        <div class="wait-panel">
+            <div class="wait-head">
+                <div>
+                    <div class="wait-title">{html_escape(stage_title)}</div>
+                    <div class="wait-note">{html_escape(stage_note)}</div>
+                </div>
+                <div class="wait-clock">{format_duration(elapsed)}</div>
+            </div>
+            <div class="wait-grid">
+                <div class="{active_metric_cls}">
+                    <div class="wait-label">Độ khó</div>
+                    <div class="wait-value">{html_escape(profile["difficulty"])}</div>
+                </div>
+                <div class="wait-metric">
+                    <div class="wait-label">Nhánh dự kiến</div>
+                    <div class="wait-value">{html_escape(profile["slot_count"])}</div>
+                </div>
+                <div class="wait-metric">
+                    <div class="wait-label">Phạm vi</div>
+                    <div class="wait-value">{html_escape(profile["facets"])}</div>
+                </div>
+                <div class="wait-metric">
+                    <div class="wait-label">Giới hạn phiên</div>
+                    <div class="wait-value">{format_duration(request_timeout)}</div>
+                </div>
+            </div>
+            <div class="wait-timeline">{html_escape(next_text)}</div>
+            {warning}
+        </div>
+        """
+    )
+    st.progress(progress)
+    if profile.get("reason"):
+        st.caption(str(profile["reason"]))
 
 
 def render_vision_summary(vision: dict[str, Any] | None) -> None:
@@ -1511,7 +1754,6 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
 
     with st.chat_message("assistant"):
         step_box = st.empty()
-        analysis_box = st.container()
         result_box = st.container()
 
         query_analysis = None
@@ -1537,9 +1779,13 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
 
         with step_box.container():
             render_stepper(active_index=2, done_until=1)
-            st.progress(0.72)
-            timer_placeholder = st.empty()
-            st.caption("Đang tra cứu căn cứ pháp luật liên quan...")
+            render_waiting_panel(
+                question,
+                elapsed=0,
+                request_timeout=request_timeout,
+                query_analysis=query_analysis,
+                has_image=uploaded_file is not None,
+            )
 
         response_container = {"response": None, "error": None}
 
@@ -1558,14 +1804,25 @@ def run_chat_request(question: str, uploaded_file: Any | None) -> None:
                 response_container["error"] = exc
 
         # Run request in background thread to allow live UI updates
-        req_thread = threading.Thread(target=make_request)
+        req_thread = threading.Thread(target=make_request, daemon=True)
         req_thread.start()
 
         start_time = time.time()
         while req_thread.is_alive():
             elapsed = int(time.time() - start_time)
-            timer_placeholder.info(f"Đang xử lý... {elapsed} giây")
-            time.sleep(1)
+            active_step, done_step = wait_step_state(elapsed)
+            with step_box.container():
+                render_stepper(active_index=active_step, done_until=done_step)
+                render_waiting_panel(
+                    question,
+                    elapsed=elapsed,
+                    request_timeout=request_timeout,
+                    query_analysis=query_analysis,
+                    has_image=uploaded_file is not None,
+                )
+            time.sleep(1 if elapsed < 90 else 2)
+
+        req_thread.join(timeout=0)
         
         response = response_container["response"]
         exc = response_container["error"]
